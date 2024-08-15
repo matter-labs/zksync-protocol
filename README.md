@@ -4,6 +4,20 @@ This repository contains the protocol libraries for ZKsync project,
 including the implementation of out-of-circuit and in-circuit VM,
 as well as utilities required for witness generation and CPU proving.
 
+## Crates
+
+The project contains the following crates:
+
+- [zk_evm_abstractions](./crates/zk_evm_abstractions/)
+- [zkevm_opcode_defs](./crates/zkevm_opcode_defs/)
+- [zkevm-assembly](./crates/zkEVM-assembly)
+- [zkevm_circuits](./crates/zkevm_circuits/)
+- [zk_evm](./crates/zk_evm/)
+- [circuit_defintions](./crates/circuit_definitions/)
+- [circuit_encodings](./crates/circuit_encodings/)
+- [kzg](./crates/kzg/)
+- [zkevm_test_harness](./crates/zkevm_test_harness/)
+
 ## License
 
 Licensed under either of
