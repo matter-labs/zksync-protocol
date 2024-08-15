@@ -2,10 +2,10 @@ use derivative::Derivative;
 use rayon::prelude::*;
 use std::cmp::Ordering;
 use std::iter::IntoIterator;
-use zk_evm::{
-    aux_structures::{LogQuery, Timestamp},
-    ethereum_types::{H160, U256},
-};
+use zk_evm::ethereum_types::U256;
+
+use circuit_encodings::LogQueryLike;
+use circuit_encodings::LogQueryLikeWithExtendedEnumeration;
 
 #[derive(Derivative)]
 #[derivative(Default(bound = ""), Debug)]
@@ -14,78 +14,6 @@ pub struct StorageSlotHistoryKeeper<L: LogQueryLike> {
     pub current_value: Option<U256>,
     pub changes_stack: Vec<LogQueryLikeWithExtendedEnumeration<L>>,
     pub did_read_at_depth_zero: bool,
-}
-
-// Proxy, as we just need read-only
-pub trait LogQueryLike: 'static + Clone + Send + Sync + std::fmt::Debug {
-    fn shard_id(&self) -> u8;
-    fn address(&self) -> H160;
-    fn key(&self) -> U256;
-    fn rw_flag(&self) -> bool;
-    fn rollback(&self) -> bool;
-    fn read_value(&self) -> U256;
-    fn written_value(&self) -> U256;
-    fn create_partially_filled_from_fields(
-        shard_id: u8,
-        address: H160,
-        key: U256,
-        read_value: U256,
-        written_value: U256,
-        rw_flag: bool,
-    ) -> Self;
-}
-
-impl LogQueryLike for LogQuery {
-    fn shard_id(&self) -> u8 {
-        self.shard_id
-    }
-    fn address(&self) -> H160 {
-        self.address
-    }
-    fn key(&self) -> U256 {
-        self.key
-    }
-    fn rw_flag(&self) -> bool {
-        self.rw_flag
-    }
-    fn rollback(&self) -> bool {
-        self.rollback
-    }
-    fn read_value(&self) -> U256 {
-        self.read_value
-    }
-    fn written_value(&self) -> U256 {
-        self.written_value
-    }
-    fn create_partially_filled_from_fields(
-        shard_id: u8,
-        address: H160,
-        key: U256,
-        read_value: U256,
-        written_value: U256,
-        rw_flag: bool,
-    ) -> Self {
-        // only smaller number of field matters in practice
-        LogQuery {
-            timestamp: Timestamp(0),
-            tx_number_in_block: 0,
-            aux_byte: 0,
-            shard_id,
-            address,
-            key,
-            read_value,
-            written_value,
-            rw_flag,
-            rollback: false,
-            is_service: false,
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct LogQueryLikeWithExtendedEnumeration<L: LogQueryLike> {
-    pub raw_query: L,
-    pub extended_timestamp: u32,
 }
 
 pub fn sort_storage_access_queries<'a, L: LogQueryLike, I: IntoIterator<Item = &'a L>>(
@@ -125,7 +53,9 @@ pub fn sort_storage_access_queries<'a, L: LogQueryLike, I: IntoIterator<Item = &
             break;
         }
 
-        let candidate = (*it.peek().unwrap()).clone();
+        // need it to remove "peek"'s mutable borrow
+        #[allow(suspicious_double_ref_op)]
+        let candidate = it.peek().unwrap().clone();
 
         let subit = it.clone().take_while(|el| {
             el.raw_query.shard_id() == candidate.raw_query.shard_id()

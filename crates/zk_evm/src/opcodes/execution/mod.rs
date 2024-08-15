@@ -3,8 +3,6 @@ use crate::vm_state::*;
 use zkevm_opcode_defs::decoding::AllowedPcOrImm;
 use zkevm_opcode_defs::decoding::VmEncodingMode;
 
-use zkevm_opcode_defs::SET_FLAGS_FLAG_IDX;
-
 pub mod add;
 pub mod binop;
 pub mod context;

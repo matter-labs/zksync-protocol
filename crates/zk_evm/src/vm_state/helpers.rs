@@ -4,7 +4,7 @@ use super::*;
 
 use zk_evm_abstractions::aux::{MemoryKey, MemoryLocation};
 use zk_evm_abstractions::queries::{DecommittmentQuery, LogQuery, MemoryQuery};
-use zk_evm_abstractions::vm::{RefundType, SpongeExecutionMarker};
+use zk_evm_abstractions::vm::RefundType;
 use zkevm_opcode_defs::UNMAPPED_PAGE;
 
 pub fn read_code<
@@ -17,7 +17,6 @@ pub fn read_code<
     witness_tracer: &mut WT,
     monotonic_cycle_counter: u32,
     key: MemoryKey,
-    _is_pended: bool,
 ) -> MemoryQuery {
     let MemoryKey {
         location,
@@ -52,12 +51,7 @@ impl<
         E: VmEncodingMode<N>,
     > VmState<S, M, EV, PP, DP, WT, N, E>
 {
-    pub fn read_memory(
-        &mut self,
-        monotonic_cycle_counter: u32,
-        key: MemoryKey,
-        _is_pended: bool,
-    ) -> MemoryQuery {
+    pub fn read_memory(&mut self, monotonic_cycle_counter: u32, key: MemoryKey) -> MemoryQuery {
         let MemoryKey {
             location,
             timestamp,
@@ -82,18 +76,12 @@ impl<
         query
     }
 
-    pub fn read_code(
-        &mut self,
-        monotonic_cycle_counter: u32,
-        key: MemoryKey,
-        is_pended: bool,
-    ) -> MemoryQuery {
+    pub fn read_code(&mut self, monotonic_cycle_counter: u32, key: MemoryKey) -> MemoryQuery {
         read_code(
             &mut self.memory,
             &mut self.witness_tracer,
             monotonic_cycle_counter,
             key,
-            is_pended,
         )
     }
 
@@ -102,7 +90,6 @@ impl<
         monotonic_cycle_counter: u32,
         key: MemoryKey,
         value: PrimitiveValue,
-        _is_pended: bool,
     ) -> MemoryQuery {
         let MemoryKey {
             location,
@@ -288,19 +275,7 @@ impl<
                 location,
                 timestamp: self.timestamp_for_dst_write(),
             };
-            let _dst0_query = self.write_memory(
-                monotonic_cycle_counter,
-                key,
-                value,
-                /* is_pended */ false,
-            ); // no pending on dst0 writes
-
-            self.witness_tracer.add_sponge_marker(
-                self.local_state.monotonic_cycle_counter,
-                SpongeExecutionMarker::MemoryQuery,
-                2..3,
-                /* is_pended */ false,
-            );
+            let _dst0_query = self.write_memory(monotonic_cycle_counter, key, value);
         } else {
             self.update_register_value(opcode.dst0_reg_idx, value);
         }

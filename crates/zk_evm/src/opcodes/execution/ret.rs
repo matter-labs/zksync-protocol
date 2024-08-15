@@ -1,7 +1,6 @@
 use super::*;
 
 use zk_evm_abstractions::aux::Timestamp;
-use zk_evm_abstractions::vm::SpongeExecutionMarker;
 use zkevm_opcode_defs::definitions::ret::*;
 use zkevm_opcode_defs::FatPointerValidationException;
 use zkevm_opcode_defs::{FatPointer, Opcode, RetABI, RetForwardPageType, RetOpcode};
@@ -36,13 +35,6 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
         let ret_abi = RetABI::from_u256(src0);
 
         // we want to mark with one that was will become a new current (taken from stack)
-        vm_state.witness_tracer.add_sponge_marker(
-            vm_state.local_state.monotonic_cycle_counter,
-            SpongeExecutionMarker::CallstackPop,
-            1..4,
-            false,
-        );
-
         let RetABI {
             mut memory_quasi_fat_pointer,
             page_forwarding_mode,
@@ -208,7 +200,6 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
                 Timestamp(vm_state.local_state.timestamp),
             );
 
-            vm_state.local_state.did_call_or_ret_recently = true;
             vm_state.local_state.registers[RET_IMPLICIT_RETURNDATA_PARAMS_REGISTER as usize] =
                 PrimitiveValue {
                     value: returndata_fat_pointer.to_u256(),

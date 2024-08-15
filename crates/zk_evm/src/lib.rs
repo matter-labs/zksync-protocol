@@ -1,5 +1,3 @@
-#![allow(dropping_references)]
-
 pub mod block_properties;
 pub mod errors;
 pub mod flags;
@@ -17,9 +15,9 @@ pub use zkevm_opcode_defs::{bitflags, ethereum_types};
 
 use self::ethereum_types::{Address, U256};
 
-pub use zk_evm_abstractions;
 pub use zkevm_opcode_defs;
 
+pub use zk_evm_abstractions;
 pub use zkevm_opcode_defs::blake2;
 pub use zkevm_opcode_defs::k256;
 pub use zkevm_opcode_defs::sha2;
@@ -32,8 +30,4 @@ pub mod abstractions {
 pub mod aux_structures {
     pub use zk_evm_abstractions::aux::*;
     pub use zk_evm_abstractions::queries::*;
-}
-
-pub mod precompiles {
-    pub use zk_evm_abstractions::precompiles::*;
 }

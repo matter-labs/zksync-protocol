@@ -1,9 +1,7 @@
 use super::*;
 
-use zk_evm_abstractions::aux::MemoryPage;
-use zk_evm_abstractions::aux::Timestamp;
+use zk_evm_abstractions::aux::*;
 use zk_evm_abstractions::queries::LogQuery;
-use zk_evm_abstractions::vm::SpongeExecutionMarker;
 use zkevm_opcode_defs::definitions::far_call::*;
 use zkevm_opcode_defs::system_params::DEPLOYER_SYSTEM_CONTRACT_ADDRESS;
 use zkevm_opcode_defs::system_params::STORAGE_AUX_BYTE;
@@ -22,7 +20,7 @@ bitflags! {
         const NOT_ENOUGH_ERGS_TO_GROW_MEMORY = 1u64 << 3;
         const MALFORMED_ABI_QUASI_POINTER = 1u64 << 4;
         const CALL_IN_NOW_CONSTRUCTED_SYSTEM_CONTRACT = 1u64 << 5;
-        const NOTE_ENOUGH_ERGS_FOR_EXTRA_FAR_CALL_COSTS = 1u64 << 6;
+        const NOT_ENOUGH_ERGS_FOR_EXTRA_FAR_CALL_COSTS = 1u64 << 6;
     }
 }
 
@@ -146,12 +144,6 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
                 let query = vm_state
                     .access_storage(vm_state.local_state.monotonic_cycle_counter, partial_query);
 
-                vm_state.witness_tracer.add_sponge_marker(
-                    vm_state.local_state.monotonic_cycle_counter,
-                    SpongeExecutionMarker::StorageLogReadOnly,
-                    1..4,
-                    true,
-                );
                 let code_hash_from_storage = query.read_value;
 
                 // mask for default AA
@@ -321,6 +313,11 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
                 }
             };
 
+            // we mask out fat pointer based on:
+            // - invalid code hash format
+            // - call yet constructed kernel
+            // - not fat pointer when expected
+            // - invalid slice structure in ABI
             if exceptions.is_empty() == false {
                 far_call_abi.memory_quasi_fat_pointer = FatPointer::empty();
                 // even though we will not pay for memory resize,
@@ -412,7 +409,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
                 remaining_ergs_after_growth - msg_value_stipend
             } else {
                 exceptions.set(
-                    FarCallExceptionFlags::NOTE_ENOUGH_ERGS_FOR_EXTRA_FAR_CALL_COSTS,
+                    FarCallExceptionFlags::NOT_ENOUGH_ERGS_FOR_EXTRA_FAR_CALL_COSTS,
                     true,
                 );
                 // if tried to take and failed, but should not add it later on in this case
@@ -448,12 +445,6 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
                     memory_page_candidate_for_code_decommittment,
                     timestamp_for_decommit,
                 )?;
-                vm_state.witness_tracer.add_sponge_marker(
-                    vm_state.local_state.monotonic_cycle_counter,
-                    SpongeExecutionMarker::DecommittmentQuery,
-                    4..5,
-                    true,
-                );
 
                 if processed_decommittment_query.is_fresh == false {
                     // refund
@@ -508,8 +499,6 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
         let new_context_is_static = current_stack.is_static | is_static_call;
 
         // no matter if we did execute a query or not, we need to save context at worst
-        vm_state.local_state.pending_port.pending_type = Some(PendingType::FarCall);
-
         vm_state.increment_memory_pages_on_call();
 
         // read address for mimic_call
@@ -577,15 +566,6 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
             far_call_abi.memory_quasi_fat_pointer,
             Timestamp(vm_state.local_state.timestamp),
         );
-
-        vm_state.witness_tracer.add_sponge_marker(
-            vm_state.local_state.monotonic_cycle_counter,
-            SpongeExecutionMarker::CallstackPush,
-            5..8,
-            true,
-        );
-        // mark the jump to refresh the memory word
-        vm_state.local_state.did_call_or_ret_recently = true;
 
         // write down calldata information
 

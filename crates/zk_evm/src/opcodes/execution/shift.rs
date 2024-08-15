@@ -38,6 +38,8 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
             Opcode::Shift(inner) => inner,
             _ => unreachable!(),
         };
+
+        use zkevm_opcode_defs::SET_FLAGS_FLAG_IDX;
         let set_flags = self.variant.flags[SET_FLAGS_FLAG_IDX];
         vm_state.local_state.callstack.get_current_stack_mut().pc = new_pc;
         let shift_abs = src1.low_u64() as u8;
