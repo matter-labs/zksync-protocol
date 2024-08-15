@@ -295,7 +295,7 @@ pub(crate) fn run_with_options(entry_point_bytecode: Vec<[u8; 32]>, options: Opt
         geometry,
         storage_impl,
         tree,
-        "kzg/src/trusted_setup.json",
+        "../kzg/src/trusted_setup.json",
         std::array::from_fn(|_| None),
         artifacts_callback,
         &mut out_of_circuit_tracer,

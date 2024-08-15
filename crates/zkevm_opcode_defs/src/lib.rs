@@ -27,8 +27,8 @@ pub use sha3;
 pub use self::definitions::*;
 pub use self::imm_mem_modifiers::*;
 pub use self::opcode::*;
-pub use self::utils::*;
 pub use self::system_params::*;
+pub use self::utils::*;
 
 use lazy_static::lazy_static;
 
