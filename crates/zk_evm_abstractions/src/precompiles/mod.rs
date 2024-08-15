@@ -13,6 +13,8 @@ use zkevm_opcode_defs::system_params::{
     SHA256_ROUND_FUNCTION_PRECOMPILE_ADDRESS,
 };
 
+use zkevm_opcode_defs::PrecompileCallABI;
+
 #[repr(u16)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, TryFromPrimitive)]
 pub enum PrecompileAddress {
@@ -21,18 +23,8 @@ pub enum PrecompileAddress {
     Keccak256 = KECCAK256_ROUND_FUNCTION_PRECOMPILE_ADDRESS,
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct PrecompileCallParams {
-    pub input_location: MemoryLocation,
-    pub timestamp_for_input_read: Timestamp,
-    pub output_location: MemoryLocation,
-    pub timestamp_for_output_write: Timestamp,
-}
-
-use zkevm_opcode_defs::PrecompileCallInnerABI;
-
-pub const fn precompile_abi_in_log(query: LogQuery) -> PrecompileCallInnerABI {
-    PrecompileCallInnerABI::from_u256(query.key)
+pub const fn precompile_abi_in_log(query: LogQuery) -> PrecompileCallABI {
+    PrecompileCallABI::from_u256(query.key)
 }
 
 #[derive(Clone, Copy, Debug)]

@@ -236,7 +236,6 @@ pub fn read_and_decode<
 }
 
 impl<
-        'a,
         S: zk_evm_abstractions::vm::Storage,
         M: zk_evm_abstractions::vm::Memory,
         EV: zk_evm_abstractions::vm::EventSink,
@@ -339,7 +338,7 @@ impl<
 
         let src1 = self.select_register_value(after_masking_decoded.src1_reg_idx);
 
-        let (src0, src1) = if after_masking_decoded.variant.swap_operands() {
+        let (mut src0, mut src1) = if after_masking_decoded.variant.swap_operands() {
             (src1, src0)
         } else {
             (src0, src1)
@@ -371,6 +370,30 @@ impl<
             .callstack
             .get_current_stack()
             .is_kernel_mode();
+
+        // Erase fat pointer metadata if unwanted
+        if !after_masking_decoded
+            .inner
+            .variant
+            .opcode
+            .src0_can_be_pointer()
+            && src0.is_pointer
+            && !is_kernel_mode
+        {
+            erase_fat_pointer_metadata(&mut src0.value);
+            src0.is_pointer = false;
+        }
+        if !after_masking_decoded
+            .inner
+            .variant
+            .opcode
+            .src1_can_be_pointer()
+            && src1.is_pointer
+            && !is_kernel_mode
+        {
+            erase_fat_pointer_metadata(&mut src1.value);
+            src1.is_pointer = false;
+        }
 
         let prestate = PreState {
             src0,

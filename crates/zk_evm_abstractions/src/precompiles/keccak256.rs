@@ -8,27 +8,57 @@ use crate::vm::*;
 
 use super::precompile_abi_in_log;
 
-pub const KECCAK_RATE_IN_U64_WORDS: usize = 17;
-pub const MEMORY_READS_PER_CYCLE: usize = 5;
+pub const KECCAK_RATE_BYTES: usize = 136;
+pub const MEMORY_READS_PER_CYCLE: usize = 6;
+pub const KECCAK_PRECOMPILE_BUFFER_SIZE: usize = MEMORY_READS_PER_CYCLE * 32;
 pub const MEMORY_WRITES_PER_CYCLE: usize = 1;
 pub const NUM_WORDS_PER_QUERY: usize = 4;
-pub const NEW_WORDS_PER_CYCLE: usize = NUM_WORDS_PER_QUERY * MEMORY_READS_PER_CYCLE;
-
-// we need a buffer such that if we can not fill it in this block eventually it should
-// also contain enough data to run another round function this time
-pub const BUFFER_SIZE: usize = NEW_WORDS_PER_CYCLE + KECCAK_RATE_IN_U64_WORDS - 1;
-
-// since NEW_WORDS_PER_CYCLE and KECCAK_RATE_IN_U64_WORDS are co-prime we will have remainders in a buffer like
-// 0 - 3 - 6 - 9 - .... - 18 (here we can actually absorb), so there is no good trick to other than check
-// if we skip or not memory reads at this cycle
-
-// static_assertions::const_assert!(BUFFER_SIZE - NEW_WORDS_PER_CYCLE >= KECCAK_RATE_IN_U64_WORDS);
+pub const KECCAK_RATE_IN_U64_WORDS: usize = KECCAK_RATE_BYTES / 8;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Keccak256RoundWitness {
     pub new_request: Option<LogQuery>,
-    pub reads: Option<[MemoryQuery; MEMORY_READS_PER_CYCLE]>,
+    pub reads: [Option<MemoryQuery>; MEMORY_READS_PER_CYCLE],
     pub writes: Option<[MemoryQuery; MEMORY_WRITES_PER_CYCLE]>,
+}
+
+pub struct ByteBuffer<const BUFFER_SIZE: usize> {
+    pub bytes: [u8; BUFFER_SIZE],
+    pub filled: usize,
+}
+
+impl<const BUFFER_SIZE: usize> ByteBuffer<BUFFER_SIZE> {
+    pub fn can_fill_bytes(&self, num_bytes: usize) -> bool {
+        self.filled + num_bytes <= BUFFER_SIZE
+    }
+
+    pub fn fill_with_bytes<const N: usize>(
+        &mut self,
+        input: &[u8; N],
+        offset: usize,
+        meaningful_bytes: usize,
+    ) {
+        assert!(self.filled + meaningful_bytes <= BUFFER_SIZE);
+        self.bytes[self.filled..(self.filled + meaningful_bytes)]
+            .copy_from_slice(&input[offset..(offset + meaningful_bytes)]);
+        self.filled += meaningful_bytes;
+    }
+
+    pub fn consume<const N: usize>(&mut self) -> [u8; N] {
+        assert!(N <= BUFFER_SIZE);
+        let mut result = [0u8; N];
+        result.copy_from_slice(&self.bytes[..N]);
+        if self.filled < N {
+            self.filled = 0;
+        } else {
+            self.filled -= N;
+        }
+        let mut new_bytes = [0u8; BUFFER_SIZE];
+        new_bytes[..(BUFFER_SIZE - N)].copy_from_slice(&self.bytes[N..]);
+        self.bytes = new_bytes;
+
+        result
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -46,16 +76,28 @@ impl<const B: bool> Precompile for Keccak256Precompile<B> {
         usize,
         Option<(Vec<MemoryQuery>, Vec<MemoryQuery>, Vec<Self::CycleWitness>)>,
     ) {
+        let mut full_round_padding = [0u8; KECCAK_RATE_BYTES];
+        full_round_padding[0] = 0x01;
+        full_round_padding[KECCAK_RATE_BYTES - 1] = 0x80;
+
         let precompile_call_params = query;
         // read the parameters
         let params = precompile_abi_in_log(precompile_call_params);
         let timestamp_to_read = precompile_call_params.timestamp;
         let timestamp_to_write = Timestamp(timestamp_to_read.0 + 1); // our default timestamping agreement
 
-        let num_rounds = params.precompile_interpreted_data as usize;
+        let mut input_byte_offset = params.input_memory_offset as usize;
+        let mut bytes_left = params.input_memory_length as usize;
+
+        let mut num_rounds = (bytes_left + (KECCAK_RATE_BYTES - 1)) / KECCAK_RATE_BYTES;
+        let padding_space = bytes_left % KECCAK_RATE_BYTES;
+        let needs_extra_padding_round = padding_space == 0;
+        if needs_extra_padding_round {
+            num_rounds += 1;
+        }
+
         let source_memory_page = params.memory_page_to_read;
         let destination_memory_page = params.memory_page_to_write;
-        let mut current_read_offset = params.input_memory_offset;
         let write_offset = params.output_memory_offset;
 
         let mut read_queries = if B {
@@ -76,15 +118,17 @@ impl<const B: bool> Precompile for Keccak256Precompile<B> {
             vec![]
         };
 
-        let mut input_buffer = Buffer::new();
-        let mut words_buffer = [0u64; NEW_WORDS_PER_CYCLE];
+        let mut input_buffer = ByteBuffer::<KECCAK_PRECOMPILE_BUFFER_SIZE> {
+            bytes: [0u8; KECCAK_PRECOMPILE_BUFFER_SIZE],
+            filled: 0,
+        };
 
         let mut internal_state = Keccak256::default();
 
         for round in 0..num_rounds {
             let mut round_witness = Keccak256RoundWitness {
                 new_request: None,
-                reads: None,
+                reads: [None; MEMORY_READS_PER_CYCLE],
                 writes: None,
             };
 
@@ -92,17 +136,40 @@ impl<const B: bool> Precompile for Keccak256Precompile<B> {
                 round_witness.new_request = Some(precompile_call_params);
             }
 
-            // fill the buffer if we can
-            if input_buffer.can_read_into() {
-                let mut reads = [MemoryQuery::empty(); MEMORY_READS_PER_CYCLE];
+            let is_last = round == num_rounds - 1;
+            let paddings_round = needs_extra_padding_round && is_last;
 
-                for query_index in 0..MEMORY_READS_PER_CYCLE {
+            let mut bytes32_buffer = [0u8; 32];
+            for idx in 0..MEMORY_READS_PER_CYCLE {
+                let (memory_index, unalignment) = (input_byte_offset / 32, input_byte_offset % 32);
+                let at_most_meaningful_bytes_in_query = 32 - unalignment;
+                let meaningful_bytes_in_query = if bytes_left >= at_most_meaningful_bytes_in_query {
+                    at_most_meaningful_bytes_in_query
+                } else {
+                    bytes_left
+                };
+
+                let enough_buffer_space = input_buffer.can_fill_bytes(meaningful_bytes_in_query);
+                let nothing_to_read = meaningful_bytes_in_query == 0;
+                let should_read =
+                    nothing_to_read == false && paddings_round == false && enough_buffer_space;
+
+                let bytes_to_fill = if should_read {
+                    meaningful_bytes_in_query
+                } else {
+                    0
+                };
+
+                if should_read {
+                    input_byte_offset += meaningful_bytes_in_query;
+                    bytes_left -= meaningful_bytes_in_query;
+
                     let data_query = MemoryQuery {
                         timestamp: timestamp_to_read,
                         location: MemoryLocation {
-                            memory_type: MemoryType::Heap,
+                            memory_type: MemoryType::FatPointer,
                             page: MemoryPage(source_memory_page),
-                            index: MemoryIndex(current_read_offset),
+                            index: MemoryIndex(memory_index as u32),
                         },
                         value: U256::zero(),
                         value_is_pointer: false,
@@ -112,37 +179,31 @@ impl<const B: bool> Precompile for Keccak256Precompile<B> {
                         memory.execute_partial_query(monotonic_cycle_counter, data_query);
                     let data = data_query.value;
                     if B {
-                        reads[query_index] = data_query;
+                        round_witness.reads[idx] = Some(data_query);
                         read_queries.push(data_query);
                     }
-                    let mut bytes32_buffer = [0u8; 32];
                     data.to_big_endian(&mut bytes32_buffer[..]);
-                    // revert endianess and push
-                    for (i, chunk) in bytes32_buffer.chunks(8).enumerate() {
-                        let as_u64 = u64::from_le_bytes(chunk.try_into().unwrap());
-                        words_buffer[query_index * NUM_WORDS_PER_QUERY + i] = as_u64;
-                    }
-
-                    current_read_offset += 1;
                 }
 
-                if B {
-                    round_witness.reads = Some(reads);
+                input_buffer.fill_with_bytes(&bytes32_buffer, unalignment, bytes_to_fill)
+            }
+
+            // buffer is always large enough for us to have data
+
+            let mut block = input_buffer.consume::<KECCAK_RATE_BYTES>();
+            // apply padding
+            if paddings_round {
+                block = full_round_padding;
+            } else if is_last {
+                if padding_space == KECCAK_RATE_BYTES - 1 {
+                    block[KECCAK_RATE_BYTES - 1] = 0x81;
+                } else {
+                    block[padding_space] = 0x01;
+                    block[KECCAK_RATE_BYTES - 1] = 0x80;
                 }
-
-                input_buffer.append(&words_buffer);
             }
-
-            // always consume rate and run keccak round function
-            let words = input_buffer.consume_rate();
-            let mut block = [0u8; KECCAK_RATE_IN_U64_WORDS * 8];
-
-            for (i, word) in words.into_iter().enumerate() {
-                block[(i * 8)..(i * 8 + 8)].copy_from_slice(&word.to_le_bytes());
-            }
+            // update the keccak internal state
             internal_state.update(&block);
-
-            let is_last = round == num_rounds - 1;
 
             if is_last {
                 let state_inner = transmute_state(internal_state.clone());
@@ -192,52 +253,6 @@ impl<const B: bool> Precompile for Keccak256Precompile<B> {
     }
 }
 
-pub struct Buffer {
-    pub words: [u64; BUFFER_SIZE],
-    pub filled: usize,
-}
-
-impl Buffer {
-    pub fn new() -> Self {
-        Self {
-            words: [0u64; BUFFER_SIZE],
-            filled: 0,
-        }
-    }
-
-    pub fn reset(&mut self) {
-        self.words = [0u64; BUFFER_SIZE];
-        self.filled = 0;
-    }
-
-    pub fn can_read_into(&self) -> bool {
-        self.filled <= BUFFER_SIZE - NEW_WORDS_PER_CYCLE
-    }
-
-    pub fn append(&mut self, data: &[u64; NEW_WORDS_PER_CYCLE]) {
-        debug_assert!(
-            self.filled <= BUFFER_SIZE - NEW_WORDS_PER_CYCLE,
-            "have {} words filled, but the limit is {}",
-            self.filled,
-            BUFFER_SIZE - NEW_WORDS_PER_CYCLE
-        );
-        self.words[self.filled..(self.filled + NEW_WORDS_PER_CYCLE)].copy_from_slice(&data[..]);
-        self.filled += NEW_WORDS_PER_CYCLE;
-    }
-
-    pub fn consume_rate(&mut self) -> [u64; KECCAK_RATE_IN_U64_WORDS] {
-        debug_assert!(self.filled >= KECCAK_RATE_IN_U64_WORDS);
-        let taken = self.words[..KECCAK_RATE_IN_U64_WORDS].try_into().unwrap();
-        self.filled -= KECCAK_RATE_IN_U64_WORDS;
-        let mut tmp = [0u64; BUFFER_SIZE];
-        tmp[..(BUFFER_SIZE - KECCAK_RATE_IN_U64_WORDS)]
-            .copy_from_slice(&self.words[KECCAK_RATE_IN_U64_WORDS..]);
-        self.words = tmp;
-
-        taken
-    }
-}
-
 pub fn keccak256_rounds_function<M: Memory, const B: bool>(
     monotonic_cycle_counter: u32,
     precompile_call_params: LogQuery,
@@ -256,18 +271,19 @@ pub fn keccak256_rounds_function<M: Memory, const B: bool>(
 
 pub type Keccak256InnerState = [u64; 25];
 
+struct Sha3State {
+    state: [u64; 25],
+    _round_count: usize,
+}
+
 struct BlockBuffer {
     _buffer: [u8; 136],
     _pos: u8,
 }
 
 struct CoreWrapper {
-    core: Keccak256VarCore,
+    core: Sha3State,
     _buffer: BlockBuffer,
-}
-
-struct Keccak256VarCore {
-    state: Keccak256InnerState,
 }
 
 static_assertions::assert_eq_size!(Keccak256, CoreWrapper);

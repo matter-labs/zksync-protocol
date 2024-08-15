@@ -11,6 +11,7 @@ pub use auxiliary as aux;
 
 use boojum::cs::implementations::proof::Proof;
 
+use boojum::cs::implementations::verifier::VerificationKey;
 use boojum::cs::traits::cs::ConstraintSystem;
 use boojum::field::SmallField;
 
@@ -36,6 +37,7 @@ use crate::fsm_input_output::circuit_inputs::INPUT_OUTPUT_COMMITMENT_LENGTH;
 use crate::linear_hasher::input::LinearHasherOutputData;
 use crate::recursion::VK_COMMITMENT_LENGTH;
 use crate::scheduler::auxiliary::NUM_CIRCUIT_TYPES_TO_SCHEDULE;
+use crate::utils::is_equal_queue_state;
 use boojum::gadgets::num::Num;
 use boojum::gadgets::recursion::recursive_tree_hasher::RecursiveTreeHasher;
 
@@ -56,6 +58,7 @@ use std::collections::HashMap;
 use crate::base_structures::vm_state::*;
 use crate::code_unpacker_sha256::input::*;
 use crate::demux_log_queue::input::*;
+use crate::eip_4844::input::*;
 use crate::fsm_input_output::circuit_inputs::main_vm::*;
 use crate::fsm_input_output::*;
 use crate::log_sorter::input::*;
@@ -71,6 +74,7 @@ pub const SCHEDULER_TIMESTAMP: u32 = 1;
 pub const NUM_SCHEDULER_PUBLIC_INPUTS: usize = 4;
 pub const LEAF_LAYER_PARAMETERS_COMMITMENT_LENGTH: usize = 4;
 pub const QUEUE_FINAL_STATE_COMMITMENT_LENGTH: usize = 4;
+pub const IMPLEMENT_4844_FUNCTIONALITY: bool = false;
 
 pub const SEQUENCE_OF_CIRCUIT_TYPES: [BaseLayerCircuitType; NUM_CIRCUIT_TYPES_TO_SCHEDULE] = [
     BaseLayerCircuitType::VM,
@@ -115,12 +119,17 @@ pub fn scheduler_function<
         TransciptParameters = TR::TransciptParameters,
     >,
     POW: RecursivePoWRunner<F>,
+    const USE_4844: bool,
 >(
     cs: &mut CS,
     mut witness: SchedulerCircuitInstanceWitness<F, H, EXT>,
     round_function: &R,
     config: SchedulerConfig<F, H::NonCircuitSimulator, EXT>,
     verifier_builder: Box<dyn ErasedBuilderForRecursiveVerifier<F, EXT, CS>>,
+    eip4844_proof_config: Option<ProofConfig>,
+    eip4844_vk_fixed_parameters: Option<VerificationKeyCircuitGeometry>,
+    eip4844_vk: Option<VerificationKey<F, H::NonCircuitSimulator>>,
+    eip4844_verifier_builder: Option<Box<dyn ErasedBuilderForRecursiveVerifier<F, EXT, CS>>>,
     transcript_params: TR::TransciptParameters,
 ) where
     [(); <RecursionQuery<F> as CSAllocatableExt<F>>::INTERNAL_STRUCT_LEN]:,
@@ -566,48 +575,112 @@ pub fn scheduler_function<
     // we can potentially skip some circuits
     let mut skip_flags = [None; NUM_CIRCUIT_TYPES_TO_SCHEDULE];
     // we can skip everything except VM
-    skip_flags[(BaseLayerCircuitType::DecommitmentsFilter as u8 as usize) - 1] = Some(
-        decommittments_sorter_circuit_input
+    // and if we skip, then we should ensure some invariants over outputs!
+
+    // decommits sorter must output empty queue
+    {
+        let should_skip = decommittments_sorter_circuit_input
             .initial_queue_state
             .tail
             .length
-            .is_zero(cs),
-    );
-    skip_flags[(BaseLayerCircuitType::Decommiter as u8 as usize) - 1] = Some(
-        code_decommitter_circuit_input
+            .is_zero(cs);
+
+        let output_queue_is_empty = decommits_sorter_observable_output
+            .final_queue_state
+            .tail
+            .length
+            .is_zero(cs);
+        output_queue_is_empty.conditionally_enforce_true(cs, should_skip);
+
+        skip_flags[(BaseLayerCircuitType::DecommitmentsFilter as u8 as usize) - 1] =
+            Some(should_skip);
+    }
+
+    // decommitter should produce the same memory sequence
+    {
+        let should_skip = code_decommitter_circuit_input
             .sorted_requests_queue_initial_state
             .tail
             .length
-            .is_zero(cs),
-    );
-    skip_flags[(BaseLayerCircuitType::LogDemultiplexer as u8 as usize) - 1] = Some(
-        log_demux_circuit_input
+            .is_zero(cs);
+
+        let input_state = code_decommitter_circuit_input.memory_queue_initial_state;
+        let output_state = code_decommitter_observable_output.memory_queue_final_state;
+
+        let same_state = is_equal_queue_state(cs, &input_state, &output_state);
+        same_state.conditionally_enforce_true(cs, should_skip);
+
+        skip_flags[(BaseLayerCircuitType::Decommiter as u8 as usize) - 1] = Some(should_skip);
+    }
+
+    // demux must produce empty outputs
+    {
+        let should_skip = log_demux_circuit_input
             .initial_log_queue_state
             .tail
             .length
-            .is_zero(cs),
-    );
-    skip_flags[(BaseLayerCircuitType::KeccakPrecompile as u8 as usize) - 1] = Some(
-        log_demuxer_observable_output
+            .is_zero(cs);
+
+        for subqueue in log_demuxer_observable_output
+            .all_output_queues_refs()
+            .into_iter()
+        {
+            let output_queue_is_empty = subqueue.tail.length.is_zero(cs);
+            output_queue_is_empty.conditionally_enforce_true(cs, should_skip);
+        }
+
+        skip_flags[(BaseLayerCircuitType::LogDemultiplexer as u8 as usize) - 1] = Some(should_skip);
+    }
+
+    // keccak, sha256 and ecrecover must not modify memory
+    {
+        let should_skip = log_demuxer_observable_output
             .keccak256_access_queue_state
             .tail
             .length
-            .is_zero(cs),
-    );
-    skip_flags[(BaseLayerCircuitType::Sha256Precompile as u8 as usize) - 1] = Some(
-        log_demuxer_observable_output
+            .is_zero(cs);
+
+        let input_state = code_decommitter_observable_output.memory_queue_final_state;
+        let output_state = keccak256_observable_output.final_memory_state;
+
+        let same_state = is_equal_queue_state(cs, &input_state, &output_state);
+        same_state.conditionally_enforce_true(cs, should_skip);
+
+        skip_flags[(BaseLayerCircuitType::KeccakPrecompile as u8 as usize) - 1] = Some(should_skip);
+    }
+    {
+        let should_skip = log_demuxer_observable_output
             .sha256_access_queue_state
             .tail
             .length
-            .is_zero(cs),
-    );
-    skip_flags[(BaseLayerCircuitType::EcrecoverPrecompile as u8 as usize) - 1] = Some(
-        log_demuxer_observable_output
+            .is_zero(cs);
+
+        let input_state = keccak256_observable_output.final_memory_state;
+        let output_state = sha256_observable_output.final_memory_state;
+
+        let same_state = is_equal_queue_state(cs, &input_state, &output_state);
+        same_state.conditionally_enforce_true(cs, should_skip);
+
+        skip_flags[(BaseLayerCircuitType::Sha256Precompile as u8 as usize) - 1] = Some(should_skip);
+    }
+    {
+        let should_skip = log_demuxer_observable_output
             .ecrecover_access_queue_state
             .tail
             .length
-            .is_zero(cs),
-    );
+            .is_zero(cs);
+
+        let input_state = sha256_observable_output.final_memory_state;
+        let output_state = ecrecover_observable_output.final_memory_state;
+
+        let same_state = is_equal_queue_state(cs, &input_state, &output_state);
+        same_state.conditionally_enforce_true(cs, should_skip);
+
+        skip_flags[(BaseLayerCircuitType::EcrecoverPrecompile as u8 as usize) - 1] =
+            Some(should_skip);
+    }
+
+    // well, in the very unlikely case of no RAM requests (that is unreachable because VM always starts) we just skip it as is
     skip_flags[(BaseLayerCircuitType::RamValidation as u8 as usize) - 1] = Some(
         ram_validation_circuit_input
             .unsorted_queue_initial_state
@@ -615,24 +688,93 @@ pub fn scheduler_function<
             .length
             .is_zero(cs),
     );
-    skip_flags[(BaseLayerCircuitType::StorageFilter as u8 as usize) - 1] =
-        Some(storage_queues_state[0].tail.length.is_zero(cs));
-    skip_flags[(BaseLayerCircuitType::StorageApplicator as u8 as usize) - 1] =
-        Some(filtered_storage_queues_state[0].tail.length.is_zero(cs));
-    skip_flags[(BaseLayerCircuitType::EventsRevertsFilter as u8 as usize) - 1] = Some(
-        log_demuxer_observable_output
+    // storage filter must produce an empty output
+    {
+        let should_skip = storage_queues_state[0].tail.length.is_zero(cs);
+
+        let output_queue_is_empty = filtered_storage_queues_state[0].tail.length.is_zero(cs);
+        output_queue_is_empty.conditionally_enforce_true(cs, should_skip);
+
+        skip_flags[(BaseLayerCircuitType::StorageFilter as u8 as usize) - 1] = Some(should_skip);
+    }
+    // storage application must leave root untouched
+    {
+        let should_skip = filtered_storage_queues_state[0].tail.length.is_zero(cs);
+
+        let initial_root = initial_state_roots[0];
+        let initial_enumeration_counter = initial_enumeration_counters[0];
+        let final_root = final_state_roots[0];
+        let final_enumeration_counter = final_enumeration_counters[0];
+
+        let diffs_hash = storage_diffs_for_compression[0];
+
+        let root_parts_are_equal: [Boolean<F>; 32] =
+            std::array::from_fn(|i| UInt8::equals(cs, &initial_root[i], &final_root[i]));
+        let roots_are_equal = Boolean::multi_and(cs, &root_parts_are_equal);
+
+        let enumeration_counters_are_equal_low = UInt32::equals(
+            cs,
+            &initial_enumeration_counter[0],
+            &final_enumeration_counter[0],
+        );
+        let enumeration_counters_are_equal_high = UInt32::equals(
+            cs,
+            &initial_enumeration_counter[1],
+            &final_enumeration_counter[1],
+        );
+
+        let diffs_parts_are_zero: [Boolean<F>; 32] = diffs_hash.map(|el| el.is_zero(cs));
+        let diffs_hash_is_zero = Boolean::multi_and(cs, &diffs_parts_are_zero);
+
+        let root_is_unchanged = Boolean::multi_and(
+            cs,
+            &[
+                roots_are_equal,
+                enumeration_counters_are_equal_low,
+                enumeration_counters_are_equal_high,
+                diffs_hash_is_zero,
+            ],
+        );
+        root_is_unchanged.conditionally_enforce_true(cs, should_skip);
+
+        skip_flags[(BaseLayerCircuitType::StorageApplicator as u8 as usize) - 1] =
+            Some(should_skip);
+    }
+    // events and l2 to l1 messages filters should produce empty output
+    {
+        let should_skip = log_demuxer_observable_output
             .events_access_queue_state
             .tail
             .length
-            .is_zero(cs),
-    );
-    skip_flags[(BaseLayerCircuitType::L1MessagesRevertsFilter as u8 as usize) - 1] = Some(
-        log_demuxer_observable_output
+            .is_zero(cs);
+
+        let output_queue_is_empty = events_sorter_observable_output
+            .final_queue_state
+            .tail
+            .length
+            .is_zero(cs);
+        output_queue_is_empty.conditionally_enforce_true(cs, should_skip);
+
+        skip_flags[(BaseLayerCircuitType::EventsRevertsFilter as u8 as usize) - 1] =
+            Some(should_skip);
+    }
+    {
+        let should_skip = log_demuxer_observable_output
             .l1messages_access_queue_state
             .tail
             .length
-            .is_zero(cs),
-    );
+            .is_zero(cs);
+
+        let output_queue_is_empty = l1messages_sorter_observable_output
+            .final_queue_state
+            .tail
+            .length
+            .is_zero(cs);
+        output_queue_is_empty.conditionally_enforce_true(cs, should_skip);
+
+        skip_flags[(BaseLayerCircuitType::L1MessagesRevertsFilter as u8 as usize) - 1] =
+            Some(should_skip);
+    }
 
     // for (idx, el) in skip_flags.iter().enumerate() {
     //     if let Some(el) = el {
@@ -978,12 +1120,93 @@ pub fn scheduler_function<
         dst.reverse();
     }
 
+    let (eip4844_linear_hashes, eip4844_output_commitment_hashes) = if USE_4844 {
+        // eip4844 circuit
+        let verifier_builder =
+            eip4844_verifier_builder.expect("if EIP 4844 is used then builder must be provided");
+        let verifier = verifier_builder.create_recursive_verifier(cs);
+        let proof_config =
+            eip4844_proof_config.expect("if EIP 4844 is used then proof config must be provided");
+        let vk_fixed_parameters = eip4844_vk_fixed_parameters
+            .expect("if EIP 4844 is used then vk fixed parameters must be provided");
+        let vk = eip4844_vk.expect("if EIP 4844 is used then VK must be provided");
+
+        let eip4844_vk = AllocatedVerificationKey::<F, H>::allocate_constant(cs, vk);
+
+        let mut eip4844_linear_hashes = [[zero_u8; 32]; MAX_4844_BLOBS_PER_BLOCK];
+        let mut eip4844_output_commitment_hashes = [[zero_u8; 32]; MAX_4844_BLOBS_PER_BLOCK];
+        for i in 0..MAX_4844_BLOBS_PER_BLOCK {
+            let observable_output_data_witness = witness
+                .eip4844_witnesses
+                .as_ref()
+                .expect("if EIP 4844 is used then witness must be provided")
+                .get(i)
+                .cloned()
+                .unwrap_or(EIP4844OutputData::placeholder_witness());
+            let observable_output_data =
+                EIP4844OutputData::allocate(cs, observable_output_data_witness);
+            let zeroes = observable_output_data.linear_hash.map(|el| el.is_zero(cs));
+            let skip_verification = Boolean::multi_and(cs, &zeroes);
+            let should_verify = skip_verification.negated(cs);
+            let structured_input = EIP4844InputOutput {
+                start_flag: boolean_true,
+                completion_flag: boolean_true,
+                observable_input: (),
+                observable_output: observable_output_data,
+                hidden_fsm_input: (),
+                hidden_fsm_output: (),
+            };
+
+            let closed_form_input =
+                ClosedFormInputCompactForm::from_full_form(cs, &structured_input, round_function);
+            let expected_input_commitment: [_; INPUT_OUTPUT_COMMITMENT_LENGTH] =
+                commit_variable_length_encodable_item(cs, &closed_form_input, round_function);
+
+            let proof_witness = witness.eip4844_proofs.pop_front();
+
+            let proof = AllocatedProof::allocate_from_witness(
+                cs,
+                proof_witness,
+                &verifier,
+                &vk_fixed_parameters,
+                &proof_config,
+            );
+
+            let (is_valid, inputs) = verifier.verify::<H, TR, CTR, POW>(
+                cs,
+                transcript_params.clone(),
+                &proof,
+                &vk_fixed_parameters,
+                &proof_config,
+                &eip4844_vk,
+            );
+            is_valid.conditionally_enforce_true(cs, should_verify);
+            assert_eq!(inputs.len(), expected_input_commitment.len());
+
+            for (a, b) in inputs.iter().zip(expected_input_commitment.iter()) {
+                Num::conditionally_enforce_equal(cs, should_verify, a, b);
+            }
+
+            eip4844_linear_hashes[i] = observable_output_data.linear_hash;
+            eip4844_output_commitment_hashes[i] = observable_output_data.output_hash;
+        }
+
+        (eip4844_linear_hashes, eip4844_output_commitment_hashes)
+    } else {
+        (
+            [[zero_u8; 32]; MAX_4844_BLOBS_PER_BLOCK],
+            [[zero_u8; 32]; MAX_4844_BLOBS_PER_BLOCK],
+        )
+    };
+
     let aux_data = BlockAuxilaryOutput {
         rollup_state_diff_for_compression: storage_application_observable_output
             .state_diffs_keccak256_hash,
         bootloader_heap_initial_content,
         events_queue_state,
         l1_messages_linear_hash: l1messages_linear_hasher_observable_output.keccak256_hash,
+        eip4844_linear_hashes: eip4844_linear_hashes,
+        eip4844_output_commitment_hashes: eip4844_output_commitment_hashes,
     };
 
     let block_content_header = BlockContentHeader {

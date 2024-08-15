@@ -4,7 +4,6 @@ use zkevm_opcode_defs::{ContextOpcode, Opcode};
 
 impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
     pub fn context_opcode_apply<
-        'a,
         S: zk_evm_abstractions::vm::Storage,
         M: zk_evm_abstractions::vm::Memory,
         EV: zk_evm_abstractions::vm::EventSink,

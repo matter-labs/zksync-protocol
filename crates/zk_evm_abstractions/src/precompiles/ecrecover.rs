@@ -147,12 +147,7 @@ impl<const B: bool> Precompile for ECRecoverPrecompile<B> {
         let v = buffer[31];
         assert!(v == 0 || v == 1);
 
-        let mut serialized = Vec::with_capacity(65);
-        serialized.extend(r_bytes);
-        serialized.extend(s_bytes);
-        serialized.push(v);
-
-        let pk = ecrecover_inner(hash, serialized);
+        let pk = ecrecover_inner(&hash, &r_bytes, &s_bytes, v);
 
         // here it may be possible to have non-recoverable k*G point, so can fail
         if let Ok(recovered_pubkey) = pk {
@@ -251,22 +246,22 @@ impl<const B: bool> Precompile for ECRecoverPrecompile<B> {
 }
 
 pub fn ecrecover_inner(
-    digest: [u8; 32],
-    serialized_signature: Vec<u8>,
+    digest: &[u8; 32],
+    r: &[u8; 32],
+    s: &[u8; 32],
+    rec_id: u8,
 ) -> Result<VerifyingKey, ()> {
-    if digest.iter().all(|el| *el == 0) {
-        // zero hash is not supported by our convension at the current version, will be activated later separately
-        return Err(());
-    }
+    use k256::ecdsa::{RecoveryId, Signature};
+    // r, s
+    let mut signature = [0u8; 64];
+    signature[..32].copy_from_slice(r);
+    signature[32..].copy_from_slice(s);
     // we expect pre-validation, so this check always works
-    let sig =
-        k256::ecdsa::recoverable::Signature::try_from(&serialized_signature[..]).map_err(|_| ())?;
-    let mut hash_array = k256::FieldBytes::default();
-    let hash_array_mut_ref: &mut [u8] = hash_array.as_mut();
-    hash_array_mut_ref.copy_from_slice(&digest);
+    let signature = Signature::try_from(&signature[..]).map_err(|_| ())?;
 
-    sig.recover_verifying_key_from_digest_bytes(&hash_array)
-        .map_err(|_| ())
+    let recid = RecoveryId::try_from(rec_id).unwrap();
+
+    VerifyingKey::recover_from_prehash(digest, &signature, recid).map_err(|_| ())
 }
 
 pub fn ecrecover_function<M: Memory, const B: bool>(

@@ -24,7 +24,6 @@ bitflags! {
 
 impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
     pub fn uma_opcode_apply<
-        'a,
         S: zk_evm_abstractions::vm::Storage,
         M: zk_evm_abstractions::vm::Memory,
         EV: zk_evm_abstractions::vm::EventSink,
@@ -216,6 +215,8 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
             exceptions.set(UMAExceptionFlags::NOT_ENOUGH_ERGS_TO_GROW_MEMORY, true);
         }
         current_callstack_mut.ergs_remaining = ergs_after_memory_growth;
+
+        #[allow(dropping_references)]
         drop(current_callstack_mut);
 
         // we will set panic if any exception was triggered

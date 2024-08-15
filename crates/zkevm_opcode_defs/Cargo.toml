@@ -1,6 +1,6 @@
 [package]
 name = "zkevm_opcode_defs"
-version = "0.132.0"
+version = "0.141.0"
 edition = "2021"
 authors = ["The Matter Labs Team <hello@matterlabs.dev>"]
 homepage = "https://zksync.io/"
@@ -22,7 +22,7 @@ path = "src/circuit_pricing_generator/main.rs"
 bitflags = "2"
 lazy_static = "1.4"
 ethereum-types = "=0.14.1"
-sha2 = { package = "sha2_ce", version = "=0.10.6" }
-sha3 = { package = "sha3_ce", version = "=0.10.6" }
-blake2 = { package = "blake2", version = "=0.10.6" }
-k256 = { version = "0.11.6", features = ["arithmetic", "ecdsa"] }
+sha2 = "=0.10.8"
+sha3 = "=0.10.8"
+blake2 = "0.10.*"
+k256 = { version = "0.13.*", features = ["arithmetic", "ecdsa"] }

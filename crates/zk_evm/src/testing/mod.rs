@@ -8,19 +8,9 @@ pub mod simple_tracer;
 pub mod storage;
 
 use self::storage::InMemoryStorage;
-use crate::vm_state::VmState;
 use crate::witness_trace::DummyTracer;
 use zk_evm_abstractions::precompiles::DefaultPrecompilesProcessor;
 use zk_evm_abstractions::queries::LogQuery;
-
-pub type BasicTestingVmState<const B: bool> = VmState<
-    InMemoryStorage,
-    SimpleMemory,
-    InMemoryEventSink,
-    DefaultPrecompilesProcessor<B>,
-    SimpleDecommitter<B>,
-    DummyTracer,
->;
 
 pub struct BasicTestingTools<const B: bool> {
     pub storage: InMemoryStorage,
@@ -50,7 +40,7 @@ pub fn create_default_testing_tools() -> BasicTestingTools<false> {
 }
 
 pub fn get_final_net_states<const B: bool>(
-    vm: BasicTestingVmState<B>,
+    tools: BasicTestingTools<B>,
 ) -> (
     Vec<LogQuery>,
     [HashMap<Address, HashMap<U256, U256>>; NUM_SHARDS],
@@ -59,12 +49,12 @@ pub fn get_final_net_states<const B: bool>(
     Vec<EventMessage>,
     SimpleMemory,
 ) {
-    let BasicTestingVmState {
+    let BasicTestingTools::<B> {
         storage,
         event_sink,
         memory,
         ..
-    } = vm;
+    } = tools;
 
     let final_storage_state = storage.inner.clone();
     let (full_storage_access_history, _per_slot_history) = storage.flatten_and_net_history();

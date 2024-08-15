@@ -40,7 +40,6 @@ pub fn read_code<
 }
 
 impl<
-        'a,
         S: zk_evm_abstractions::vm::Storage,
         M: zk_evm_abstractions::vm::Memory,
         EV: zk_evm_abstractions::vm::EventSink,
@@ -240,7 +239,9 @@ impl<
             previous_context,
             &context_entry,
         );
+        #[allow(dropping_references)]
         drop(previous_context);
+
         self.local_state.callstack.push_entry(context_entry);
     }
 
@@ -300,7 +301,10 @@ impl<
             "trying to create bootloader frame with more ergs than VM has available"
         );
         empty_context.ergs_remaining = remaining_for_this_frame;
+
+        #[allow(dropping_references)]
         drop(empty_context);
+
         self.start_frame(monotonic_cycle_counter, bootloader_context);
         let base_page = bootloader_context.base_memory_page;
         self.memory.start_global_frame(
