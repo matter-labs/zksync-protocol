@@ -1,3 +1,12 @@
+use zkevm_opcode_defs::ethereum_types::U256;
+pub use zkevm_opcode_defs::sha2::Digest;
+pub use zkevm_opcode_defs::sha2::Sha256;
+
+use crate::{
+    queries::MemoryQuery,
+    vm::{Memory, MemoryType, Precompile},
+};
+
 use super::*;
 
 // for sha256 we do not need complicated buffering as it uses 64 bytes per round, and this is divisible
@@ -5,8 +14,6 @@ use super::*;
 
 pub const MEMORY_READS_PER_CYCLE: usize = 2;
 pub const MEMORY_WRITES_PER_CYCLE: usize = 1;
-
-pub use sha2::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Sha256RoundWitness {
@@ -18,7 +25,7 @@ pub struct Sha256RoundWitness {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Sha256Precompile<const B: bool>;
 
-impl<const B: bool> crate::abstractions::Precompile for Sha256Precompile<B> {
+impl<const B: bool> Precompile for Sha256Precompile<B> {
     type CycleWitness = Sha256RoundWitness;
 
     fn execute_precompile<M: Memory>(
@@ -26,7 +33,10 @@ impl<const B: bool> crate::abstractions::Precompile for Sha256Precompile<B> {
         monotonic_cycle_counter: u32,
         query: LogQuery,
         memory: &mut M,
-    ) -> Option<(Vec<MemoryQuery>, Vec<MemoryQuery>, Vec<Self::CycleWitness>)> {
+    ) -> (
+        usize,
+        Option<(Vec<MemoryQuery>, Vec<MemoryQuery>, Vec<Self::CycleWitness>)>,
+    ) {
         let precompile_call_params = query;
         let params = precompile_abi_in_log(precompile_call_params);
         let timestamp_to_read = precompile_call_params.timestamp;
@@ -72,7 +82,6 @@ impl<const B: bool> crate::abstractions::Precompile for Sha256Precompile<B> {
                     value: U256::zero(),
                     value_is_pointer: false,
                     rw_flag: false,
-                    is_pended: false,
                 };
 
                 let query = memory.execute_partial_query(monotonic_cycle_counter, query);
@@ -125,7 +134,6 @@ impl<const B: bool> crate::abstractions::Precompile for Sha256Precompile<B> {
                     value: as_u256,
                     value_is_pointer: false,
                     rw_flag: true,
-                    is_pended: false,
                 };
                 let result_query =
                     memory.execute_partial_query(monotonic_cycle_counter, result_query);
@@ -141,11 +149,13 @@ impl<const B: bool> crate::abstractions::Precompile for Sha256Precompile<B> {
             }
         }
 
-        if B {
+        let witness = if B {
             Some((read_queries, write_queries, witness))
         } else {
             None
-        }
+        };
+
+        (num_rounds, witness)
     }
 }
 
@@ -153,7 +163,10 @@ pub fn sha256_rounds_function<M: Memory, const B: bool>(
     monotonic_cycle_counter: u32,
     precompile_call_params: LogQuery,
     memory: &mut M,
-) -> Option<(Vec<MemoryQuery>, Vec<MemoryQuery>, Vec<Sha256RoundWitness>)> {
+) -> (
+    usize,
+    Option<(Vec<MemoryQuery>, Vec<MemoryQuery>, Vec<Sha256RoundWitness>)>,
+) {
     let mut processor = Sha256Precompile::<B>;
     processor.execute_precompile(monotonic_cycle_counter, precompile_call_params, memory)
 }

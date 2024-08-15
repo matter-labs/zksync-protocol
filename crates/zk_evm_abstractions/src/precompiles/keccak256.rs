@@ -1,4 +1,12 @@
-use super::*;
+use zkevm_opcode_defs::ethereum_types::U256;
+pub use zkevm_opcode_defs::sha2::Digest;
+pub use zkevm_opcode_defs::sha3::Keccak256;
+
+use crate::aux::*;
+use crate::queries::*;
+use crate::vm::*;
+
+use super::precompile_abi_in_log;
 
 pub const KECCAK_RATE_IN_U64_WORDS: usize = 17;
 pub const MEMORY_READS_PER_CYCLE: usize = 5;
@@ -16,8 +24,6 @@ pub const BUFFER_SIZE: usize = NEW_WORDS_PER_CYCLE + KECCAK_RATE_IN_U64_WORDS - 
 
 // static_assertions::const_assert!(BUFFER_SIZE - NEW_WORDS_PER_CYCLE >= KECCAK_RATE_IN_U64_WORDS);
 
-pub use sha3::*;
-
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Keccak256RoundWitness {
     pub new_request: Option<LogQuery>,
@@ -28,7 +34,7 @@ pub struct Keccak256RoundWitness {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Keccak256Precompile<const B: bool>;
 
-impl<const B: bool> crate::abstractions::Precompile for Keccak256Precompile<B> {
+impl<const B: bool> Precompile for Keccak256Precompile<B> {
     type CycleWitness = Keccak256RoundWitness;
 
     fn execute_precompile<M: Memory>(
@@ -36,7 +42,10 @@ impl<const B: bool> crate::abstractions::Precompile for Keccak256Precompile<B> {
         monotonic_cycle_counter: u32,
         query: LogQuery,
         memory: &mut M,
-    ) -> Option<(Vec<MemoryQuery>, Vec<MemoryQuery>, Vec<Self::CycleWitness>)> {
+    ) -> (
+        usize,
+        Option<(Vec<MemoryQuery>, Vec<MemoryQuery>, Vec<Self::CycleWitness>)>,
+    ) {
         let precompile_call_params = query;
         // read the parameters
         let params = precompile_abi_in_log(precompile_call_params);
@@ -98,7 +107,6 @@ impl<const B: bool> crate::abstractions::Precompile for Keccak256Precompile<B> {
                         value: U256::zero(),
                         value_is_pointer: false,
                         rw_flag: false,
-                        is_pended: false,
                     };
                     let data_query =
                         memory.execute_partial_query(monotonic_cycle_counter, data_query);
@@ -158,7 +166,6 @@ impl<const B: bool> crate::abstractions::Precompile for Keccak256Precompile<B> {
                     value: as_u256,
                     value_is_pointer: false,
                     rw_flag: true,
-                    is_pended: false,
                 };
 
                 let result_query =
@@ -170,14 +177,18 @@ impl<const B: bool> crate::abstractions::Precompile for Keccak256Precompile<B> {
                 }
             }
 
-            witness.push(round_witness);
+            if B {
+                witness.push(round_witness);
+            }
         }
 
-        if B {
+        let witness = if B {
             Some((read_queries, write_queries, witness))
         } else {
             None
-        }
+        };
+
+        (num_rounds, witness)
     }
 }
 
@@ -231,11 +242,14 @@ pub fn keccak256_rounds_function<M: Memory, const B: bool>(
     monotonic_cycle_counter: u32,
     precompile_call_params: LogQuery,
     memory: &mut M,
-) -> Option<(
-    Vec<MemoryQuery>,
-    Vec<MemoryQuery>,
-    Vec<Keccak256RoundWitness>,
-)> {
+) -> (
+    usize,
+    Option<(
+        Vec<MemoryQuery>,
+        Vec<MemoryQuery>,
+        Vec<Keccak256RoundWitness>,
+    )>,
+) {
     let mut processor = Keccak256Precompile::<B>;
     processor.execute_precompile(monotonic_cycle_counter, precompile_call_params, memory)
 }
@@ -269,6 +283,7 @@ pub fn transmute_state(reference_state: Keccak256) -> Keccak256InnerState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use zkevm_opcode_defs::sha2::Digest;
 
     #[test]
     fn test_empty_string() {

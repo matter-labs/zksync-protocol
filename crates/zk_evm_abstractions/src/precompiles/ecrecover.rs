@@ -1,11 +1,12 @@
+use zkevm_opcode_defs::k256::ecdsa::VerifyingKey;
+pub use zkevm_opcode_defs::sha2::Digest;
+use zkevm_opcode_defs::{ethereum_types::U256, k256, sha3};
+
 use super::*;
 
 // we need hash, r, s, v
 pub const MEMORY_READS_PER_CYCLE: usize = 4;
 pub const MEMORY_WRITES_PER_CYCLE: usize = 2;
-
-use k256::ecdsa::*;
-use sha2::Digest;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ECRecoverRoundWitness {
@@ -17,7 +18,7 @@ pub struct ECRecoverRoundWitness {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ECRecoverPrecompile<const B: bool>;
 
-impl<const B: bool> crate::abstractions::Precompile for ECRecoverPrecompile<B> {
+impl<const B: bool> Precompile for ECRecoverPrecompile<B> {
     type CycleWitness = ECRecoverRoundWitness;
 
     fn execute_precompile<M: Memory>(
@@ -25,7 +26,12 @@ impl<const B: bool> crate::abstractions::Precompile for ECRecoverPrecompile<B> {
         monotonic_cycle_counter: u32,
         query: LogQuery,
         memory: &mut M,
-    ) -> Option<(Vec<MemoryQuery>, Vec<MemoryQuery>, Vec<Self::CycleWitness>)> {
+    ) -> (
+        usize,
+        Option<(Vec<MemoryQuery>, Vec<MemoryQuery>, Vec<Self::CycleWitness>)>,
+    ) {
+        const NUM_ROUNDS: usize = 1;
+
         // read the parameters
         let precompile_call_params = query;
         let params = precompile_abi_in_log(precompile_call_params);
@@ -70,7 +76,6 @@ impl<const B: bool> crate::abstractions::Precompile for ECRecoverPrecompile<B> {
             value: U256::zero(),
             value_is_pointer: false,
             rw_flag: false,
-            is_pended: false,
         };
         let hash_query = memory.execute_partial_query(monotonic_cycle_counter, hash_query);
         let hash_value = hash_query.value;
@@ -87,7 +92,6 @@ impl<const B: bool> crate::abstractions::Precompile for ECRecoverPrecompile<B> {
             value: U256::zero(),
             value_is_pointer: false,
             rw_flag: false,
-            is_pended: false,
         };
         let v_query = memory.execute_partial_query(monotonic_cycle_counter, v_query);
         let v_value = v_query.value;
@@ -104,7 +108,6 @@ impl<const B: bool> crate::abstractions::Precompile for ECRecoverPrecompile<B> {
             value: U256::zero(),
             value_is_pointer: false,
             rw_flag: false,
-            is_pended: false,
         };
         let r_query = memory.execute_partial_query(monotonic_cycle_counter, r_query);
         let r_value = r_query.value;
@@ -121,7 +124,6 @@ impl<const B: bool> crate::abstractions::Precompile for ECRecoverPrecompile<B> {
             value: U256::zero(),
             value_is_pointer: false,
             rw_flag: false,
-            is_pended: false,
         };
         let s_query = memory.execute_partial_query(monotonic_cycle_counter, s_query);
         let s_value = s_query.value;
@@ -180,7 +182,6 @@ impl<const B: bool> crate::abstractions::Precompile for ECRecoverPrecompile<B> {
                 value: ok_marker,
                 value_is_pointer: false,
                 rw_flag: true,
-                is_pended: false,
             };
             let ok_or_err_query =
                 memory.execute_partial_query(monotonic_cycle_counter, ok_or_err_query);
@@ -193,7 +194,6 @@ impl<const B: bool> crate::abstractions::Precompile for ECRecoverPrecompile<B> {
                 value: result,
                 value_is_pointer: false,
                 rw_flag: true,
-                is_pended: false,
             };
             let result_query = memory.execute_partial_query(monotonic_cycle_counter, result_query);
 
@@ -217,7 +217,6 @@ impl<const B: bool> crate::abstractions::Precompile for ECRecoverPrecompile<B> {
                 value: err_marker,
                 value_is_pointer: false,
                 rw_flag: true,
-                is_pended: false,
             };
             let ok_or_err_query =
                 memory.execute_partial_query(monotonic_cycle_counter, ok_or_err_query);
@@ -230,7 +229,6 @@ impl<const B: bool> crate::abstractions::Precompile for ECRecoverPrecompile<B> {
                 value: empty_result,
                 value_is_pointer: false,
                 rw_flag: true,
-                is_pended: false,
             };
             let result_query = memory.execute_partial_query(monotonic_cycle_counter, result_query);
 
@@ -242,11 +240,13 @@ impl<const B: bool> crate::abstractions::Precompile for ECRecoverPrecompile<B> {
             }
         }
 
-        if B {
+        let witness = if B {
             Some((read_history, write_history, vec![round_witness]))
         } else {
             None
-        }
+        };
+
+        (NUM_ROUNDS, witness)
     }
 }
 
@@ -255,7 +255,7 @@ pub fn ecrecover_inner(
     serialized_signature: Vec<u8>,
 ) -> Result<VerifyingKey, ()> {
     if digest.iter().all(|el| *el == 0) {
-        // zero hash is not supported by our convension
+        // zero hash is not supported by our convension at the current version, will be activated later separately
         return Err(());
     }
     // we expect pre-validation, so this check always works
@@ -273,11 +273,14 @@ pub fn ecrecover_function<M: Memory, const B: bool>(
     monotonic_cycle_counter: u32,
     precompile_call_params: LogQuery,
     memory: &mut M,
-) -> Option<(
-    Vec<MemoryQuery>,
-    Vec<MemoryQuery>,
-    Vec<ECRecoverRoundWitness>,
-)> {
+) -> (
+    usize,
+    Option<(
+        Vec<MemoryQuery>,
+        Vec<MemoryQuery>,
+        Vec<ECRecoverRoundWitness>,
+    )>,
+) {
     let mut processor = ECRecoverPrecompile::<B>;
     processor.execute_precompile(monotonic_cycle_counter, precompile_call_params, memory)
 }

@@ -1,16 +1,19 @@
 use super::*;
 
+use zk_evm_abstractions::aux::Timestamp;
+use zk_evm_abstractions::vm::SpongeExecutionMarker;
 use zkevm_opcode_defs::definitions::ret::*;
 use zkevm_opcode_defs::FatPointerValidationException;
 use zkevm_opcode_defs::{FatPointer, Opcode, RetABI, RetForwardPageType, RetOpcode};
 
 impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
     pub fn ret_opcode_apply<
-        S: crate::abstractions::Storage,
-        M: crate::abstractions::Memory,
-        EV: crate::abstractions::EventSink,
-        PP: crate::abstractions::PrecompilesProcessor,
-        DP: crate::abstractions::DecommittmentProcessor,
+        'a,
+        S: zk_evm_abstractions::vm::Storage,
+        M: zk_evm_abstractions::vm::Memory,
+        EV: zk_evm_abstractions::vm::EventSink,
+        PP: zk_evm_abstractions::vm::PrecompilesProcessor,
+        DP: zk_evm_abstractions::vm::DecommittmentProcessor,
         WT: crate::witness_trace::VmWitnessTracer<N, E>,
     >(
         &self,
@@ -82,9 +85,8 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
             }
             // our formal definition of "in bounds" is strictly "less than", but we want to allow to return
             // "trivial" pointer, like `ret.ok r0`
-            if memory_quasi_fat_pointer.validate_in_bounds() == false
-                && memory_quasi_fat_pointer.is_trivial() == false
-            {
+            // this captures the case of empty slice
+            if memory_quasi_fat_pointer.validate_as_slice() == false {
                 inner_variant = RetOpcode::Panic;
             }
 

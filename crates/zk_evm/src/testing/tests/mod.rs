@@ -1,8 +1,8 @@
 use super::*;
 
+use zk_evm_abstractions::aux::MemoryPage;
 use zkevm_opcode_defs::system_params::BOOTLOADER_FORMAL_ADDRESS;
 
-use crate::precompiles::*;
 use crate::vm_state::*;
 use crate::{
     block_properties::BlockProperties,
@@ -22,14 +22,7 @@ pub fn create_default_block_info() -> BlockProperties {
 pub fn create_initial_vm_state_for_basic_testing<const B: bool>(
     tools: BasicTestingTools<B>,
     block_properties: BlockProperties,
-) -> VmState<
-    InMemoryStorage,
-    SimpleMemory,
-    InMemoryEventSink,
-    DefaultPrecompilesProcessor<B>,
-    SimpleDecommitter<B>,
-    DummyTracer,
-> {
+) -> BasicTestingVmState<B> {
     let mut vm = VmState::empty_state(
         tools.storage,
         tools.memory,

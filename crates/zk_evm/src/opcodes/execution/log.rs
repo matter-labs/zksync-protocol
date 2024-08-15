@@ -1,5 +1,8 @@
 use super::*;
 
+use zk_evm_abstractions::aux::Timestamp;
+use zk_evm_abstractions::queries::LogQuery;
+use zk_evm_abstractions::vm::SpongeExecutionMarker;
 use zkevm_opcode_defs::{
     LogOpcode, Opcode, PrecompileCallABI, PrecompileCallInnerABI, FIRST_MESSAGE_FLAG_IDX,
 };
@@ -10,11 +13,12 @@ use zkevm_opcode_defs::system_params::{
 
 impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
     pub fn log_opcode_apply<
-        S: crate::abstractions::Storage,
-        M: crate::abstractions::Memory,
-        EV: crate::abstractions::EventSink,
-        PP: crate::abstractions::PrecompilesProcessor,
-        DP: crate::abstractions::DecommittmentProcessor,
+        'a,
+        S: zk_evm_abstractions::vm::Storage,
+        M: zk_evm_abstractions::vm::Memory,
+        EV: zk_evm_abstractions::vm::EventSink,
+        PP: zk_evm_abstractions::vm::PrecompilesProcessor,
+        DP: zk_evm_abstractions::vm::DecommittmentProcessor,
         WT: crate::witness_trace::VmWitnessTracer<N, E>,
     >(
         &self,
@@ -64,6 +68,8 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
             .get_current_stack()
             .ergs_remaining;
         let is_rollup = shard_id == 0;
+        let timestamp_for_log = vm_state.timestamp_for_first_decommit_or_precompile_read();
+        let tx_number_in_block = vm_state.local_state.tx_number_in_block;
 
         let ergs_on_pubdata = match inner_variant {
             LogOpcode::StorageWrite => {
@@ -79,8 +85,8 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
                 // for oracle to do estimations
 
                 let partial_query = LogQuery {
-                    timestamp: Timestamp(0u32),
-                    tx_number_in_block: 0u16,
+                    timestamp: timestamp_for_log,
+                    tx_number_in_block,
                     aux_byte: STORAGE_AUX_BYTE,
                     shard_id,
                     address,
@@ -152,8 +158,6 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
         let address = current_context.this_address;
         let shard_id = current_context.this_shard_id;
         drop(current_context);
-        let tx_number_in_block = vm_state.local_state.tx_number_in_block;
-        let timestamp_for_log = vm_state.timestamp_for_first_decommit_or_precompile_read();
         match inner_variant {
             LogOpcode::StorageRead => {
                 assert!(not_enough_power == false);

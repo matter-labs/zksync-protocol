@@ -1,10 +1,4 @@
-use crate::abstractions::MemoryType;
-
-use super::*;
-
-pub mod queries;
-
-pub use self::queries::*;
+use crate::vm::MemoryType;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Timestamp(pub u32);

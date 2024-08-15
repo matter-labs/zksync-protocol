@@ -1,17 +1,16 @@
-use zkevm_opcode_defs::FatPointer;
+use zkevm_opcode_defs::{ethereum_types::U256, FatPointer};
 
-use super::*;
-use crate::aux_structures::*;
-pub mod tracing;
-pub use self::tracing::*;
+use crate::{
+    aux::{MemoryPage, Timestamp},
+    precompiles::{
+        ecrecover::ECRecoverPrecompile, keccak256::Keccak256Precompile, sha256::Sha256Precompile,
+    },
+    queries::{DecommittmentQuery, LogQuery, MemoryQuery},
+};
 
 pub const MEMORY_CELLS_STACK_OR_CODE_PAGE: usize = 1 << 16;
-pub const MAX_MEMORY_BYTES: usize = 1 << 24;
-pub const MEMORY_CELLS_OTHER_PAGES: usize = MAX_MEMORY_BYTES / 32;
-
 pub const MAX_STACK_PAGE_SIZE_IN_WORDS: usize = 1 << 16;
 pub const MAX_CODE_PAGE_SIZE_IN_WORDS: usize = 1 << 16;
-pub const MAX_HEAP_PAGE_SIZE_IN_WORDS: usize = MAX_MEMORY_BYTES / 32;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum MemoryType {
@@ -26,9 +25,7 @@ impl MemoryType {
     pub const fn page_size_limit(&self) -> usize {
         match self {
             MemoryType::Stack | MemoryType::Code => MEMORY_CELLS_STACK_OR_CODE_PAGE,
-            MemoryType::Heap | MemoryType::AuxHeap | MemoryType::FatPointer => {
-                MEMORY_CELLS_OTHER_PAGES
-            }
+            MemoryType::Heap | MemoryType::AuxHeap | MemoryType::FatPointer => u32::MAX as usize,
         }
     }
 }
@@ -57,10 +54,6 @@ impl RefundType {
         }
     }
 }
-
-use crate::precompiles::ecrecover::ECRecoverPrecompile;
-use crate::precompiles::keccak256::Keccak256Precompile;
-use crate::precompiles::sha256::Sha256Precompile;
 
 // for strong typing we have to enumerate all of the supported precompiles here
 pub enum PrecompileCyclesWitness {
@@ -133,6 +126,28 @@ pub trait Memory: std::fmt::Debug {
     }
 }
 
+impl Memory for () {
+    fn execute_partial_query(
+        &mut self,
+        _monotonic_cycle_counter: u32,
+        _query: MemoryQuery,
+    ) -> MemoryQuery {
+        unreachable!()
+    }
+
+    fn specialized_code_query(
+        &mut self,
+        _monotonic_cycle_counter: u32,
+        _query: MemoryQuery,
+    ) -> MemoryQuery {
+        unreachable!()
+    }
+
+    fn read_code_query(&self, _monotonic_cycle_counter: u32, _query: MemoryQuery) -> MemoryQuery {
+        unreachable!()
+    }
+}
+
 pub trait EventSink: std::fmt::Debug {
     // Largely the same as storage with exception that events are always "write"-like,
     // so we do not need to return anything
@@ -167,7 +182,7 @@ pub trait DecommittmentProcessor: std::fmt::Debug {
         monotonic_cycle_counter: u32,
         partial_query: DecommittmentQuery,
         memory: &mut M,
-    ) -> (DecommittmentQuery, Option<Vec<U256>>);
+    ) -> anyhow::Result<(DecommittmentQuery, Option<Vec<U256>>)>;
 }
 
 /// Abstraction over precompile implementation. Precompile is usually a closure-forming FSM, so it must output
@@ -175,7 +190,8 @@ pub trait DecommittmentProcessor: std::fmt::Debug {
 pub trait Precompile: std::fmt::Debug {
     type CycleWitness: Clone + std::fmt::Debug;
 
-    /// execute a precompile by using request and access to memory. May be output
+    /// Execute a precompile by using request and access to memory. Output number of cycles needed.
+    /// May be output
     /// - all memory reads (may be removed later on)
     /// - all memory writes (depending on the implementation we may directly write to `memory` and also remove it)
     /// - FSM cycle witness parameters
@@ -184,7 +200,10 @@ pub trait Precompile: std::fmt::Debug {
         monotonic_cycle_counter: u32,
         query: LogQuery,
         memory: &mut M,
-    ) -> Option<(Vec<MemoryQuery>, Vec<MemoryQuery>, Vec<Self::CycleWitness>)>;
+    ) -> (
+        usize,
+        Option<(Vec<MemoryQuery>, Vec<MemoryQuery>, Vec<Self::CycleWitness>)>,
+    );
 }
 
 pub enum SpongeExecutionMarker {

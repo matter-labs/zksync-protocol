@@ -1,13 +1,17 @@
-use super::*;
+use zkevm_opcode_defs::{
+    blake2,
+    ethereum_types::{Address, U256},
+};
+
+use crate::aux::{MemoryLocation, MemoryPage, Timestamp};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct MemoryQuery {
     pub timestamp: Timestamp,
     pub location: MemoryLocation,
-    pub rw_flag: bool,
-    pub is_pended: bool,
-    pub value_is_pointer: bool,
     pub value: U256,
+    pub rw_flag: bool,
+    pub value_is_pointer: bool,
 }
 
 impl MemoryQuery {
@@ -16,7 +20,6 @@ impl MemoryQuery {
             timestamp: Timestamp::empty(),
             location: MemoryLocation::empty(),
             rw_flag: false,
-            is_pended: false,
             value_is_pointer: false,
             value: U256::zero(),
         }
