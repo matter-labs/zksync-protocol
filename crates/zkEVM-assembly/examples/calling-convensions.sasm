@@ -1,0 +1,42 @@
+	.text
+	.file	"calling-convensions.ll"
+	.globl	caller1                         ; -- Begin function caller1
+	.type	caller1,@function
+caller1:                                ; @caller1
+; %bb.0:
+	call	@onearg
+	ret
+.Lfunc_end0:
+	.size	caller1, .Lfunc_end0-caller1
+                                        ; -- End function
+	.globl	caller2                         ; -- Begin function caller2
+	.type	caller2,@function
+caller2:                                ; @caller2
+; %bb.0:
+	call	@twoarg
+	ret
+.Lfunc_end1:
+	.size	caller2, .Lfunc_end1-caller2
+                                        ; -- End function
+	.globl	caller2.swp                     ; -- Begin function caller2.swp
+	.type	caller2.swp,@function
+caller2.swp:                            ; @caller2.swp
+; %bb.0:
+	add	r1, r0, r3
+	add	r2, r0, r1
+	add	r3, r0, r2
+	call	@twoarg
+	ret
+.Lfunc_end2:
+	.size	caller2.swp, .Lfunc_end2-caller2.swp
+                                        ; -- End function
+	.globl	caller3                         ; -- Begin function caller3
+	.type	caller3,@function
+caller3:                                ; @caller3
+; %bb.0:
+	call	@threearg
+	ret
+.Lfunc_end3:
+	.size	caller3, .Lfunc_end3-caller3
+                                        ; -- End function
+	.section	".note.GNU-stack","",@progbits

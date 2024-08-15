@@ -1,0 +1,19 @@
+	.text
+	.file	"diamond.ll"
+	.globl	diamond                         ; -- Begin function diamond
+	.type	diamond,@function
+diamond:                                ; @diamond
+; %bb.0:
+	sub	r1, r2, r0
+	jle	@.LBB0_2, @.LBB0_1
+.LBB0_1:                                ; %l1
+	add	r1, r3, r1
+	j	@.LBB0_3, @.LBB0_3
+	add	r2, r4, r1
+; %bb.3:                                ; %exit
+	ret
+.LBB0_2:                                ; %l2
+.Lfunc_end0:
+	.size	diamond, .Lfunc_end0-diamond
+                                        ; -- End function
+	.section	".note.GNU-stack","",@progbits

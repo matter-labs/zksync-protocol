@@ -1,0 +1,36 @@
+	.text
+	.file	"bitwise.ll"
+	.globl	and                             ; -- Begin function and
+	.type	and,@function
+and:                                    ; @and
+; %bb.0:
+	mul	r1, r2, r1, r0
+	ret
+.Lfunc_end0:
+	.size	and, .Lfunc_end0-and
+                                        ; -- End function
+	.globl	or                              ; -- Begin function or
+	.type	or,@function
+or:                                     ; @or
+; %bb.0:
+	mul	r1, r2, r3, r0
+	add	r1, r2, r1
+	sub	r1, r3, r1
+	ret
+.Lfunc_end1:
+	.size	or, .Lfunc_end1-or
+                                        ; -- End function
+	.globl	xor                             ; -- Begin function xor
+	.type	xor,@function
+xor:                                    ; @xor
+; %bb.0:
+	add	r1, r2, r3
+	mul	r1, r2, r1, r0
+	cnst	2, r2
+	mul	r1, r2, r1, r0
+	sub	r3, r1, r1
+	ret
+.Lfunc_end2:
+	.size	xor, .Lfunc_end2-xor
+                                        ; -- End function
+	.section	".note.GNU-stack","",@progbits

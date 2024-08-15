@@ -1,0 +1,93 @@
+	.text
+	.file	"brcc.ll"
+	.globl	ugt                             ; -- Begin function ugt
+	.type	ugt,@function
+ugt:                                    ; @ugt
+; %bb.0:
+	sub	r1, r2, r0
+	jle	@.LBB0_2, @.LBB0_1
+.LBB0_1:                                ; %l1
+	cnst	42, r1
+	ret
+.LBB0_2:                                ; %l2
+	cnst	72, r1
+	ret
+.Lfunc_end0:
+	.size	ugt, .Lfunc_end0-ugt
+                                        ; -- End function
+	.globl	uge                             ; -- Begin function uge
+	.type	uge,@function
+uge:                                    ; @uge
+; %bb.0:
+	sub	r1, r2, r0
+	jlt	@.LBB1_2, @.LBB1_1
+.LBB1_1:                                ; %l1
+	cnst	42, r1
+	ret
+.LBB1_2:                                ; %l2
+	cnst	72, r1
+	ret
+.Lfunc_end1:
+	.size	uge, .Lfunc_end1-uge
+                                        ; -- End function
+	.globl	ult                             ; -- Begin function ult
+	.type	ult,@function
+ult:                                    ; @ult
+; %bb.0:
+	sub	r1, r2, r0
+	jge	@.LBB2_2, @.LBB2_1
+.LBB2_1:                                ; %l1
+	cnst	42, r1
+	ret
+.LBB2_2:                                ; %l2
+	cnst	72, r1
+	ret
+.Lfunc_end2:
+	.size	ult, .Lfunc_end2-ult
+                                        ; -- End function
+	.globl	ule                             ; -- Begin function ule
+	.type	ule,@function
+ule:                                    ; @ule
+; %bb.0:
+	sub	r1, r2, r0
+	jgt	@.LBB3_2, @.LBB3_1
+.LBB3_1:                                ; %l1
+	cnst	42, r1
+	ret
+.LBB3_2:                                ; %l2
+	cnst	72, r1
+	ret
+.Lfunc_end3:
+	.size	ule, .Lfunc_end3-ule
+                                        ; -- End function
+	.globl	eq                              ; -- Begin function eq
+	.type	eq,@function
+eq:                                     ; @eq
+; %bb.0:
+	sub	r1, r2, r0
+	jne	@.LBB4_2, @.LBB4_1
+.LBB4_1:                                ; %l1
+	cnst	42, r1
+	ret
+.LBB4_2:                                ; %l2
+	cnst	72, r1
+	ret
+.Lfunc_end4:
+	.size	eq, .Lfunc_end4-eq
+                                        ; -- End function
+	.globl	cmpne                           ; -- Begin function cmpne
+	.type	cmpne,@function
+cmpne:                                  ; @cmpne
+; %bb.0:
+	sub	r1, r2, r0
+	je	@.LBB5_2, @.LBB5_1
+.LBB5_1:                                ; %l1
+	cnst	42, r1
+	ret
+.LBB5_2:                                ; %l2
+	cnst	72, r1
+	ret
+.Lfunc_end5:
+	.size	cmpne, .Lfunc_end5-cmpne
+                                        ; -- End function
+	.section	".note.GNU-stack","",@progbits

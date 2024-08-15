@@ -1,0 +1,59 @@
+	.text
+	.file	"arithmetic.ll"
+	.globl	addi256                         ; -- Begin function addi256
+	.type	addi256,@function
+addi256:                                ; @addi256
+; %bb.0:
+	add	r1, r2, r1
+	ret
+.Lfunc_end0:
+	.size	addi256, .Lfunc_end0-addi256
+                                        ; -- End function
+	.globl	subi256                         ; -- Begin function subi256
+	.type	subi256,@function
+subi256:                                ; @subi256
+; %bb.0:
+	sub	r1, r2, r1
+	ret
+.Lfunc_end1:
+	.size	subi256, .Lfunc_end1-subi256
+                                        ; -- End function
+	.globl	muli256                         ; -- Begin function muli256
+	.type	muli256,@function
+muli256:                                ; @muli256
+; %bb.0:
+	mul	r1, r2, r1, r0
+	ret
+.Lfunc_end2:
+	.size	muli256, .Lfunc_end2-muli256
+                                        ; -- End function
+	.globl	udivi256                        ; -- Begin function udivi256
+	.type	udivi256,@function
+udivi256:                               ; @udivi256
+; %bb.0:
+	div	r1, r2, r1, r0
+	ret
+.Lfunc_end3:
+	.size	udivi256, .Lfunc_end3-udivi256
+                                        ; -- End function
+	.globl	uremi256                        ; -- Begin function uremi256
+	.type	uremi256,@function
+uremi256:                               ; @uremi256
+; %bb.0:
+	div	r1, r2, r0, r1
+	ret
+.Lfunc_end4:
+	.size	uremi256, .Lfunc_end4-uremi256
+                                        ; -- End function
+	.globl	udivremi256                     ; -- Begin function udivremi256
+	.type	udivremi256,@function
+udivremi256:                            ; @udivremi256
+; %bb.0:
+	div	r1, r2, r0, r3
+	div	r1, r2, r1, r0
+	add	r1, r3, r1
+	ret
+.Lfunc_end5:
+	.size	udivremi256, .Lfunc_end5-udivremi256
+                                        ; -- End function
+	.section	".note.GNU-stack","",@progbits

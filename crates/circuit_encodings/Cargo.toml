@@ -1,0 +1,26 @@
+[package]
+name = "circuit_encodings"
+version = "0.150.2"
+edition = "2021"
+authors = ["The Matter Labs Team <hello@matterlabs.dev>"]
+homepage = "https://zksync.io/"
+repository = "https://github.com/matter-labs/era-zkevm_test_harness/"
+license = "MIT OR Apache-2.0"
+keywords = ["blockchain", "zksync"]
+categories = ["cryptography"]
+description = "ZKsync Era circuits encodings"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+zkevm_circuits = { version = "=0.150.3", path = "../zkevm_circuits" }
+zk_evm = { version = "=0.150.0", path = "../zk_evm" }
+
+derivative = "2.2"
+serde = {version = "1", features = ["derive"]}
+
+
+[features]
+default = []
+log_tracing = ["zkevm_circuits/log_tracing"]
+verbose_circuits = ["zkevm_circuits/verbose_circuits"]

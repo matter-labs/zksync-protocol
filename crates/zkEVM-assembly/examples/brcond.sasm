@@ -1,0 +1,18 @@
+	.text
+	.file	"brcond.ll"
+	.globl	brcond                          ; -- Begin function brcond
+	.type	brcond,@function
+brcond:                                 ; @brcond
+; %bb.0:
+	sub	r1, r0, r0
+	je	@.LBB0_2, @.LBB0_1
+.LBB0_1:                                ; %l1
+	cnst	42, r1
+	ret
+.LBB0_2:                                ; %l2
+	cnst	43, r1
+	ret
+.Lfunc_end0:
+	.size	brcond, .Lfunc_end0-brcond
+                                        ; -- End function
+	.section	".note.GNU-stack","",@progbits
