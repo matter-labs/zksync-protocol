@@ -41,6 +41,10 @@ pub(crate) fn apply_uma<
         zkevm_opcode_defs::Opcode::UMA(UMAOpcode::AuxHeapWrite);
     const UMA_FAT_PTR_READ_OPCODE: zkevm_opcode_defs::Opcode =
         zkevm_opcode_defs::Opcode::UMA(UMAOpcode::FatPointerRead);
+    const UMA_STATIC_MEMORY_READ_OPCODE: zkevm_opcode_defs::Opcode =
+        zkevm_opcode_defs::Opcode::UMA(UMAOpcode::StaticMemoryRead);
+    const UMA_STATIC_MEMORY_WRITE_OPCODE: zkevm_opcode_defs::Opcode =
+        zkevm_opcode_defs::Opcode::UMA(UMAOpcode::StaticMemoryWrite);
 
     let should_apply = common_opcode_state
         .decoded_opcode
@@ -67,6 +71,14 @@ pub(crate) fn apply_uma<
         .decoded_opcode
         .properties_bits
         .boolean_for_variant(UMA_FAT_PTR_READ_OPCODE);
+    let is_uma_static_memory_read = common_opcode_state
+        .decoded_opcode
+        .properties_bits
+        .boolean_for_variant(UMA_STATIC_MEMORY_READ_OPCODE);
+    let is_uma_static_memory_write = common_opcode_state
+        .decoded_opcode
+        .properties_bits
+        .boolean_for_variant(UMA_STATIC_MEMORY_WRITE_OPCODE);
 
     let increment_offset = common_opcode_state
         .decoded_opcode
@@ -75,6 +87,8 @@ pub(crate) fn apply_uma<
 
     let access_heap = Boolean::multi_or(cs, &[is_uma_heap_read, is_uma_heap_write]);
     let access_aux_heap = Boolean::multi_or(cs, &[is_uma_aux_heap_read, is_uma_aux_heap_write]);
+    let access_static_page =
+        Boolean::multi_or(cs, &[is_uma_static_memory_read, is_uma_static_memory_write]);
 
     if crate::config::CIRCUIT_VERSOBE {
         if should_apply.witness_hook(&*cs)().unwrap_or(false) {
@@ -93,6 +107,12 @@ pub(crate) fn apply_uma<
             }
             if is_uma_fat_ptr_read.witness_hook(&*cs)().unwrap_or(false) {
                 println!("Fat ptr read");
+            }
+            if is_uma_static_memory_read.witness_hook(&*cs)().unwrap_or(false) {
+                println!("Static memory read");
+            }
+            if is_uma_static_memory_write.witness_hook(&*cs)().unwrap_or(false) {
+                println!("Static memory write");
             }
         }
     }
@@ -215,9 +235,21 @@ pub(crate) fn apply_uma<
 
     let is_read_access = Boolean::multi_or(
         cs,
-        &[is_uma_heap_read, is_uma_aux_heap_read, is_uma_fat_ptr_read],
+        &[
+            is_uma_heap_read,
+            is_uma_aux_heap_read,
+            is_uma_fat_ptr_read,
+            is_uma_static_memory_read,
+        ],
     );
-    let is_write_access = Boolean::multi_or(cs, &[is_uma_heap_write, is_uma_aux_heap_write]);
+    let is_write_access = Boolean::multi_or(
+        cs,
+        &[
+            is_uma_heap_write,
+            is_uma_aux_heap_write,
+            is_uma_static_memory_write,
+        ],
+    );
 
     // NB: Etherium virtual machine is big endian;
     // we need to determine the memory cells' indexes which will be accessed
@@ -247,7 +279,11 @@ pub(crate) fn apply_uma<
     let current_memory_queue_state = draft_vm_state.memory_queue_state;
     let current_memory_queue_length = draft_vm_state.memory_queue_length;
 
+    let static_memory_page_index = UInt32::allocated_constant(cs, STATIC_MEMORY_PAGE);
+
     let mut mem_page = quasi_fat_ptr.page_candidate;
+    mem_page =
+        UInt32::conditionally_select(cs, access_static_page, &static_memory_page_index, &mem_page);
     mem_page =
         UInt32::conditionally_select(cs, access_heap, &opcode_carry_parts.heap_page, &mem_page);
     mem_page = UInt32::conditionally_select(
@@ -1029,34 +1065,51 @@ impl<F: SmallField> QuasiFatPtrInUMA<F> {
             Boolean::multi_and(cs, &[offset_is_beyond_the_slice, is_fat_ptr]);
 
         // 0 of it's heap/aux heap, otherwise use what we have
+        let is_heap_offset = is_fat_ptr.negated(cs);
         let formal_start = start.mask(cs, is_fat_ptr);
         // by prevalidating fat pointer we know that there is no overflow here,
         // so we ignore the information
         let (absolute_address, _of) = formal_start.overflowing_add(cs, offset);
 
         let u32_constant_32 = UInt32::allocated_constant(cs, 32);
-
-        let (incremented_offset, is_non_addressable) = offset.overflowing_add(cs, u32_constant_32);
-
         // check that we agree in logic with out-of-circuit comparisons
         debug_assert_eq!(
             zkevm_opcode_defs::uma::MAX_OFFSET_TO_DEREF_LOW_U32 + 32u32,
             u32::MAX
         );
+
+        // check that offset <= MAX_OFFSET_TO_DEREF. For that we add 32 to offset and can either trigger overflow, or compare the result
+        // with u32::MAX
+
+        let (incremented_offset, offset_overflow) = offset.overflowing_add(cs, u32_constant_32);
         let max_offset = UInt32::allocated_constant(cs, u32::MAX);
         let is_non_addressable_extra = UInt32::equals(cs, &incremented_offset, &max_offset);
 
         let is_non_addressable =
-            Boolean::multi_or(cs, &[is_non_addressable, is_non_addressable_extra]);
+            Boolean::multi_or(cs, &[offset_overflow, is_non_addressable_extra]);
+        let is_non_addressable_heap_offset =
+            Boolean::multi_and(cs, &[is_non_addressable, is_heap_offset]);
 
-        let should_set_panic = Boolean::multi_or(cs, &[already_panicked, is_non_addressable]);
+        // but on overflow we would still have to panic even if it's a pointer operation
+        // NOTE: it's an offset as an absolute value, so if fat pointer's offset is not in slice as checked above is one statment,
+        // and offset overflow is another
+
+        let should_set_panic = Boolean::multi_or(
+            cs,
+            &[
+                already_panicked,
+                is_non_addressable_heap_offset,
+                offset_overflow,
+            ],
+        );
 
         let skip_memory_access = Boolean::multi_or(
             cs,
             &[
                 already_panicked,
                 skip_if_legitimate_fat_ptr,
-                is_non_addressable,
+                is_non_addressable_heap_offset,
+                offset_overflow,
             ],
         );
 
@@ -1071,12 +1124,16 @@ impl<F: SmallField> QuasiFatPtrInUMA<F> {
         let bytes_to_cleanup_out_of_bounds =
             unsafe { UInt8::from_variable_unchecked(bytes_out_of_bound.get_variable()) };
 
+        // penalize for too high offset on heap - it happens exactly if offset overflows,
+        // or incremented is == u32::MAX, in case we access heap
+        let heap_deref_out_of_bounds = is_non_addressable_heap_offset;
+
         let new = Self {
             absolute_address,
             page_candidate: page,
             incremented_offset,
-            heap_deref_out_of_bounds: is_non_addressable,
-            skip_memory_access: skip_memory_access,
+            heap_deref_out_of_bounds,
+            skip_memory_access,
             should_set_panic,
             bytes_to_cleanup_out_of_bounds,
         };

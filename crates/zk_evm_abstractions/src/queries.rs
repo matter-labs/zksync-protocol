@@ -1,6 +1,7 @@
 use zkevm_opcode_defs::{
     blake2,
     ethereum_types::{Address, U256},
+    VersionedHashHeader, VersionedHashNormalizedPreimage,
 };
 
 use crate::aux::{MemoryLocation, MemoryPage, Timestamp};
@@ -69,7 +70,8 @@ impl LogQuery {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct DecommittmentQuery {
-    pub hash: U256,
+    pub header: VersionedHashHeader,
+    pub normalized_preimage: VersionedHashNormalizedPreimage,
     pub timestamp: Timestamp,
     pub memory_page: MemoryPage,
     pub decommitted_length: u16,

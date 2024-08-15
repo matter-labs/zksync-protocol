@@ -1,9 +1,13 @@
-use zkevm_opcode_defs::{ethereum_types::U256, FatPointer};
+use zkevm_opcode_defs::{
+    ethereum_types::{Address, U256},
+    FatPointer,
+};
 
 use crate::{
-    aux::{MemoryPage, Timestamp},
+    aux::{MemoryPage, PubdataCost, Timestamp},
     precompiles::{
-        ecrecover::ECRecoverPrecompile, keccak256::Keccak256Precompile, sha256::Sha256Precompile,
+        ecrecover::ECRecoverPrecompile, keccak256::Keccak256Precompile,
+        secp256r1_verify::Secp256r1VerifyPrecompile, sha256::Sha256Precompile,
     },
     queries::{DecommittmentQuery, LogQuery, MemoryQuery},
 };
@@ -19,38 +23,32 @@ pub enum MemoryType {
     Heap,
     AuxHeap,
     FatPointer,
+    StaticMemory,
 }
 
 impl MemoryType {
     pub const fn page_size_limit(&self) -> usize {
         match self {
             MemoryType::Stack | MemoryType::Code => MEMORY_CELLS_STACK_OR_CODE_PAGE,
-            MemoryType::Heap | MemoryType::AuxHeap | MemoryType::FatPointer => u32::MAX as usize,
+            MemoryType::Heap
+            | MemoryType::AuxHeap
+            | MemoryType::FatPointer
+            | MemoryType::StaticMemory => u32::MAX as usize,
         }
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct RefundedAmounts {
-    pub pubdata_bytes: u32,
-    pub ergs: u32,
+pub enum StorageAccessRefund {
+    Cold,
+    Warm { ergs: u32 },
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum RefundType {
-    None,
-    RepeatedRead(RefundedAmounts),
-    RepeatedWrite(RefundedAmounts),
-    RevertToOriginalInFrame(RefundedAmounts),
-}
-
-impl RefundType {
-    pub const fn pubdata_refund(&self) -> u32 {
+impl StorageAccessRefund {
+    pub const fn refund(&self) -> u32 {
         match self {
-            RefundType::None => 0,
-            RefundType::RepeatedRead(amounts) => amounts.pubdata_bytes,
-            RefundType::RepeatedWrite(amounts) => amounts.pubdata_bytes,
-            RefundType::RevertToOriginalInFrame(amounts) => amounts.pubdata_bytes,
+            StorageAccessRefund::Cold => 0,
+            StorageAccessRefund::Warm { ergs } => *ergs,
         }
     }
 }
@@ -60,6 +58,7 @@ pub enum PrecompileCyclesWitness {
     Sha256(Vec<<Sha256Precompile<true> as Precompile>::CycleWitness>),
     Keccak256(Vec<<Keccak256Precompile<true> as Precompile>::CycleWitness>),
     ECRecover(Vec<<ECRecoverPrecompile<true> as Precompile>::CycleWitness>),
+    Secp256r1Verify(Vec<<Secp256r1VerifyPrecompile<true> as Precompile>::CycleWitness>),
 }
 
 // ALL traits here are for execution and NOT for witness generation. They can depend on one another, but should
@@ -72,24 +71,27 @@ pub enum PrecompileCyclesWitness {
 pub trait Storage: std::fmt::Debug {
     // We can evaluate a query cost (or more precisely - get expected refunds)
     // before actually executing query
-    fn estimate_refunds_for_write(
+    fn get_access_refund(
         &mut self, // to avoid any hacks inside, like prefetch
         monotonic_cycle_counter: u32,
         partial_query: &LogQuery,
-    ) -> RefundType;
+    ) -> StorageAccessRefund;
 
     // Perform a storage read/write access by taking an partially filled query
     // and returning filled query and cold/warm marker for pricing purposes
-    fn execute_partial_query(&mut self, monotonic_cycle_counter: u32, query: LogQuery) -> LogQuery;
+    fn execute_partial_query(
+        &mut self,
+        monotonic_cycle_counter: u32,
+        query: LogQuery,
+    ) -> (LogQuery, PubdataCost);
     // Indicate a start of execution frame for rollback purposes
     fn start_frame(&mut self, timestamp: Timestamp);
     // Indicate that execution frame went out from the scope, so we can
     // log the history and either rollback immediately or keep records to rollback later
     fn finish_frame(&mut self, timestamp: Timestamp, panicked: bool);
 
-    // N.B. We may need to extend frame markers for e.g. special bootloader execution frame
-    // such that we can flush all the changes of particular transaction since bootloader doesn't
-    // rollback further (at least now)
+    // And as we support transient store we need to inform that new tx has started
+    fn start_new_tx(&mut self, timestamp: Timestamp);
 }
 
 pub trait Memory: std::fmt::Debug {
@@ -120,6 +122,7 @@ pub trait Memory: std::fmt::Debug {
     fn finish_global_frame(
         &mut self,
         _page_page: MemoryPage,
+        _last_callstack_this: Address,
         _returndata_fat_pointer: FatPointer,
         _timestamp: Timestamp,
     ) {
@@ -177,12 +180,18 @@ pub trait DecommittmentProcessor: std::fmt::Debug {
     // already filled page if we decommit the same hash.
     // We also optinally return a set of memory writes that such decommitment has made (if it's a new page)
     // for witness generation at the end of the block
+    fn prepare_to_decommit(
+        &mut self,
+        monotonic_cycle_counter: u32,
+        partial_query: DecommittmentQuery,
+    ) -> anyhow::Result<DecommittmentQuery>;
+
     fn decommit_into_memory<M: Memory>(
         &mut self,
         monotonic_cycle_counter: u32,
         partial_query: DecommittmentQuery,
         memory: &mut M,
-    ) -> anyhow::Result<(DecommittmentQuery, Option<Vec<U256>>)>;
+    ) -> anyhow::Result<Option<Vec<U256>>>;
 }
 
 /// Abstraction over precompile implementation. Precompile is usually a closure-forming FSM, so it must output
@@ -204,13 +213,4 @@ pub trait Precompile: std::fmt::Debug {
         usize,
         Option<(Vec<MemoryQuery>, Vec<MemoryQuery>, Vec<Self::CycleWitness>)>,
     );
-}
-
-pub enum SpongeExecutionMarker {
-    MemoryQuery,
-    DecommittmentQuery,
-    StorageLogReadOnly,
-    StorageLogWrite,
-    CallstackPush,
-    CallstackPop,
 }

@@ -44,6 +44,9 @@ impl OpcodeProps for JumpOpcode {
             ISAVersion(1) => {
                 full_variants_product(0..=Self::max_variant_idx_for_version(version), 0, 1)
             }
+            ISAVersion(2) => {
+                full_variants_product(0..=Self::max_variant_idx_for_version(version), 0, 1)
+            }
             _ => unimplemented!(),
         }
     }
@@ -54,7 +57,7 @@ impl OpcodeProps for JumpOpcode {
         vec![Operand::Full(ImmMemHandlerFlags::UseRegOnly)]
     }
     fn output_operands(&self, _version: ISAVersion) -> Vec<Operand> {
-        vec![]
+        vec![Operand::RegOnly]
     }
     fn requires_kernel_mode(&self) -> bool {
         false

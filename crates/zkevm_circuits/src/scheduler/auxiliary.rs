@@ -1,3 +1,5 @@
+use std::iter::once;
+
 use crate::fsm_input_output::circuit_inputs::INPUT_OUTPUT_COMMITMENT_LENGTH;
 
 use crate::fsm_input_output::commit_variable_length_encodable_item;
@@ -14,7 +16,7 @@ use boojum::gadgets::traits::round_function::CircuitRoundFunction;
 use boojum::gadgets::{boolean::Boolean, num::Num, queue::*, traits::selectable::Selectable};
 
 use crate::base_structures::precompile_input_outputs::*;
-use crate::eip_4844::input::EIP4844OutputData;
+
 use crate::log_sorter::input::*;
 use crate::storage_application::input::*;
 use boojum::gadgets::u8::UInt8;
@@ -41,11 +43,14 @@ pub enum BaseLayerCircuitType {
     EventsRevertsFilter = 11,
     L1MessagesRevertsFilter = 12,
     L1MessagesHasher = 13,
+    TransientStorageChecker = 14,
+    Secp256r1Verify = 15,
+    EIP4844Repack = 255,
 }
 
 impl BaseLayerCircuitType {
     pub fn from_numeric_value(value: u8) -> Self {
-        match value {
+        let t: Self = match value {
             a if a == Self::VM as u8 => Self::VM,
             a if a == Self::DecommitmentsFilter as u8 => Self::DecommitmentsFilter,
             a if a == Self::Decommiter as u8 => Self::Decommiter,
@@ -59,10 +64,20 @@ impl BaseLayerCircuitType {
             a if a == Self::EventsRevertsFilter as u8 => Self::EventsRevertsFilter,
             a if a == Self::L1MessagesRevertsFilter as u8 => Self::L1MessagesRevertsFilter,
             a if a == Self::L1MessagesHasher as u8 => Self::L1MessagesHasher,
+            a if a == Self::TransientStorageChecker as u8 => Self::TransientStorageChecker,
+            a if a == Self::Secp256r1Verify as u8 => Self::Secp256r1Verify,
+            a if a == Self::EIP4844Repack as u8 => Self::EIP4844Repack,
             _ => {
-                panic!("unknown circuit type {}", value)
+                panic!("unknown circuit type {}", value);
             }
-        }
+        };
+
+        t
+    }
+
+    pub fn as_iter_u8() -> impl Iterator<Item = u8> {
+        (BaseLayerCircuitType::VM as u8..=BaseLayerCircuitType::Secp256r1Verify as u8)
+            .chain(once(BaseLayerCircuitType::EIP4844Repack as u8))
     }
 }
 
@@ -163,6 +178,38 @@ pub(crate) fn compute_filter_circuit_commitment<
     let output_data = EventsDeduplicatorOutputData {
         final_queue_state: queue_state_after.clone(),
     };
+    let output_data_commitment =
+        commit_variable_length_encodable_item(cs, &output_data, round_function);
+
+    (input_data_commitment, output_data_commitment)
+}
+
+#[track_caller]
+pub(crate) fn compute_transient_storage_checker_circuit_commitment<
+    F: SmallField,
+    CS: ConstraintSystem<F>,
+    R: CircuitRoundFunction<F, 8, 12, 4> + AlgebraicRoundFunction<F, 8, 12, 4>,
+>(
+    cs: &mut CS,
+    queue_state_before: &QueueState<F, QUEUE_STATE_WIDTH>,
+    intermediate_queue_state: &QueueTailState<F, QUEUE_STATE_WIDTH>,
+    round_function: &R,
+) -> (
+    [Num<F>; CLOSED_FORM_COMMITTMENT_LENGTH],
+    [Num<F>; CLOSED_FORM_COMMITTMENT_LENGTH],
+) {
+    use crate::transient_storage_validity_by_grand_product::input::TransientStorageDeduplicatorInputData;
+
+    let mut full_state = QueueState::empty(cs);
+    full_state.tail = *intermediate_queue_state;
+    let transient_input_data = TransientStorageDeduplicatorInputData {
+        unsorted_log_queue_state: queue_state_before.clone(),
+        intermediate_sorted_queue_state: full_state,
+    };
+    let input_data_commitment =
+        commit_variable_length_encodable_item(cs, &transient_input_data, round_function);
+
+    let output_data = ();
     let output_data_commitment =
         commit_variable_length_encodable_item(cs, &output_data, round_function);
 

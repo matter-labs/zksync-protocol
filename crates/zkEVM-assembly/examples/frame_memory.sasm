@@ -1,0 +1,49 @@
+	.text
+	.file	"frame_memory.ll"
+	.globl	store_to_frame                  ; -- Begin function store_to_frame
+	.type	store_to_frame,@function
+store_to_frame:                         ; @store_to_frame
+; %bb.0:
+	mst	r1, 0(sp)
+	ret
+.Lfunc_end0:
+	.size	store_to_frame, .Lfunc_end0-store_to_frame
+                                        ; -- End function
+	.globl	store_to_frame2                 ; -- Begin function store_to_frame2
+	.type	store_to_frame2,@function
+store_to_frame2:                        ; @store_to_frame2
+; %bb.0:
+	mst	r1, 0(sp)
+	mst	r1, 32(sp)
+	ret
+.Lfunc_end1:
+	.size	store_to_frame2, .Lfunc_end1-store_to_frame2
+                                        ; -- End function
+	.globl	load_from_frame                 ; -- Begin function load_from_frame
+	.type	load_from_frame,@function
+load_from_frame:                        ; @load_from_frame
+; %bb.0:
+	mst	r1, 0(sp)
+	call	@foo
+	mld	0(sp), r1
+	ret
+.Lfunc_end2:
+	.size	load_from_frame, .Lfunc_end2-load_from_frame
+                                        ; -- End function
+	.globl	spill                           ; -- Begin function spill
+	.type	spill,@function
+spill:                                  ; @spill
+; %bb.0:
+	mst	r2, 0(sp)                       ; 32-byte Folded Spill
+	mst	r1, 32(sp)                      ; 32-byte Folded Spill
+	call	@foo
+	mld	0(sp), r2                       ; 32-byte Folded Reload
+	add	r2, r1, r2
+	mld	32(sp), r3                      ; 32-byte Folded Reload
+	add	r3, r1, r1
+	add	r1, r2, r1
+	ret
+.Lfunc_end3:
+	.size	spill, .Lfunc_end3-spill
+                                        ; -- End function
+	.section	".note.GNU-stack","",@progbits

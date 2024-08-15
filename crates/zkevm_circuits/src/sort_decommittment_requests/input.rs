@@ -8,19 +8,24 @@ use boojum::gadgets::traits::auxiliary::PrettyComparison;
 use boojum::gadgets::u32::UInt32;
 use boojum::gadgets::{
     boolean::Boolean,
-    queue::*,
     traits::{
-        allocatable::*, encodable::CircuitVarLengthEncodable, selectable::Selectable,
-        witnessable::WitnessHookable,
+        allocatable::*, encodable::CircuitVarLengthEncodable, encodable::WitnessVarLengthEncodable,
+        selectable::Selectable, witnessable::WitnessHookable,
     },
 };
 use boojum::serde_utils::BigArraySerde;
 use cs_derive::*;
-use derivative::*;
 
 pub const PACKED_KEY_LENGTH: usize = 8 + 1;
 
-#[derive(Derivative, CSAllocatable, CSSelectable, CSVarLengthEncodable, WitnessHookable)]
+#[derive(
+    Derivative,
+    CSAllocatable,
+    CSSelectable,
+    CSVarLengthEncodable,
+    WitnessHookable,
+    WitVarLengthEncodable,
+)]
 #[derivative(Clone, Copy, Debug)]
 #[DerivePrettyComparison("true")]
 pub struct CodeDecommittmentsDeduplicatorFSMInputOutput<F: SmallField> {
@@ -56,7 +61,14 @@ impl<F: SmallField> CSPlaceholder<F> for CodeDecommittmentsDeduplicatorFSMInputO
     }
 }
 
-#[derive(Derivative, CSAllocatable, CSSelectable, CSVarLengthEncodable, WitnessHookable)]
+#[derive(
+    Derivative,
+    CSAllocatable,
+    CSSelectable,
+    CSVarLengthEncodable,
+    WitnessHookable,
+    WitVarLengthEncodable,
+)]
 #[derivative(Clone, Copy, Debug)]
 #[DerivePrettyComparison("true")]
 pub struct CodeDecommittmentsDeduplicatorInputData<F: SmallField> {
@@ -75,7 +87,14 @@ impl<F: SmallField> CSPlaceholder<F> for CodeDecommittmentsDeduplicatorInputData
     }
 }
 
-#[derive(Derivative, CSAllocatable, CSSelectable, CSVarLengthEncodable, WitnessHookable)]
+#[derive(
+    Derivative,
+    CSAllocatable,
+    CSSelectable,
+    CSVarLengthEncodable,
+    WitnessHookable,
+    WitVarLengthEncodable,
+)]
 #[derivative(Clone, Copy, Debug)]
 #[DerivePrettyComparison("true")]
 pub struct CodeDecommittmentsDeduplicatorOutputData<F: SmallField> {

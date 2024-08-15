@@ -1,9 +1,10 @@
 use super::*;
 
 use crate::opcodes::parsing::*;
+use crate::zkevm_opcode_defs::{ImmMemHandlerFlags, NopOpcode, Operand, RegOrImmFlags};
 use tracing::*;
+use zk_evm_abstractions::zkevm_opcode_defs::VersionedHashLen32;
 use zk_evm_abstractions::{aux::*, vm::MemoryType};
-use zkevm_opcode_defs::{ImmMemHandlerFlags, NopOpcode, Operand, RegOrImmFlags};
 
 pub struct PreState<const N: usize = 8, E: VmEncodingMode<N> = EncodingModeProduction> {
     pub src0: PrimitiveValue,
@@ -15,6 +16,49 @@ pub struct PreState<const N: usize = 8, E: VmEncodingMode<N> = EncodingModeProdu
 
 pub const OPCODES_PER_WORD_LOG_2: usize = 2;
 pub const OPCODES_PER_WORD: usize = 1 << OPCODES_PER_WORD_LOG_2;
+
+fn read_and_cache_opcode<
+    const N: usize,
+    E: VmEncodingMode<N>,
+    M: zk_evm_abstractions::vm::Memory,
+    WT: crate::witness_trace::VmWitnessTracer<N, E>,
+>(
+    local_state: &VmLocalState<N, E>,
+    memory: &M,
+    witness_tracer: &mut WT,
+    super_pc: <E as VmEncodingMode<N>>::PcOrImm,
+    delayed_changes: &mut DelayedLocalStateChanges<N, E>,
+) -> U256 {
+    // we need to read the code word and select a proper subword
+    use zk_evm_abstractions::auxiliary::*;
+    use zk_evm_abstractions::vm::*;
+
+    let code_page = local_state.callstack.get_current_stack().code_page;
+    let location = MemoryLocation {
+        memory_type: MemoryType::Code,
+        page: code_page,
+        index: MemoryIndex(super_pc.as_u64() as u32),
+    };
+    let key = MemoryKey {
+        timestamp: local_state.timestamp_for_code_or_src_read(),
+        location,
+    };
+
+    assert!(delayed_changes.new_previous_code_memory_page.is_some());
+
+    // code read is never pending
+    let code_query = read_code(
+        memory,
+        witness_tracer,
+        local_state.monotonic_cycle_counter,
+        key,
+    );
+    let u256_word = code_query.value;
+    delayed_changes.new_previous_code_word = Some(u256_word);
+    delayed_changes.new_previous_super_pc = Some(super_pc);
+
+    u256_word
+}
 
 pub fn read_and_decode<
     const N: usize,
@@ -54,50 +98,35 @@ pub fn read_and_decode<
         != local_state.previous_code_memory_page;
     let (super_pc, sub_pc) = E::split_pc(pc);
 
+    let refresh_opcode_cache = match (code_pages_are_different, previous_super_pc == super_pc) {
+        (true, _) | (false, false) => true,
+        _ => false,
+    };
+
     // if we do not skip cycle then we read memory for a new opcode
     let opcode_encoding = if execution_has_ended == false && pending_exception == false {
-        let raw_opcode_u64 = match (code_pages_are_different, previous_super_pc == super_pc) {
-            (true, _) | (false, false) => {
-                // we need to read the code word and select a proper subword
-                let code_page = local_state.callstack.get_current_stack().code_page;
-                let location = MemoryLocation {
-                    memory_type: MemoryType::Code,
-                    page: code_page,
-                    index: MemoryIndex(super_pc.as_u64() as u32),
-                };
-                let key = MemoryKey {
-                    timestamp: local_state.timestamp_for_code_or_src_read(),
-                    location,
-                };
+        let raw_opcode_u64 = if refresh_opcode_cache {
+            // we need to read the code word and select a proper subword
+            let u256_word = read_and_cache_opcode(
+                local_state,
+                memory,
+                witness_tracer,
+                super_pc,
+                &mut delayed_changes,
+            );
+            // our memory is a set of words in storage, and those are only re-interpreted
+            // as bytes in UMA. But natural storage for code is still bytes.
 
-                delayed_changes.new_previous_code_memory_page = Some(code_page);
-
-                // code read is never pending
-                let code_query = read_code(
-                    memory,
-                    witness_tracer,
-                    local_state.monotonic_cycle_counter,
-                    key,
-                );
-                let u256_word = code_query.value;
-                delayed_changes.new_previous_code_word = Some(u256_word);
-                delayed_changes.new_previous_super_pc = Some(super_pc);
-
-                // our memory is a set of words in storage, and those are only re-interpreted
-                // as bytes in UMA. But natural storage for code is still bytes.
-
-                // to ensure consistency with the future if we allow deployment of raw bytecode
-                // then for our BE machine we should consider that "first" bytes, that will be
-                // our integer's "highest" bytes, so to follow bytearray-like enumeration we
-                // have to use inverse order here
-                let u256_word = u256_word;
-                E::integer_representaiton_from_u256(u256_word, sub_pc)
-            }
-            (false, true) => {
-                // use a saved one
-                let u256_word = local_state.previous_code_word;
-                E::integer_representaiton_from_u256(u256_word, sub_pc)
-            }
+            // to ensure consistency with the future if we allow deployment of raw bytecode
+            // then for our BE machine we should consider that "first" bytes, that will be
+            // our integer's "highest" bytes, so to follow bytearray-like enumeration we
+            // have to use inverse order here
+            let u256_word = u256_word;
+            E::integer_representaiton_from_u256(u256_word, sub_pc)
+        } else {
+            // use a saved one
+            let u256_word = local_state.previous_code_word;
+            E::integer_representaiton_from_u256(u256_word, sub_pc)
         };
 
         raw_opcode_u64
@@ -105,12 +134,19 @@ pub fn read_and_decode<
         // there are no cases that set pending exception and
         // simultaneously finish the execution
         assert!(execution_has_ended == false);
+        // if we have an exception then we should still read the word for cache, even if we will have PC later on updated
+        if refresh_opcode_cache {
+            let _ = read_and_cache_opcode(
+                local_state,
+                memory,
+                witness_tracer,
+                super_pc,
+                &mut delayed_changes,
+            );
+        }
 
         // so we can just remove the marker as soon as we are no longer pending
         delayed_changes.new_pending_exception = Some(false);
-
-        // anyway update super PC
-        delayed_changes.new_previous_super_pc = Some(super_pc);
 
         E::exception_revert_encoding()
     } else {
@@ -191,7 +227,7 @@ pub fn read_and_decode<
 
     // resolve condition once
     let resolved_condition = {
-        use zkevm_opcode_defs::Condition;
+        use crate::zkevm_opcode_defs::Condition;
         match partially_decoded.condition {
             Condition::Always => true,
             Condition::Gt => local_state.flags.greater_than_flag,
@@ -258,6 +294,29 @@ impl<
         &mut self,
         tracer: &mut DT,
     ) -> anyhow::Result<()> {
+        // for sanity - check that default AA code hash and EVM simulator code hash are well-formed
+        let mut buffer = [0u8; 32];
+        self.block_properties
+            .default_aa_code_hash
+            .to_big_endian(&mut buffer);
+        assert!(
+            zkevm_opcode_defs::definitions::versioned_hash::ContractCodeSha256Format::is_valid(
+                &buffer
+            ),
+            "default AA bytecode hash is malfored: {:?}",
+            &buffer,
+        );
+        self.block_properties
+            .evm_simulator_code_hash
+            .to_big_endian(&mut buffer);
+        assert!(
+            zkevm_opcode_defs::definitions::versioned_hash::ContractCodeSha256Format::is_valid(
+                &buffer
+            ),
+            "EVM simulator bytecode hash is malfored: {:?}",
+            &buffer,
+        );
+
         let (after_masking_decoded, delayed_changes, skip_cycle) = read_and_decode(
             &self.local_state,
             &mut self.memory,

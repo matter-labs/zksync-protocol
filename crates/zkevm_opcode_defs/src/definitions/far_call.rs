@@ -1,5 +1,5 @@
 use crate::circuit_prices::{
-    CODE_DECOMMITMENT_SORTER_COST_IN_ERGS, RAM_PERMUTATION_COST_IN_ERGS,
+    CODE_DECOMMITMENT_SORTER_COST_IN_ERGS, LOG_DEMUXER_COST_IN_ERGS, RAM_PERMUTATION_COST_IN_ERGS,
     STORAGE_SORTER_COST_IN_ERGS, VM_CYCLE_COST_IN_ERGS,
 };
 
@@ -60,6 +60,7 @@ impl OpcodeVariantProps for FarCallOpcode {
             + CALL_LIKE_ERGS_COST
             + STORAGE_SORTER_COST_IN_ERGS
             + CODE_DECOMMITMENT_SORTER_COST_IN_ERGS
+            + LOG_DEMUXER_COST_IN_ERGS
     }
 }
 
@@ -73,6 +74,9 @@ impl OpcodeProps for FarCallOpcode {
                 full_variants_product(0..=Self::max_variant_idx_for_version(version), 2, 1)
             }
             ISAVersion(1) => {
+                full_variants_product(0..=Self::max_variant_idx_for_version(version), 2, 1)
+            }
+            ISAVersion(2) => {
                 full_variants_product(0..=Self::max_variant_idx_for_version(version), 2, 1)
             }
             _ => unimplemented!(),

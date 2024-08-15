@@ -9,9 +9,6 @@ use self::input::*;
 pub mod auxiliary;
 pub use auxiliary as aux;
 
-use boojum::cs::implementations::proof::Proof;
-
-use boojum::cs::implementations::verifier::VerificationKey;
 use boojum::cs::traits::cs::ConstraintSystem;
 use boojum::field::SmallField;
 
@@ -33,8 +30,12 @@ use crate::base_structures::memory_query::MemoryQuery;
 use crate::base_structures::memory_query::MemoryQueue;
 
 use crate::base_structures::recursion_query::*;
+use crate::demux_log_queue::DemuxOutput;
 use crate::fsm_input_output::circuit_inputs::INPUT_OUTPUT_COMMITMENT_LENGTH;
 use crate::linear_hasher::input::LinearHasherOutputData;
+use crate::main_vm::opcodes::normalize_bytecode_hash_for_decommit;
+use crate::recursion::recursion_tip::input::RecursionTipInput;
+use crate::recursion::recursion_tip::input::RECURSION_TIP_ARITY;
 use crate::recursion::VK_COMMITMENT_LENGTH;
 use crate::scheduler::auxiliary::NUM_CIRCUIT_TYPES_TO_SCHEDULE;
 use crate::utils::is_equal_queue_state;
@@ -42,6 +43,7 @@ use boojum::gadgets::num::Num;
 use boojum::gadgets::recursion::recursive_tree_hasher::RecursiveTreeHasher;
 
 use crate::base_structures::precompile_input_outputs::*;
+use crate::recursion::NUM_BASE_LAYER_CIRCUITS;
 use boojum::algebraic_props::round_function::AlgebraicRoundFunction;
 use boojum::cs::implementations::prover::ProofConfig;
 use boojum::cs::implementations::verifier::VerificationKeyCircuitGeometry;
@@ -56,6 +58,7 @@ use boojum::gadgets::traits::round_function::CircuitRoundFunction;
 use std::collections::HashMap;
 
 use crate::base_structures::vm_state::*;
+use crate::boojum::cs::implementations::verifier::VerificationKey;
 use crate::code_unpacker_sha256::input::*;
 use crate::demux_log_queue::input::*;
 use crate::eip_4844::input::*;
@@ -64,7 +67,6 @@ use crate::fsm_input_output::*;
 use crate::log_sorter::input::*;
 use crate::ram_permutation::input::*;
 use crate::recursion::leaf_layer::input::*;
-use crate::recursion::node_layer::input::*;
 use crate::scheduler::auxiliary::*;
 use crate::sort_decommittment_requests::input::*;
 use crate::storage_application::input::*;
@@ -74,9 +76,10 @@ pub const SCHEDULER_TIMESTAMP: u32 = 1;
 pub const NUM_SCHEDULER_PUBLIC_INPUTS: usize = 4;
 pub const LEAF_LAYER_PARAMETERS_COMMITMENT_LENGTH: usize = 4;
 pub const QUEUE_FINAL_STATE_COMMITMENT_LENGTH: usize = 4;
-pub const IMPLEMENT_4844_FUNCTIONALITY: bool = false;
+pub const NUM_CIRCUITS_FOR_VARIABLE_SCHEDULING: usize = NUM_CIRCUIT_TYPES_TO_SCHEDULE - 1;
+pub const NUM_RECURSION_TIPS_USED: usize = 1;
 
-pub const SEQUENCE_OF_CIRCUIT_TYPES: [BaseLayerCircuitType; NUM_CIRCUIT_TYPES_TO_SCHEDULE] = [
+pub const SEQUENCE_OF_CIRCUIT_TYPES: [BaseLayerCircuitType; NUM_CIRCUITS_FOR_VARIABLE_SCHEDULING] = [
     BaseLayerCircuitType::VM,
     BaseLayerCircuitType::DecommitmentsFilter,
     BaseLayerCircuitType::Decommiter,
@@ -90,6 +93,8 @@ pub const SEQUENCE_OF_CIRCUIT_TYPES: [BaseLayerCircuitType; NUM_CIRCUIT_TYPES_TO
     BaseLayerCircuitType::EventsRevertsFilter,
     BaseLayerCircuitType::L1MessagesRevertsFilter,
     BaseLayerCircuitType::L1MessagesHasher,
+    BaseLayerCircuitType::TransientStorageChecker,
+    BaseLayerCircuitType::Secp256r1Verify,
 ];
 
 #[derive(Derivative, serde::Serialize, serde::Deserialize)]
@@ -98,6 +103,12 @@ pub const SEQUENCE_OF_CIRCUIT_TYPES: [BaseLayerCircuitType; NUM_CIRCUIT_TYPES_TO
 pub struct SchedulerConfig<F: SmallField, H: TreeHasher<F>, EXT: FieldExtension<2, BaseField = F>> {
     pub proof_config: ProofConfig,
     pub vk_fixed_parameters: VerificationKeyCircuitGeometry,
+    #[derivative(Debug = "ignore")]
+    pub recursion_tip_vk: VerificationKey<F, H>,
+    #[derivative(Debug = "ignore")]
+    pub node_layer_vk: VerificationKey<F, H>,
+    #[derivative(Debug = "ignore")]
+    pub leaf_layer_parameters: [RecursionLeafParametersWitness<F>; NUM_BASE_LAYER_CIRCUITS],
     pub capacity: usize,
     pub _marker: std::marker::PhantomData<(F, H, EXT)>,
 }
@@ -126,22 +137,21 @@ pub fn scheduler_function<
     round_function: &R,
     config: SchedulerConfig<F, H::NonCircuitSimulator, EXT>,
     verifier_builder: Box<dyn ErasedBuilderForRecursiveVerifier<F, EXT, CS>>,
-    eip4844_proof_config: Option<ProofConfig>,
-    eip4844_vk_fixed_parameters: Option<VerificationKeyCircuitGeometry>,
-    eip4844_vk: Option<VerificationKey<F, H::NonCircuitSimulator>>,
-    eip4844_verifier_builder: Option<Box<dyn ErasedBuilderForRecursiveVerifier<F, EXT, CS>>>,
     transcript_params: TR::TransciptParameters,
 ) where
     [(); <RecursionQuery<F> as CSAllocatableExt<F>>::INTERNAL_STRUCT_LEN]:,
     [(); <MemoryQuery<F> as CSAllocatableExt<F>>::INTERNAL_STRUCT_LEN]:,
     [(); <DecommitQuery<F> as CSAllocatableExt<F>>::INTERNAL_STRUCT_LEN]:,
 {
+    assert!(NUM_RECURSION_TIPS_USED * RECURSION_TIP_ARITY >= NUM_CIRCUIT_TYPES_TO_SCHEDULE);
+
     let prev_block_data = BlockPassthroughData::allocate(cs, witness.prev_block_data.clone());
     let block_meta_parameters =
         BlockMetaParameters::allocate(cs, witness.block_meta_parameters.clone());
 
     let boolean_false = Boolean::allocated_constant(cs, false);
     let boolean_true = Boolean::allocated_constant(cs, true);
+    let zero_u8 = UInt8::zero(cs);
 
     Boolean::enforce_equal(
         cs,
@@ -158,7 +168,8 @@ pub fn scheduler_function<
     initial_memory_queue_state.length = bootloader_heap_memory_state.length;
 
     let mut decommittments_queue = DecommitQueue::<F, R>::empty(cs);
-    let bootloader_code_hash = block_meta_parameters.bootloader_code_hash;
+    let mut bootloader_code_hash = block_meta_parameters.bootloader_code_hash;
+    normalize_bytecode_hash_for_decommit(cs, &mut bootloader_code_hash);
     let bootloader_code_page =
         UInt32::allocated_constant(cs, zkevm_opcode_defs::BOOTLOADER_CODE_PAGE);
     let scheduler_timestamp = UInt32::allocated_constant(cs, SCHEDULER_TIMESTAMP);
@@ -195,6 +206,11 @@ pub fn scheduler_function<
 
     let ecrecover_observable_output =
         PrecompileFunctionOutputData::allocate(cs, witness.ecrecover_observable_output.clone());
+
+    let secp256r1_verify_observable_output = PrecompileFunctionOutputData::allocate(
+        cs,
+        witness.secp256r1_verify_observable_output.clone(),
+    );
 
     let storage_sorter_observable_output = StorageDeduplicatorOutputData::allocate(
         cs,
@@ -233,15 +249,21 @@ pub fn scheduler_function<
         witness.l1messages_sorter_intermediate_queue_state.clone(),
     );
 
+    let transient_storage_sorter_intermediate_queue_state = QueueTailState::allocate(
+        cs,
+        witness
+            .transient_storage_sorter_intermediate_queue_state
+            .clone(),
+    );
+
     // final VM storage log state for our construction
     let storage_log_tail = <[Num<F>; QUEUE_STATE_WIDTH]>::allocate(cs, witness.storage_log_tail);
 
     // form the VM input
-    let default_aa_code_hash = block_meta_parameters.default_aa_code_hash;
-
     let global_context = GlobalContext {
         zkporter_is_available: block_meta_parameters.zkporter_is_available,
-        default_aa_code_hash,
+        default_aa_code_hash: block_meta_parameters.default_aa_code_hash,
+        evm_simulator_code_hash: block_meta_parameters.evm_simulator_code_hash,
     };
 
     // we can form all the observable inputs already as those are just functions of observable outputs
@@ -304,12 +326,20 @@ pub fn scheduler_function<
         commit_variable_length_encodable_item(cs, &log_demuxer_observable_output, round_function);
 
     // all intermediate queues for sorters
+    let keccak256_access_queue_state =
+        log_demuxer_observable_output.output_queue_states[DemuxOutput::Keccak as usize];
+    let sha256_access_queue_state =
+        log_demuxer_observable_output.output_queue_states[DemuxOutput::Sha256 as usize];
+    let ecrecover_access_queue_state =
+        log_demuxer_observable_output.output_queue_states[DemuxOutput::ECRecover as usize];
+    let secp256r1_verify_access_queue_state =
+        log_demuxer_observable_output.output_queue_states[DemuxOutput::Secp256r1Verify as usize];
 
     // precompiles: keccak, sha256 and ecrecover
     let (keccak_circuit_observable_input_commitment, keccak_circuit_observable_output_commitment) =
         compute_precompile_commitment(
             cs,
-            &log_demuxer_observable_output.keccak256_access_queue_state,
+            &keccak256_access_queue_state,
             &code_decommitter_observable_output.memory_queue_final_state,
             &keccak256_observable_output.final_memory_state,
             round_function,
@@ -317,7 +347,7 @@ pub fn scheduler_function<
     let (sha256_circuit_observable_input_commitment, sha256_circuit_observable_output_commitment) =
         compute_precompile_commitment(
             cs,
-            &log_demuxer_observable_output.sha256_access_queue_state,
+            &sha256_access_queue_state,
             &keccak256_observable_output.final_memory_state,
             &sha256_observable_output.final_memory_state,
             round_function,
@@ -327,9 +357,19 @@ pub fn scheduler_function<
         ecrecover_circuit_observable_output_commitment,
     ) = compute_precompile_commitment(
         cs,
-        &log_demuxer_observable_output.ecrecover_access_queue_state,
+        &ecrecover_access_queue_state,
         &sha256_observable_output.final_memory_state,
         &ecrecover_observable_output.final_memory_state,
+        round_function,
+    );
+    let (
+        secp256r1_verify_circuit_observable_input_commitment,
+        secp256r1_verify_circuit_observable_output_commitment,
+    ) = compute_precompile_commitment(
+        cs,
+        &secp256r1_verify_access_queue_state,
+        &ecrecover_observable_output.final_memory_state,
+        &secp256r1_verify_observable_output.final_memory_state,
         round_function,
     );
 
@@ -341,17 +381,24 @@ pub fn scheduler_function<
         QueueTailState::allocate(cs, witness.ram_sorted_queue_state.clone());
 
     let ram_validation_circuit_input = RamPermutationInputData {
-        unsorted_queue_initial_state: ecrecover_observable_output.final_memory_state,
+        unsorted_queue_initial_state: secp256r1_verify_observable_output.final_memory_state,
         sorted_queue_initial_state: ram_sorted_queue_state,
         non_deterministic_bootloader_memory_snapshot_length: bootloader_heap_memory_state.length,
     };
     let ram_validation_circuit_input_commitment =
         commit_variable_length_encodable_item(cs, &ram_validation_circuit_input, round_function);
 
+    let events_access_queue_state =
+        log_demuxer_observable_output.output_queue_states[DemuxOutput::Events as usize];
+    let l1messages_access_queue_state =
+        log_demuxer_observable_output.output_queue_states[DemuxOutput::L2ToL1Messages as usize];
+    let transient_storage_access_queue_state =
+        log_demuxer_observable_output.output_queue_states[DemuxOutput::TransientStorage as usize];
+
     // events reverts filter and merkelization
     let (events_filter_input_com, events_filter_output_com) = compute_filter_circuit_commitment(
         cs,
-        &log_demuxer_observable_output.events_access_queue_state,
+        &events_access_queue_state,
         &events_sorter_intermediate_queue_state,
         &events_sorter_observable_output.final_queue_state,
         round_function,
@@ -369,7 +416,7 @@ pub fn scheduler_function<
     let (l1_messages_filter_input_com, l1_messages_filter_output_com) =
         compute_filter_circuit_commitment(
             cs,
-            &log_demuxer_observable_output.l1messages_access_queue_state,
+            &l1messages_access_queue_state,
             &l1messages_sorter_intermediate_queue_state,
             &l1messages_sorter_observable_output.final_queue_state,
             round_function,
@@ -382,6 +429,18 @@ pub fn scheduler_function<
             &l1messages_linear_hasher_observable_output.keccak256_hash,
             round_function,
         );
+
+    // transient storage is independent of shards
+
+    let (transient_storage_checker_input_com, transient_storage_checker_output_com) =
+        compute_transient_storage_checker_circuit_commitment(
+            cs,
+            &transient_storage_access_queue_state,
+            &transient_storage_sorter_intermediate_queue_state,
+            round_function,
+        );
+
+    // and persistent storage is processed for rollup part only
 
     const NUM_PROCESSABLE_SHARDS: usize = 1;
 
@@ -397,7 +456,10 @@ pub fn scheduler_function<
     let mut storage_applicator_output_commitments =
         [empty_input_output_commitment; NUM_PROCESSABLE_SHARDS];
 
-    let storage_queues_state = [log_demuxer_observable_output.storage_access_queue_state];
+    let rollup_storage_access_queue_state =
+        log_demuxer_observable_output.output_queue_states[DemuxOutput::RollupStorage as usize];
+
+    let storage_queues_state = [rollup_storage_access_queue_state];
 
     let filtered_storage_queues_state = [storage_sorter_observable_output.final_sorted_queue_state];
 
@@ -507,6 +569,14 @@ pub fn scheduler_function<
                     BaseLayerCircuitType::L1MessagesHasher,
                     l1_messages_hasher_input_com,
                 ),
+                (
+                    BaseLayerCircuitType::TransientStorageChecker,
+                    transient_storage_checker_input_com,
+                ),
+                (
+                    BaseLayerCircuitType::Secp256r1Verify,
+                    secp256r1_verify_circuit_observable_input_commitment,
+                ),
             ]
             .into_iter(),
         );
@@ -563,9 +633,26 @@ pub fn scheduler_function<
                     BaseLayerCircuitType::L1MessagesHasher,
                     l1_messages_hasher_output_com,
                 ),
+                (
+                    BaseLayerCircuitType::TransientStorageChecker,
+                    transient_storage_checker_output_com,
+                ),
+                (
+                    BaseLayerCircuitType::Secp256r1Verify,
+                    secp256r1_verify_circuit_observable_output_commitment,
+                ),
             ]
             .into_iter(),
         );
+
+    assert_eq!(
+        input_commitments_as_map.len(),
+        NUM_CIRCUITS_FOR_VARIABLE_SCHEDULING
+    );
+    assert_eq!(
+        output_commitments_as_map.len(),
+        NUM_CIRCUITS_FOR_VARIABLE_SCHEDULING
+    );
 
     // self-check
     for pair in SEQUENCE_OF_CIRCUIT_TYPES.windows(2) {
@@ -573,7 +660,7 @@ pub fn scheduler_function<
     }
 
     // we can potentially skip some circuits
-    let mut skip_flags = [None; NUM_CIRCUIT_TYPES_TO_SCHEDULE];
+    let mut skip_flags = [None; NUM_CIRCUITS_FOR_VARIABLE_SCHEDULING];
     // we can skip everything except VM
     // and if we skip, then we should ensure some invariants over outputs!
 
@@ -622,7 +709,7 @@ pub fn scheduler_function<
             .is_zero(cs);
 
         for subqueue in log_demuxer_observable_output
-            .all_output_queues_refs()
+            .output_queue_states
             .into_iter()
         {
             let output_queue_is_empty = subqueue.tail.length.is_zero(cs);
@@ -634,11 +721,7 @@ pub fn scheduler_function<
 
     // keccak, sha256 and ecrecover must not modify memory
     {
-        let should_skip = log_demuxer_observable_output
-            .keccak256_access_queue_state
-            .tail
-            .length
-            .is_zero(cs);
+        let should_skip = keccak256_access_queue_state.tail.length.is_zero(cs);
 
         let input_state = code_decommitter_observable_output.memory_queue_final_state;
         let output_state = keccak256_observable_output.final_memory_state;
@@ -649,11 +732,7 @@ pub fn scheduler_function<
         skip_flags[(BaseLayerCircuitType::KeccakPrecompile as u8 as usize) - 1] = Some(should_skip);
     }
     {
-        let should_skip = log_demuxer_observable_output
-            .sha256_access_queue_state
-            .tail
-            .length
-            .is_zero(cs);
+        let should_skip = sha256_access_queue_state.tail.length.is_zero(cs);
 
         let input_state = keccak256_observable_output.final_memory_state;
         let output_state = sha256_observable_output.final_memory_state;
@@ -664,11 +743,7 @@ pub fn scheduler_function<
         skip_flags[(BaseLayerCircuitType::Sha256Precompile as u8 as usize) - 1] = Some(should_skip);
     }
     {
-        let should_skip = log_demuxer_observable_output
-            .ecrecover_access_queue_state
-            .tail
-            .length
-            .is_zero(cs);
+        let should_skip = ecrecover_access_queue_state.tail.length.is_zero(cs);
 
         let input_state = sha256_observable_output.final_memory_state;
         let output_state = ecrecover_observable_output.final_memory_state;
@@ -678,6 +753,17 @@ pub fn scheduler_function<
 
         skip_flags[(BaseLayerCircuitType::EcrecoverPrecompile as u8 as usize) - 1] =
             Some(should_skip);
+    }
+    {
+        let should_skip = secp256r1_verify_access_queue_state.tail.length.is_zero(cs);
+
+        let input_state = ecrecover_observable_output.final_memory_state;
+        let output_state = secp256r1_verify_observable_output.final_memory_state;
+
+        let same_state = is_equal_queue_state(cs, &input_state, &output_state);
+        same_state.conditionally_enforce_true(cs, should_skip);
+
+        skip_flags[(BaseLayerCircuitType::Secp256r1Verify as u8 as usize) - 1] = Some(should_skip);
     }
 
     // well, in the very unlikely case of no RAM requests (that is unreachable because VM always starts) we just skip it as is
@@ -742,11 +828,7 @@ pub fn scheduler_function<
     }
     // events and l2 to l1 messages filters should produce empty output
     {
-        let should_skip = log_demuxer_observable_output
-            .events_access_queue_state
-            .tail
-            .length
-            .is_zero(cs);
+        let should_skip = events_access_queue_state.tail.length.is_zero(cs);
 
         let output_queue_is_empty = events_sorter_observable_output
             .final_queue_state
@@ -759,11 +841,7 @@ pub fn scheduler_function<
             Some(should_skip);
     }
     {
-        let should_skip = log_demuxer_observable_output
-            .l1messages_access_queue_state
-            .tail
-            .length
-            .is_zero(cs);
+        let should_skip = l1messages_access_queue_state.tail.length.is_zero(cs);
 
         let output_queue_is_empty = l1messages_sorter_observable_output
             .final_queue_state
@@ -775,22 +853,55 @@ pub fn scheduler_function<
         skip_flags[(BaseLayerCircuitType::L1MessagesRevertsFilter as u8 as usize) - 1] =
             Some(should_skip);
     }
+    // transient storage doesn't produce an output
+    {
+        let should_skip = transient_storage_access_queue_state.tail.length.is_zero(cs);
+        skip_flags[(BaseLayerCircuitType::TransientStorageChecker as u8 as usize) - 1] =
+            Some(should_skip);
+    }
+    // L2 to L1 linear hasher
+    {
+        let empty_hash = {
+            use zkevm_opcode_defs::sha3::*;
 
-    // for (idx, el) in skip_flags.iter().enumerate() {
-    //     if let Some(el) = el {
-    //         let circuit_type = BaseLayerCircuitType::from_numeric_value((idx+1) as u8);
-    //         println!("Skip for {:?} = {:?}", circuit_type, el.witness_hook(cs)());
-    //     }
-    // }
+            let mut result = [0u8; 32];
+            let digest = Keccak256::digest(&[]);
+            result.copy_from_slice(digest.as_slice());
 
-    // In practice we do NOT skip it
-    // skip_flags[(BaseLayerCircuitType::L1MessagesHasher as u8 as usize) - 1] = Some(
-    //     l1messages_sorter_observable_output.final_queue_state.tail.length.is_zero(cs)
-    // );
+            result.map(|el| UInt8::allocated_constant(cs, el))
+        };
+
+        let should_skip = l1messages_access_queue_state.tail.length.is_zero(cs);
+
+        // if nothing to hash, we expect empty hash
+        for (a, b) in l1messages_linear_hasher_observable_output
+            .keccak256_hash
+            .iter()
+            .zip(empty_hash.iter())
+        {
+            Num::conditionally_enforce_equal(
+                cs,
+                should_skip,
+                &Num::from_variable(a.get_variable()),
+                &Num::from_variable(b.get_variable()),
+            );
+        }
+
+        skip_flags[(BaseLayerCircuitType::L1MessagesHasher as u8 as usize) - 1] = Some(should_skip);
+    }
+
+    if crate::config::CIRCUIT_VERSOBE {
+        for (idx, el) in skip_flags.iter().enumerate() {
+            if let Some(el) = el {
+                let circuit_type = BaseLayerCircuitType::from_numeric_value((idx + 1) as u8);
+                println!("Skip for {:?} = {:?}", circuit_type, el.witness_hook(cs)());
+            }
+        }
+    }
 
     // now we just walk one by one
 
-    let mut execution_stage_bitmask = [boolean_false; NUM_CIRCUIT_TYPES_TO_SCHEDULE];
+    let mut execution_stage_bitmask = [boolean_false; NUM_CIRCUITS_FOR_VARIABLE_SCHEDULING];
     execution_stage_bitmask[0] = boolean_true; // VM
 
     assert_eq!(
@@ -803,12 +914,12 @@ pub fn scheduler_function<
 
     let empty_recursive_queue_state_tail = QueueTailState::empty(cs);
     let mut recursive_queue_state_tails =
-        [empty_recursive_queue_state_tail; NUM_CIRCUIT_TYPES_TO_SCHEDULE];
+        [empty_recursive_queue_state_tail; NUM_CIRCUITS_FOR_VARIABLE_SCHEDULING];
 
     let mut hidden_fsm_input_to_use = [zero_num; CLOSED_FORM_COMMITTMENT_LENGTH];
 
     for _idx in 0..config.capacity {
-        let mut next_mask = [boolean_false; NUM_CIRCUIT_TYPES_TO_SCHEDULE];
+        let mut next_mask = [boolean_false; NUM_CIRCUITS_FOR_VARIABLE_SCHEDULING];
 
         let closed_form_input_witness = witness
             .per_circuit_closed_form_inputs
@@ -822,7 +933,8 @@ pub fn scheduler_function<
             Boolean::equals(cs, &closed_form_input.start_flag, &previous_completion_flag);
         start_of_next_when_previous_is_finished.conditionally_enforce_true(cs, execution_flag);
 
-        let mut computed_applicability_flags = [boolean_false; NUM_CIRCUIT_TYPES_TO_SCHEDULE];
+        let mut computed_applicability_flags =
+            [boolean_false; NUM_CIRCUITS_FOR_VARIABLE_SCHEDULING];
         let mut circuit_type_to_use = Num::zero(cs);
 
         for (idx, ((circuit_type, stage_flag), skip_flag)) in SEQUENCE_OF_CIRCUIT_TYPES
@@ -848,6 +960,18 @@ pub fn scheduler_function<
             };
 
             let validate_observable_input = validate; // input commitment is ALWAYS the same for all the circuits of some type
+            if crate::config::CIRCUIT_VERSOBE {
+                if validate_observable_input.witness_hook(cs)().unwrap_or(false) {
+                    println!("Validating input for circuit type {:?}", circuit_type);
+                    assert_eq!(
+                        closed_form_input
+                            .observable_input_committment
+                            .witness_hook(cs)()
+                        .unwrap(),
+                        sample_circuit_commitment.witness_hook(cs)().unwrap(),
+                    )
+                }
+            }
             conditionally_enforce_circuit_commitment(
                 cs,
                 validate_observable_input,
@@ -874,6 +998,19 @@ pub fn scheduler_function<
                 ));
             // .unwrap_or([zero_num; CLOSED_FORM_COMMITTMENT_LENGTH]);
 
+            if crate::config::CIRCUIT_VERSOBE {
+                if validate_observable_output.witness_hook(cs)().unwrap_or(false) {
+                    println!("Validating output for circuit type {:?}", circuit_type);
+                    assert_eq!(
+                        closed_form_input
+                            .observable_output_committment
+                            .witness_hook(cs)()
+                        .unwrap(),
+                        sample_circuit_commitment.witness_hook(cs)().unwrap(),
+                    )
+                }
+            }
+
             conditionally_enforce_circuit_commitment(
                 cs,
                 validate_observable_output,
@@ -889,6 +1026,11 @@ pub fn scheduler_function<
 
             let stage_just_finished =
                 Boolean::multi_and(cs, &[should_start_next, execution_flag, *stage_flag]);
+            if crate::config::CIRCUIT_VERSOBE {
+                if stage_just_finished.witness_hook(cs)().unwrap_or(false) {
+                    println!("Finished {:?} circuit type", circuit_type);
+                }
+            }
             next_mask[idx] = stage_just_finished;
 
             let circuit_type = UInt8::allocated_constant(cs, *circuit_type as u8).into_num();
@@ -962,7 +1104,7 @@ pub fn scheduler_function<
 
         previous_completion_flag = Boolean::multi_or(cs, &next_mask);
         // for the next stage we do shifted AND
-        let mut tmp = [boolean_false; NUM_CIRCUIT_TYPES_TO_SCHEDULE];
+        let mut tmp = [boolean_false; NUM_CIRCUITS_FOR_VARIABLE_SCHEDULING];
         // note skip(1)
         for (idx, start_next) in next_mask.iter().enumerate() {
             let finished_this_stage = *start_next;
@@ -973,7 +1115,7 @@ pub fn scheduler_function<
             let start_as_next = tmp[idx];
             let do_this_stage = Boolean::multi_or(cs, &[start_as_next, proceed_current]);
             execution_stage_bitmask[idx] = do_this_stage;
-            if idx + 1 < NUM_CIRCUIT_TYPES_TO_SCHEDULE {
+            if idx + 1 < NUM_CIRCUITS_FOR_VARIABLE_SCHEDULING {
                 tmp[idx + 1] = finished_this_stage;
             }
         }
@@ -988,29 +1130,88 @@ pub fn scheduler_function<
     // so we are done!
     Boolean::enforce_equal(cs, &execution_flag, &boolean_false);
 
-    // actually perform verification
-    let leaf_layer_parameters = witness
+    // NOTE: values below are allocated constant, so their values end up in
+    // scheduler setup -> verification key
+    let leaf_layer_parameters = config
         .leaf_layer_parameters
         .clone()
-        .map(|el| RecursionLeafParameters::allocate(cs, el));
+        .map(|el| RecursionLeafParameters::allocated_constant(cs, el));
 
     let leaf_layer_parameters_commitment: [_; LEAF_LAYER_PARAMETERS_COMMITMENT_LENGTH] =
         commit_variable_length_encodable_item(cs, &leaf_layer_parameters, round_function);
 
     let node_layer_vk =
-        AllocatedVerificationKey::<F, H>::allocate(cs, witness.node_layer_vk_witness.clone());
+        AllocatedVerificationKey::<F, H>::allocate_constant(cs, config.node_layer_vk.clone());
     let node_layer_vk_commitment: [_; VK_COMMITMENT_LENGTH] =
         commit_variable_length_encodable_item(cs, &node_layer_vk, round_function);
+
+    let recursion_tip_verification_key =
+        AllocatedVerificationKey::<F, H>::allocate_constant(cs, config.recursion_tip_vk.clone());
 
     if crate::config::CIRCUIT_VERSOBE {
         dbg!(leaf_layer_parameters_commitment.witness_hook(cs)());
         dbg!(node_layer_vk_commitment.witness_hook(cs)());
     }
 
-    let mut proof_witnesses = witness.proof_witnesses;
+    // now form a queue for 4844
 
-    // create verifier
-    let r = cs as *mut CS;
+    let mut eip4844_recursion_queue = RecursionQueue::<F, R>::empty(cs);
+
+    let (eip4844_linear_hashes, eip4844_output_commitment_hashes) = if USE_4844 {
+        // eip4844 circuit
+        let eip4844_circuit_type = Num::allocated_constant(
+            cs,
+            F::from_u64_unchecked(BaseLayerCircuitType::EIP4844Repack as u8 as u64),
+        );
+
+        let mut eip4844_linear_hashes = [[zero_u8; 32]; MAX_4844_BLOBS_PER_BLOCK];
+        let mut eip4844_output_commitment_hashes = [[zero_u8; 32]; MAX_4844_BLOBS_PER_BLOCK];
+        for i in 0..MAX_4844_BLOBS_PER_BLOCK {
+            let observable_output_data_witness = witness.eip4844_witnesses[i]
+                .as_ref()
+                .cloned()
+                .unwrap_or(EIP4844OutputData::placeholder_witness());
+            let observable_output_data =
+                EIP4844OutputData::allocate(cs, observable_output_data_witness);
+            let zeroes = observable_output_data.linear_hash.map(|el| el.is_zero(cs));
+            let skip_verification = Boolean::multi_and(cs, &zeroes);
+            let should_verify = skip_verification.negated(cs);
+            let structured_input = EIP4844InputOutput {
+                start_flag: boolean_true,
+                completion_flag: boolean_true,
+                observable_input: (),
+                observable_output: observable_output_data,
+                hidden_fsm_input: (),
+                hidden_fsm_output: (),
+            };
+
+            let closed_form_input =
+                ClosedFormInputCompactForm::from_full_form(cs, &structured_input, round_function);
+            let input_commitment =
+                commit_variable_length_encodable_item(cs, &closed_form_input, round_function);
+            // add to the queue
+            let recursion_query = RecursionQuery {
+                circuit_type: eip4844_circuit_type,
+                input_commitment,
+            };
+
+            let _ = eip4844_recursion_queue.push(cs, recursion_query, should_verify);
+
+            eip4844_linear_hashes[i] = observable_output_data.linear_hash;
+            eip4844_output_commitment_hashes[i] = observable_output_data.output_hash;
+        }
+
+        (eip4844_linear_hashes, eip4844_output_commitment_hashes)
+    } else {
+        (
+            [[zero_u8; 32]; MAX_4844_BLOBS_PER_BLOCK],
+            [[zero_u8; 32]; MAX_4844_BLOBS_PER_BLOCK],
+        )
+    };
+
+    let eip4844_recursion_queue_state = eip4844_recursion_queue.into_state().tail;
+
+    let mut proof_witnesses = witness.proof_witnesses;
 
     assert_eq!(
         config.vk_fixed_parameters.parameters,
@@ -1019,59 +1220,75 @@ pub fn scheduler_function<
 
     let verifier = verifier_builder.create_recursive_verifier(cs);
 
-    drop(cs);
-
-    let cs = unsafe { &mut *r };
-
-    for (_idx, (circuit_type, state)) in SEQUENCE_OF_CIRCUIT_TYPES
-        .iter()
-        .zip(recursive_queue_state_tails.into_iter())
-        .enumerate()
     {
-        println!("Verifying circuit type {:?}", circuit_type);
-
-        let should_skip = state.length.is_zero(cs);
-        let should_verify = should_skip.negated(cs);
-
-        let circuit_type = UInt8::allocated_constant(cs, *circuit_type as u8).into_num();
-
-        let mut queue_state = QueueState::empty(cs);
-        queue_state.tail = state;
-
-        let input: RecursionNodeInput<F> = RecursionNodeInput {
-            branch_circuit_type: circuit_type,
-            leaf_layer_parameters: leaf_layer_parameters,
-            node_layer_vk_commitment: node_layer_vk_commitment,
-            queue_state: queue_state,
-        };
-
-        let expected_input_commitment: [_; INPUT_OUTPUT_COMMITMENT_LENGTH] =
-            commit_variable_length_encodable_item(cs, &input, round_function);
-
-        let proof_witness = proof_witnesses.pop_front();
-
-        let proof = AllocatedProof::allocate_from_witness(
-            cs,
-            proof_witness,
-            &verifier,
-            &config.vk_fixed_parameters,
-            &config.proof_config,
+        assert_eq!(
+            SEQUENCE_OF_CIRCUIT_TYPES.len(),
+            recursive_queue_state_tails.len()
         );
+        let it = SEQUENCE_OF_CIRCUIT_TYPES
+            .into_iter()
+            .zip(recursive_queue_state_tails.into_iter());
 
-        let (is_valid, inputs) = verifier.verify::<H, TR, CTR, POW>(
-            cs,
-            transcript_params.clone(),
-            &proof,
-            &config.vk_fixed_parameters,
-            &config.proof_config,
-            &node_layer_vk,
-        );
+        let it = it.chain(std::iter::once((
+            BaseLayerCircuitType::EIP4844Repack,
+            eip4844_recursion_queue_state,
+        )));
 
-        is_valid.conditionally_enforce_true(cs, should_verify);
-        assert_eq!(inputs.len(), expected_input_commitment.len());
+        let mut it = it.enumerate();
 
-        for (a, b) in inputs.iter().zip(expected_input_commitment.iter()) {
-            Num::conditionally_enforce_equal(cs, should_verify, a, b);
+        for _ in 0..NUM_RECURSION_TIPS_USED {
+            // NOTE: even though node/leaf circuits are defined over witness-provided (input-linked)
+            // verification keys, here we EXPECT to have specific CONSTANT verificaion parameters
+            let mut recursion_tip_input = RecursionTipInput::placeholder(cs);
+            recursion_tip_input.leaf_layer_parameters = leaf_layer_parameters;
+            recursion_tip_input.node_layer_vk_commitment = node_layer_vk_commitment;
+
+            for (circuit_type_dst, state_dst) in recursion_tip_input
+                .branch_circuit_type_set
+                .iter_mut()
+                .zip(recursion_tip_input.queue_set.iter_mut())
+            {
+                if let Some((_idx, (circuit_type, state))) = it.next() {
+                    let circuit_type = UInt8::allocated_constant(cs, circuit_type as u8).into_num();
+                    *circuit_type_dst = circuit_type;
+                    let mut queue_state = QueueState::empty(cs);
+                    queue_state.tail = state;
+                    *state_dst = queue_state;
+                }
+            }
+
+            if crate::config::CIRCUIT_VERSOBE {
+                dbg!(recursion_tip_input.witness_hook(cs)());
+            }
+
+            let expected_input_commitment: [_; INPUT_OUTPUT_COMMITMENT_LENGTH] =
+                commit_variable_length_encodable_item(cs, &recursion_tip_input, round_function);
+
+            let proof_witness = proof_witnesses.pop_front();
+
+            let proof = AllocatedProof::allocate_from_witness(
+                cs,
+                proof_witness,
+                &verifier,
+                &config.vk_fixed_parameters,
+                &config.proof_config,
+            );
+
+            let (is_valid, inputs) = verifier.verify::<H, TR, CTR, POW>(
+                cs,
+                transcript_params.clone(),
+                &proof,
+                &config.vk_fixed_parameters,
+                &config.proof_config,
+                &recursion_tip_verification_key,
+            );
+
+            Boolean::enforce_equal(cs, &is_valid, &boolean_true);
+            assert_eq!(inputs.len(), expected_input_commitment.len());
+
+            for (a, b) in inputs.iter().zip(expected_input_commitment.iter()) {
+                Num::enforce_equal(cs, a, b);
+            }
         }
     }
 
@@ -1098,8 +1315,6 @@ pub fn scheduler_function<
         dst.state_root = *root;
     }
 
-    let zero_u8 = UInt8::zero(cs);
-
     let mut bootloader_heap_initial_content = [zero_u8; 32];
     for (dst, src) in bootloader_heap_initial_content
         .array_chunks_mut::<8>()
@@ -1119,85 +1334,6 @@ pub fn scheduler_function<
         dst.copy_from_slice(&le_bytes[..]);
         dst.reverse();
     }
-
-    let (eip4844_linear_hashes, eip4844_output_commitment_hashes) = if USE_4844 {
-        // eip4844 circuit
-        let verifier_builder =
-            eip4844_verifier_builder.expect("if EIP 4844 is used then builder must be provided");
-        let verifier = verifier_builder.create_recursive_verifier(cs);
-        let proof_config =
-            eip4844_proof_config.expect("if EIP 4844 is used then proof config must be provided");
-        let vk_fixed_parameters = eip4844_vk_fixed_parameters
-            .expect("if EIP 4844 is used then vk fixed parameters must be provided");
-        let vk = eip4844_vk.expect("if EIP 4844 is used then VK must be provided");
-
-        let eip4844_vk = AllocatedVerificationKey::<F, H>::allocate_constant(cs, vk);
-
-        let mut eip4844_linear_hashes = [[zero_u8; 32]; MAX_4844_BLOBS_PER_BLOCK];
-        let mut eip4844_output_commitment_hashes = [[zero_u8; 32]; MAX_4844_BLOBS_PER_BLOCK];
-        for i in 0..MAX_4844_BLOBS_PER_BLOCK {
-            let observable_output_data_witness = witness
-                .eip4844_witnesses
-                .as_ref()
-                .expect("if EIP 4844 is used then witness must be provided")
-                .get(i)
-                .cloned()
-                .unwrap_or(EIP4844OutputData::placeholder_witness());
-            let observable_output_data =
-                EIP4844OutputData::allocate(cs, observable_output_data_witness);
-            let zeroes = observable_output_data.linear_hash.map(|el| el.is_zero(cs));
-            let skip_verification = Boolean::multi_and(cs, &zeroes);
-            let should_verify = skip_verification.negated(cs);
-            let structured_input = EIP4844InputOutput {
-                start_flag: boolean_true,
-                completion_flag: boolean_true,
-                observable_input: (),
-                observable_output: observable_output_data,
-                hidden_fsm_input: (),
-                hidden_fsm_output: (),
-            };
-
-            let closed_form_input =
-                ClosedFormInputCompactForm::from_full_form(cs, &structured_input, round_function);
-            let expected_input_commitment: [_; INPUT_OUTPUT_COMMITMENT_LENGTH] =
-                commit_variable_length_encodable_item(cs, &closed_form_input, round_function);
-
-            let proof_witness = witness.eip4844_proofs.pop_front();
-
-            let proof = AllocatedProof::allocate_from_witness(
-                cs,
-                proof_witness,
-                &verifier,
-                &vk_fixed_parameters,
-                &proof_config,
-            );
-
-            let (is_valid, inputs) = verifier.verify::<H, TR, CTR, POW>(
-                cs,
-                transcript_params.clone(),
-                &proof,
-                &vk_fixed_parameters,
-                &proof_config,
-                &eip4844_vk,
-            );
-            is_valid.conditionally_enforce_true(cs, should_verify);
-            assert_eq!(inputs.len(), expected_input_commitment.len());
-
-            for (a, b) in inputs.iter().zip(expected_input_commitment.iter()) {
-                Num::conditionally_enforce_equal(cs, should_verify, a, b);
-            }
-
-            eip4844_linear_hashes[i] = observable_output_data.linear_hash;
-            eip4844_output_commitment_hashes[i] = observable_output_data.output_hash;
-        }
-
-        (eip4844_linear_hashes, eip4844_output_commitment_hashes)
-    } else {
-        (
-            [[zero_u8; 32]; MAX_4844_BLOBS_PER_BLOCK],
-            [[zero_u8; 32]; MAX_4844_BLOBS_PER_BLOCK],
-        )
-    };
 
     let aux_data = BlockAuxilaryOutput {
         rollup_state_diff_for_compression: storage_application_observable_output
@@ -1232,35 +1368,10 @@ pub fn scheduler_function<
         previous_block_aux_hash,
     );
 
-    // form full block hash
-
+    // form full block hash, it's just a hash of concatenation of previous and new full content hashes
     let mut flattened_public_input = vec![];
     flattened_public_input.extend(previous_block_content_hash);
     flattened_public_input.extend(this_block_content_hash);
-    // recursion parameters
-
-    let mut recursion_node_verification_key_hash = [zero_u8; 32];
-    for (dst, src) in recursion_node_verification_key_hash
-        .array_chunks_mut::<8>()
-        .zip(node_layer_vk_commitment.iter())
-    {
-        let le_bytes = src.constraint_bit_length_as_bytes(cs, 64);
-        dst.copy_from_slice(&le_bytes[..]);
-        dst.reverse();
-    }
-
-    let mut leaf_layer_parameters_hash = [zero_u8; 32];
-    for (dst, src) in leaf_layer_parameters_hash
-        .array_chunks_mut::<8>()
-        .zip(leaf_layer_parameters_commitment.iter())
-    {
-        let le_bytes = src.constraint_bit_length_as_bytes(cs, 64);
-        dst.copy_from_slice(&le_bytes[..]);
-        dst.reverse();
-    }
-
-    flattened_public_input.extend(recursion_node_verification_key_hash);
-    flattened_public_input.extend(leaf_layer_parameters_hash);
 
     let input_keccak_hash = keccak256::keccak256(cs, &flattened_public_input);
     let take_by = F::CAPACITY_BITS / 8;

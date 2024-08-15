@@ -7,8 +7,8 @@ use boojum::gadgets::{
     boolean::Boolean,
     queue::*,
     traits::{
-        allocatable::*, encodable::CircuitVarLengthEncodable, selectable::Selectable,
-        witnessable::WitnessHookable,
+        allocatable::*, encodable::CircuitVarLengthEncodable, encodable::WitnessVarLengthEncodable,
+        selectable::Selectable, witnessable::WitnessHookable,
     },
     u16::UInt16,
     u256::UInt256,
@@ -18,7 +18,14 @@ use boojum::serde_utils::BigArraySerde;
 use cs_derive::*;
 use derivative::*;
 
-#[derive(Derivative, CSAllocatable, CSSelectable, CSVarLengthEncodable, WitnessHookable)]
+#[derive(
+    Derivative,
+    CSAllocatable,
+    CSSelectable,
+    CSVarLengthEncodable,
+    WitnessHookable,
+    WitVarLengthEncodable,
+)]
 #[derivative(Clone, Copy, Debug)]
 pub struct CodeDecommittmentFSM<F: SmallField> {
     pub sha256_inner_state: [UInt32<F>; 8], // 8 uint32 words of internal sha256 state
@@ -26,8 +33,7 @@ pub struct CodeDecommittmentFSM<F: SmallField> {
     pub current_index: UInt32<F>,
     pub current_page: UInt32<F>,
     pub timestamp: UInt32<F>,
-    pub num_rounds_left: UInt16<F>,
-    pub length_in_bits: UInt32<F>,
+    pub num_byte32_words_processed: UInt16<F>,
     pub state_get_from_queue: Boolean<F>,
     pub state_decommit: Boolean<F>,
     pub finished: Boolean<F>,
@@ -46,8 +52,7 @@ impl<F: SmallField> CSPlaceholder<F> for CodeDecommittmentFSM<F> {
             current_index: zero_uint32,
             current_page: zero_uint32,
             timestamp: zero_uint32,
-            num_rounds_left: zero_uint16,
-            length_in_bits: zero_uint32,
+            num_byte32_words_processed: zero_uint16,
             state_get_from_queue: bool_false,
             state_decommit: bool_false,
             finished: bool_false,
@@ -55,7 +60,14 @@ impl<F: SmallField> CSPlaceholder<F> for CodeDecommittmentFSM<F> {
     }
 }
 
-#[derive(Derivative, CSAllocatable, CSSelectable, CSVarLengthEncodable, WitnessHookable)]
+#[derive(
+    Derivative,
+    CSAllocatable,
+    CSSelectable,
+    CSVarLengthEncodable,
+    WitnessHookable,
+    WitVarLengthEncodable,
+)]
 #[derivative(Clone, Copy, Debug)]
 #[DerivePrettyComparison("true")]
 pub struct CodeDecommitterFSMInputOutput<F: SmallField> {
@@ -75,7 +87,14 @@ impl<F: SmallField> CSPlaceholder<F> for CodeDecommitterFSMInputOutput<F> {
     }
 }
 
-#[derive(Derivative, CSAllocatable, CSSelectable, CSVarLengthEncodable, WitnessHookable)]
+#[derive(
+    Derivative,
+    CSAllocatable,
+    CSSelectable,
+    CSVarLengthEncodable,
+    WitnessHookable,
+    WitVarLengthEncodable,
+)]
 #[derivative(Clone, Copy, Debug)]
 pub struct CodeDecommitterInputData<F: SmallField> {
     pub memory_queue_initial_state: QueueState<F, FULL_SPONGE_QUEUE_STATE_WIDTH>,
@@ -94,7 +113,14 @@ impl<F: SmallField> CSPlaceholder<F> for CodeDecommitterInputData<F> {
     }
 }
 
-#[derive(Derivative, CSAllocatable, CSSelectable, CSVarLengthEncodable, WitnessHookable)]
+#[derive(
+    Derivative,
+    CSAllocatable,
+    CSSelectable,
+    CSVarLengthEncodable,
+    WitnessHookable,
+    WitVarLengthEncodable,
+)]
 #[derivative(Clone, Copy, Debug)]
 #[DerivePrettyComparison("true")]
 pub struct CodeDecommitterOutputData<F: SmallField> {

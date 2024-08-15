@@ -258,10 +258,73 @@ pub fn ecrecover_inner(
     signature[32..].copy_from_slice(s);
     // we expect pre-validation, so this check always works
     let signature = Signature::try_from(&signature[..]).map_err(|_| ())?;
-
     let recid = RecoveryId::try_from(rec_id).unwrap();
 
-    VerifyingKey::recover_from_prehash(digest, &signature, recid).map_err(|_| ())
+    recover_no_malleability_check(digest, signature, recid)
+}
+
+fn recover_no_malleability_check(
+    digest: &[u8; 32],
+    signature: k256::ecdsa::Signature,
+    recovery_id: k256::ecdsa::RecoveryId,
+) -> Result<VerifyingKey, ()> {
+    use k256::ecdsa::hazmat::bits2field;
+    use k256::elliptic_curve::bigint::CheckedAdd;
+    use k256::elliptic_curve::generic_array::GenericArray;
+    use k256::elliptic_curve::ops::Invert;
+    use k256::elliptic_curve::ops::LinearCombination;
+    use k256::elliptic_curve::ops::Reduce;
+    use k256::elliptic_curve::point::DecompressPoint;
+    use k256::elliptic_curve::Curve;
+    use k256::elliptic_curve::FieldBytesEncoding;
+    use k256::elliptic_curve::PrimeField;
+    use k256::AffinePoint;
+    use k256::ProjectivePoint;
+    use k256::Scalar;
+
+    let (r, s) = signature.split_scalars();
+    let z = <Scalar as Reduce<k256::U256>>::reduce_bytes(
+        &bits2field::<k256::Secp256k1>(digest).map_err(|_| ())?,
+    );
+
+    let mut r_bytes: GenericArray<u8, <k256::Secp256k1 as Curve>::FieldBytesSize> = r.to_repr();
+    if recovery_id.is_x_reduced() {
+        match Option::<k256::U256>::from(
+            <k256::U256 as FieldBytesEncoding<k256::Secp256k1>>::decode_field_bytes(&r_bytes)
+                .checked_add(&k256::Secp256k1::ORDER),
+        ) {
+            Some(restored) => {
+                r_bytes = <k256::U256 as FieldBytesEncoding<k256::Secp256k1>>::encode_field_bytes(
+                    &restored,
+                )
+            }
+            // No reduction should happen here if r was reduced
+            None => return Err(()),
+        };
+    }
+
+    #[allow(non_snake_case)]
+    let R = AffinePoint::decompress(&r_bytes, u8::from(recovery_id.is_y_odd()).into());
+
+    if R.is_none().into() {
+        return Err(());
+    }
+
+    #[allow(non_snake_case)]
+    let R = ProjectivePoint::from(R.unwrap());
+    let r_inv: Scalar = *r.invert();
+    let u1 = -(r_inv * z);
+    let u2 = r_inv * *s;
+    let pk = ProjectivePoint::lincomb(&ProjectivePoint::GENERATOR, &u1, &R, &u2);
+    let vk = VerifyingKey::from_affine(pk.into()).map_err(|_| ())?;
+
+    // Ensure signature verifies with the recovered key
+    let field = bits2field::<k256::Secp256k1>(digest).map_err(|_| ())?;
+    // here we actually skip a high-s check (that should never be there at the first place and should be checked by caller)
+    let _ = k256::ecdsa::hazmat::verify_prehashed(&vk.as_affine().into(), &field, &signature)
+        .map_err(|_| ())?;
+
+    Ok(vk)
 }
 
 pub fn ecrecover_function<M: Memory, const B: bool>(

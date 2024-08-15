@@ -1,0 +1,30 @@
+	.text
+	.file	"intrinsic.ll"
+	.globl	habs                            ; -- Begin function habs
+	.type	habs,@function
+habs:                                   ; @habs
+; %bb.0:
+	habs	r1
+	ret
+.Lfunc_end0:
+	.size	habs, .Lfunc_end0-habs
+                                        ; -- End function
+	.globl	habsr                           ; -- Begin function habsr
+	.type	habsr,@function
+habsr:                                  ; @habsr
+; %bb.0:
+	habsr	r1
+	ret
+.Lfunc_end1:
+	.size	habsr, .Lfunc_end1-habsr
+                                        ; -- End function
+	.globl	hout                            ; -- Begin function hout
+	.type	hout,@function
+hout:                                   ; @hout
+; %bb.0:
+	hout	r1
+	ret
+.Lfunc_end2:
+	.size	hout, .Lfunc_end2-hout
+                                        ; -- End function
+	.section	".note.GNU-stack","",@progbits

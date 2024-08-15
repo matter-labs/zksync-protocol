@@ -1,6 +1,6 @@
 [package]
 name = "zkevm_opcode_defs"
-version = "0.141.0"
+version = "0.150.0"
 edition = "2021"
 authors = ["The Matter Labs Team <hello@matterlabs.dev>"]
 homepage = "https://zksync.io/"
@@ -26,3 +26,5 @@ sha2 = "=0.10.8"
 sha3 = "=0.10.8"
 blake2 = "0.10.*"
 k256 = { version = "0.13.*", features = ["arithmetic", "ecdsa"] }
+p256 = { version = "0.13.*", features = ["arithmetic", "ecdsa"] }
+serde = { version = "1", features = ["derive"] }

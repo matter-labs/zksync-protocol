@@ -96,11 +96,34 @@ where
     new_callstack_entry.reverted_queue_tail = potential_rollback_queue_segment_tail;
     new_callstack_entry.reverted_queue_head = potential_rollback_queue_segment_tail;
     new_callstack_entry.reverted_queue_segment_len = zero_u32;
+    new_callstack_entry.total_pubdata_spent = zero_u32;
 
     let dst_pc = common_opcode_state.decoded_opcode.imm0;
     let eh_pc = common_opcode_state.decoded_opcode.imm1;
 
-    let near_call_abi = NearCallABI::from_register_view(&common_opcode_state.src0_view);
+    let mut near_call_abi = NearCallABI::from_register_view(&common_opcode_state.src0_view);
+    // convert ergs
+    let conversion_constant = UInt32::allocated_constant(
+        cs,
+        zkevm_opcode_defs::system_params::INTERNAL_ERGS_TO_VISIBLE_ERGS_CONVERSION_CONSTANT,
+    );
+    let cap = UInt32::allocated_constant(cs, u32::MAX);
+    near_call_abi.ergs_passed = if cs.gate_is_allowed::<U8x4FMAGate>() {
+        let zero_u32 = UInt32::zero(cs);
+        let [(low, _), (high, _)] = UInt32::fma_with_carry(
+            cs,
+            near_call_abi.ergs_passed,
+            conversion_constant,
+            zero_u32,
+            zero_u32,
+        );
+        let fits_u32 = high.is_zero(cs);
+
+        UInt32::conditionally_select(cs, fits_u32, &low, &cap)
+    } else {
+        unimplemented!()
+    };
+
     let pass_all_ergs = near_call_abi.ergs_passed.is_zero(cs);
 
     let preliminary_ergs_left = opcode_carry_parts.preliminary_ergs_left;
@@ -112,6 +135,14 @@ where
         &preliminary_ergs_left,
         &near_call_abi.ergs_passed,
     );
+
+    if crate::config::CIRCUIT_VERSOBE {
+        if (execute.witness_hook(&*cs))().unwrap_or(false) {
+            dbg!(preliminary_ergs_left.witness_hook(cs)().unwrap());
+            dbg!(near_call_abi.ergs_passed.witness_hook(cs)().unwrap());
+            dbg!(pass_all_ergs.witness_hook(cs)().unwrap());
+        }
+    }
 
     let (remaining_for_this_context, uf) = preliminary_ergs_left.overflowing_sub(cs, ergs_to_pass);
 
@@ -126,6 +157,13 @@ where
         UInt32::conditionally_select(cs, uf, &preliminary_ergs_left, &passed_ergs_if_pass);
 
     current_callstack_entry.ergs_remaining = remaining_ergs_if_pass;
+
+    if crate::config::CIRCUIT_VERSOBE {
+        if (execute.witness_hook(&*cs))().unwrap_or(false) {
+            dbg!(remaining_ergs_if_pass.witness_hook(cs)().unwrap());
+            dbg!(passed_ergs_if_pass.witness_hook(cs)().unwrap());
+        }
+    }
 
     let oracle = witness_oracle.clone();
     let mut dependencies = Vec::with_capacity(

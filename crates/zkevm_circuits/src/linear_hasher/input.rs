@@ -4,24 +4,30 @@ use crate::base_structures::{
 };
 use boojum::cs::{traits::cs::ConstraintSystem, Variable};
 use boojum::field::SmallField;
-use boojum::gadgets::keccak256;
+
 use boojum::gadgets::traits::auxiliary::PrettyComparison;
-use boojum::gadgets::u32::UInt32;
+
 use boojum::gadgets::u8::UInt8;
 use boojum::gadgets::{
     boolean::Boolean,
     queue::*,
     traits::{
-        allocatable::*, encodable::CircuitVarLengthEncodable, selectable::Selectable,
-        witnessable::WitnessHookable,
+        allocatable::*, encodable::CircuitVarLengthEncodable, encodable::WitnessVarLengthEncodable,
+        selectable::Selectable, witnessable::WitnessHookable,
     },
 };
 use boojum::serde_utils::BigArraySerde;
 use cs_derive::*;
 use derivative::*;
-use std::collections::VecDeque;
 
-#[derive(Derivative, CSAllocatable, CSSelectable, CSVarLengthEncodable, WitnessHookable)]
+#[derive(
+    Derivative,
+    CSAllocatable,
+    CSSelectable,
+    CSVarLengthEncodable,
+    WitnessHookable,
+    WitVarLengthEncodable,
+)]
 #[derivative(Clone, Copy, Debug)]
 #[DerivePrettyComparison("true")]
 pub struct LinearHasherInputData<F: SmallField> {
@@ -36,7 +42,14 @@ impl<F: SmallField> CSPlaceholder<F> for LinearHasherInputData<F> {
     }
 }
 
-#[derive(Derivative, CSAllocatable, CSSelectable, CSVarLengthEncodable, WitnessHookable)]
+#[derive(
+    Derivative,
+    CSAllocatable,
+    CSSelectable,
+    CSVarLengthEncodable,
+    WitnessHookable,
+    WitVarLengthEncodable,
+)]
 #[derivative(Clone, Copy, Debug)]
 #[DerivePrettyComparison("true")]
 pub struct LinearHasherOutputData<F: SmallField> {

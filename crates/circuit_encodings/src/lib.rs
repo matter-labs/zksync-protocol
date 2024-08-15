@@ -2,6 +2,8 @@ use crate::boojum::algebraic_props::round_function::{
     absorb_multiple_rounds, AbsorptionModeOverwrite, AlgebraicRoundFunction,
 };
 use crate::boojum::field::SmallField;
+use crate::boojum::gadgets::queue::QueueStateWitness;
+use crate::boojum::gadgets::queue::QueueTailStateWitness;
 use crate::boojum::gadgets::traits::allocatable::CSAllocatable;
 use crate::boojum::gadgets::traits::round_function::*;
 use crate::boojum::gadgets::u160::decompose_address_as_u32x5;
@@ -117,6 +119,12 @@ impl<
             num_items: 0,
             witness: VecDeque::new(),
         }
+    }
+
+    pub fn with_capacity(capacity: usize) -> Self {
+        let mut new = Self::empty();
+        new.witness.reserve_exact(capacity);
+        new
     }
 
     pub fn split(mut self, at: u32) -> (Self, Self) {
@@ -308,8 +316,6 @@ impl<
 pub struct FullWidthQueueIntermediateStates<F: SmallField, const SW: usize, const ROUNDS: usize> {
     pub head: [F; SW],
     pub tail: [F; SW],
-    pub old_head: [F; SW],
-    pub old_tail: [F; SW],
     pub num_items: u32,
     pub round_function_execution_pairs: [([F; SW], [F; SW]); ROUNDS],
 }
@@ -360,6 +366,12 @@ impl<
             num_items: 0,
             witness: VecDeque::new(),
         }
+    }
+
+    pub fn with_capacity(capacity: usize) -> Self {
+        let mut new = Self::empty();
+        new.witness.reserve_exact(capacity);
+        new
     }
 
     pub fn merge(first: Self, second: Self) -> Self {
@@ -419,8 +431,6 @@ impl<
         let intermediate_info = FullWidthQueueIntermediateStates {
             head: self.head,
             tail: new_tail,
-            old_head: self.head,
-            old_tail,
             num_items: self.num_items,
             round_function_execution_pairs: states,
         };
@@ -459,8 +469,6 @@ impl<
         let intermediate_info = FullWidthQueueIntermediateStates {
             head: self.head,
             tail: self.tail,
-            old_head,
-            old_tail: self.tail,
             num_items: self.num_items,
             round_function_execution_pairs: states,
         };
@@ -506,6 +514,105 @@ impl<
     }
 }
 
+pub trait ContainerForSimulator<T> {
+    fn push(&mut self, val: T);
+}
+
+use core::marker::PhantomData;
+/// Simplified version of FullWidthQueueSimulator with custom container instead of VecDeque
+pub struct FullWidthMemoryQueueSimulator<
+    F: SmallField,
+    I,
+    C: ContainerForSimulator<([F; N], [F; SW], I)>,
+    const N: usize,
+    const SW: usize,
+    const ROUNDS: usize,
+> where
+    I: OutOfCircuitFixedLengthEncodable<F, N>,
+{
+    pub head: [F; SW],
+    pub tail: [F; SW],
+    pub num_items: u32,
+    pub witness: C,
+    _marker: PhantomData<I>,
+}
+
+impl<
+        F: SmallField,
+        I: OutOfCircuitFixedLengthEncodable<F, N>,
+        C: ContainerForSimulator<([F; N], [F; SW], I)>,
+        const N: usize,
+        const SW: usize,
+        const ROUNDS: usize,
+    > FullWidthMemoryQueueSimulator<F, I, C, N, SW, ROUNDS>
+{
+    pub fn using_container(container: C) -> Self {
+        Self {
+            head: [F::ZERO; SW],
+            tail: [F::ZERO; SW],
+            num_items: 0,
+            witness: container,
+            _marker: Default::default(),
+        }
+    }
+
+    pub fn replace_container(mut self, container: C) -> (Self, C) {
+        let prev_container = self.witness;
+        self.witness = container;
+        (self, prev_container)
+    }
+
+    pub fn take_sponge_like_queue_state(&self) -> QueueStateWitness<F, SW> {
+        let result = QueueStateWitness {
+            head: self.head,
+            tail: QueueTailStateWitness {
+                tail: self.tail,
+                length: self.num_items,
+            },
+        };
+
+        result
+    }
+
+    pub fn push_and_output_intermediate_data<
+        R: CircuitRoundFunction<F, AW, SW, CW> + AlgebraicRoundFunction<F, AW, SW, CW>,
+        const AW: usize,
+        const CW: usize,
+    >(
+        &mut self,
+        element: I,
+        _round_function: &R,
+    ) -> (
+        [F; SW], // old tail
+        FullWidthQueueIntermediateStates<F, SW, ROUNDS>,
+    ) {
+        let old_tail = self.tail;
+        assert!(N % AW == 0);
+        let encoding = element.encoding_witness();
+
+        let mut state = old_tail;
+        let states = absorb_multiple_rounds::<F, R, AbsorptionModeOverwrite, AW, SW, CW, ROUNDS>(
+            &mut state, &encoding,
+        );
+        let new_tail = state;
+
+        let states = make_round_function_pairs(old_tail, states);
+
+        self.witness.push((encoding, new_tail, element));
+        self.num_items += 1;
+        self.tail = new_tail;
+
+        let intermediate_info = FullWidthQueueIntermediateStates {
+            head: self.head,
+            tail: new_tail,
+            num_items: self.num_items,
+            round_function_execution_pairs: states,
+        };
+
+        (old_tail, intermediate_info)
+    }
+}
+
 #[derive(Derivative, serde::Serialize, serde::Deserialize)]
 #[derivative(Debug, Clone(bound = ""), Copy(bound = ""))]
 #[serde(bound = "")]
@@ -535,7 +642,7 @@ pub struct FullWidthStackSimulator<
 > {
     pub state: [F; SW],
     pub num_items: u32,
-    pub witness: Vec<([F; N], [F; SW], I)>,
+    pub witness: Vec<([F; SW], I)>,
 }
 
 impl<
@@ -588,7 +695,7 @@ impl<
 
         let states = make_round_function_pairs(old_state, states);
 
-        self.witness.push((encoding, self.state, element));
+        self.witness.push((self.state, element));
         self.num_items += 1;
         self.state = new_state;
 
@@ -618,7 +725,7 @@ impl<
         let popped = self.witness.pop().unwrap();
         self.num_items -= 1;
 
-        let (_element_encoding, previous_state, element) = popped;
+        let (previous_state, element) = popped;
         let encoding = element.encoding_witness();
 
         let mut state = previous_state;
@@ -758,6 +865,9 @@ mod tests {
         }
         assert_eq!(queue.num_items, 10);
 
+        let old_head = queue.head;
+        let old_tail = queue.tail;
+
         // pop one element
         let (element, data) = queue.pop_and_output_intermediate_data(&round_function);
         // it should return the first one that we entered (with circuit 0).
@@ -767,8 +877,8 @@ mod tests {
         assert_eq!(data.num_items, 9);
 
         assert_eq!(data.head, tail_after_first);
-        assert_eq!(data.old_head, empty_head);
-        assert_eq!(data.old_tail, data.tail);
+        assert_eq!(old_head, empty_head);
+        assert_eq!(data.tail, old_tail);
 
         let mut parts = queue.split_by(3, &round_function);
 

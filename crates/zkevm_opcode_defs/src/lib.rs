@@ -20,6 +20,7 @@ pub use bitflags;
 pub use blake2;
 pub use ethereum_types;
 pub use k256;
+pub use p256;
 pub use sha2;
 pub use sha3;
 
@@ -27,14 +28,7 @@ pub use self::definitions::*;
 pub use self::imm_mem_modifiers::*;
 pub use self::opcode::*;
 pub use self::utils::*;
-
-pub use self::system_params::{
-    ADDRESS_ACCOUNT_CODE_STORAGE, ADDRESS_BOOTLOADER, ADDRESS_CONTRACT_DEPLOYER, ADDRESS_ECRECOVER,
-    ADDRESS_ETH_TOKEN, ADDRESS_EVENT_WRITER, ADDRESS_FORCE_DEPLOYER, ADDRESS_IDENTITY,
-    ADDRESS_IMMUTABLE_SIMULATOR, ADDRESS_KECCAK256, ADDRESS_KNOWN_CODES_STORAGE,
-    ADDRESS_L1_MESSENGER, ADDRESS_MSG_VALUE, ADDRESS_NONCE_HOLDER, ADDRESS_RIPEMD160,
-    ADDRESS_SHA256, ADDRESS_SYSTEM_CONTEXT, ADDRESS_UNRESTRICTED_SPACE,
-};
+pub use self::system_params::*;
 
 use lazy_static::lazy_static;
 
@@ -74,7 +68,7 @@ const WIDTH_MULTIPLE: usize = 16;
 
 pub const INITIAL_SP_ON_FAR_CALL: u64 = 0;
 pub const UNMAPPED_PAGE: u32 = 0;
-
+pub const STATIC_MEMORY_PAGE: u32 = 1;
 pub const BOOTLOADER_BASE_PAGE: u32 = 8;
 pub const BOOTLOADER_CODE_PAGE: u32 = BOOTLOADER_BASE_PAGE;
 pub const BOOTLOADER_CALLDATA_PAGE: u32 = BOOTLOADER_BASE_PAGE - 1; // some convention
@@ -122,7 +116,9 @@ pub fn total_opcode_description_and_aux_bits_for_version(version: ISAVersion) ->
     total_description_bits_rounded_for_version(version) + TOTAL_AUX_BITS
 }
 
-pub const DEFAULT_ISA_VERSION: ISAVersion = ISAVersion(1);
+pub const DEFAULT_ISA_VERSION: ISAVersion = ISAVersion(2);
+
+pub const NUM_SYSTEM_CONTRACTS: usize = 1 << 16;
 
 lazy_static! {
     pub static ref OPCODES_TABLE: [OpcodeVariant; 1 << OPCODES_TABLE_WIDTH] = {
@@ -224,6 +220,14 @@ lazy_static! {
         }
 
         result.try_into().unwrap()
+    };
+
+    pub static ref STIPENDS_AND_EXTRA_COSTS_TABLE: Box<[(u32, u32); NUM_SYSTEM_CONTRACTS]> = {
+        let mut default_table = Box::new([(0u32, 0u32); NUM_SYSTEM_CONTRACTS]);
+        use crate::system_params::MSG_VALUE_SIMULATOR_ADDITIVE_COST;
+        default_table[ADDRESS_MSG_VALUE as usize] = (0u32, MSG_VALUE_SIMULATOR_ADDITIVE_COST);
+
+        default_table
     };
 }
 

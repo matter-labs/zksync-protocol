@@ -1,6 +1,5 @@
 use super::*;
 use boojum::cs::implementations::proof::Proof;
-use boojum::cs::implementations::verifier::VerificationKey;
 
 use boojum::field::SmallField;
 
@@ -49,6 +48,7 @@ pub struct SchedulerCircuitInstanceWitness<
     pub keccak256_observable_output: PrecompileFunctionOutputDataWitness<F>,
     pub sha256_observable_output: PrecompileFunctionOutputDataWitness<F>,
     pub ecrecover_observable_output: PrecompileFunctionOutputDataWitness<F>,
+    pub secp256r1_verify_observable_output: PrecompileFunctionOutputDataWitness<F>,
     // RAM permutation doesn't produce anything
     pub storage_sorter_observable_output: StorageDeduplicatorOutputDataWitness<F>,
     pub storage_application_observable_output: StorageApplicationOutputDataWitness<F>,
@@ -69,22 +69,19 @@ pub struct SchedulerCircuitInstanceWitness<
     pub rollup_storage_sorter_intermediate_queue_state: QueueTailStateWitness<F, QUEUE_STATE_WIDTH>,
     pub events_sorter_intermediate_queue_state: QueueTailStateWitness<F, QUEUE_STATE_WIDTH>,
     pub l1messages_sorter_intermediate_queue_state: QueueTailStateWitness<F, QUEUE_STATE_WIDTH>,
+    pub transient_storage_sorter_intermediate_queue_state:
+        QueueTailStateWitness<F, QUEUE_STATE_WIDTH>,
 
     // extra information about the previous block
     pub previous_block_meta_hash: [u8; 32],
     pub previous_block_aux_hash: [u8; 32],
 
     // eip4844 witnesses
-    pub eip4844_witnesses: Option<[EIP4844OutputDataWitness<F>; MAX_4844_BLOBS_PER_BLOCK]>,
-    pub eip4844_proofs: VecDeque<Proof<F, H::NonCircuitSimulator, EXT>>,
+    pub eip4844_witnesses: [Option<EIP4844OutputDataWitness<F>>; MAX_4844_BLOBS_PER_BLOCK],
 
     // proofs for every individual circuit type's aggregation subtree
     #[derivative(Debug = "ignore")]
     pub proof_witnesses: VecDeque<Proof<F, H::NonCircuitSimulator, EXT>>,
-    #[derivative(Debug = "ignore")]
-    pub node_layer_vk_witness: VerificationKey<F, H::NonCircuitSimulator>,
-    #[derivative(Debug = "ignore")]
-    pub leaf_layer_parameters: [RecursionLeafParametersWitness<F>; NUM_BASE_LAYER_CIRCUITS],
 }
 
 impl<F: SmallField, H: RecursiveTreeHasher<F, Num<F>>, EXT: FieldExtension<2, BaseField = F>>
@@ -100,9 +97,12 @@ impl<F: SmallField, H: RecursiveTreeHasher<F, Num<F>>, EXT: FieldExtension<2, Ba
                 CodeDecommittmentsDeduplicatorOutputData::placeholder_witness(),
             code_decommitter_observable_output: CodeDecommitterOutputData::placeholder_witness(),
             log_demuxer_observable_output: LogDemuxerOutputData::placeholder_witness(),
+
             keccak256_observable_output: PrecompileFunctionOutputData::placeholder_witness(),
             sha256_observable_output: PrecompileFunctionOutputData::placeholder_witness(),
             ecrecover_observable_output: PrecompileFunctionOutputData::placeholder_witness(),
+            secp256r1_verify_observable_output: PrecompileFunctionOutputData::placeholder_witness(),
+
             storage_sorter_observable_output: StorageDeduplicatorOutputData::placeholder_witness(),
             storage_application_observable_output:
                 StorageApplicationOutputData::placeholder_witness(),
@@ -122,18 +122,15 @@ impl<F: SmallField, H: RecursiveTreeHasher<F, Num<F>>, EXT: FieldExtension<2, Ba
             rollup_storage_sorter_intermediate_queue_state: QueueTailState::placeholder_witness(),
             events_sorter_intermediate_queue_state: QueueTailState::placeholder_witness(),
             l1messages_sorter_intermediate_queue_state: QueueTailState::placeholder_witness(),
+            transient_storage_sorter_intermediate_queue_state: QueueTailState::placeholder_witness(
+            ),
 
             previous_block_meta_hash: [0u8; 32],
             previous_block_aux_hash: [0u8; 32],
 
-            eip4844_witnesses: None,
-            eip4844_proofs: VecDeque::new(),
+            eip4844_witnesses: std::array::from_fn(|_| None),
 
             proof_witnesses: VecDeque::new(),
-            node_layer_vk_witness: VerificationKey::default(),
-            leaf_layer_parameters: std::array::from_fn(|_| {
-                RecursionLeafParameters::placeholder_witness()
-            }),
         }
     }
 }

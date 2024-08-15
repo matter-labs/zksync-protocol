@@ -161,3 +161,6 @@ impl std::cmp::Ord for MemoryKey {
         std::cmp::Ordering::Equal
     }
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub struct PubdataCost(pub i32);

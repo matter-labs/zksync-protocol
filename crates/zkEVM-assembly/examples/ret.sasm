@@ -1,0 +1,19 @@
+	.text
+	.file	"ret.ll"
+	.globl	ret_void                        ; -- Begin function ret_void
+	.type	ret_void,@function
+ret_void:                               ; @ret_void
+; %bb.0:
+	ret
+.Lfunc_end0:
+	.size	ret_void, .Lfunc_end0-ret_void
+                                        ; -- End function
+	.globl	id                              ; -- Begin function id
+	.type	id,@function
+id:                                     ; @id
+; %bb.0:
+	ret
+.Lfunc_end1:
+	.size	id, .Lfunc_end1-id
+                                        ; -- End function
+	.section	".note.GNU-stack","",@progbits

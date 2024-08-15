@@ -11,8 +11,8 @@ use boojum::gadgets::traits::auxiliary::PrettyComparison;
 use boojum::gadgets::{
     boolean::Boolean,
     traits::{
-        allocatable::*, encodable::CircuitVarLengthEncodable, selectable::Selectable,
-        witnessable::WitnessHookable,
+        allocatable::*, encodable::CircuitVarLengthEncodable, encodable::WitnessVarLengthEncodable,
+        selectable::Selectable, witnessable::WitnessHookable,
     },
 };
 use cs_derive::*;
@@ -20,7 +20,14 @@ use cs_derive::*;
 use boojum::field::FieldExtension;
 use boojum::serde_utils::BigArraySerde;
 
-#[derive(Derivative, CSAllocatable, CSSelectable, CSVarLengthEncodable, WitnessHookable)]
+#[derive(
+    Derivative,
+    CSAllocatable,
+    CSSelectable,
+    CSVarLengthEncodable,
+    WitnessHookable,
+    WitVarLengthEncodable,
+)]
 #[derivative(Clone, Copy, Debug)]
 #[DerivePrettyComparison("true")]
 pub struct RecursionLeafParameters<F: SmallField> {
@@ -36,6 +43,27 @@ impl<F: SmallField> CSPlaceholder<F> for RecursionLeafParameters<F> {
             circuit_type: zero,
             basic_circuit_vk_commitment: [zero; VK_COMMITMENT_LENGTH],
             leaf_layer_vk_commitment: [zero; VK_COMMITMENT_LENGTH],
+        }
+    }
+}
+
+impl<F: SmallField> RecursionLeafParameters<F> {
+    pub fn allocated_constant<CS: ConstraintSystem<F>>(
+        cs: &mut CS,
+        value: <Self as CSAllocatable<F>>::Witness,
+    ) -> Self {
+        let circuit_type = Num::allocated_constant(cs, value.circuit_type);
+        let basic_circuit_vk_commitment = value
+            .basic_circuit_vk_commitment
+            .map(|el| Num::allocated_constant(cs, el));
+        let leaf_layer_vk_commitment = value
+            .leaf_layer_vk_commitment
+            .map(|el| Num::allocated_constant(cs, el));
+
+        Self {
+            circuit_type,
+            basic_circuit_vk_commitment,
+            leaf_layer_vk_commitment,
         }
     }
 }
