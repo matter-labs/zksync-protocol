@@ -1,6 +1,6 @@
 [package]
 name = "zk_evm_abstractions"
-version = "0.150.0"
+version.workspace = true
 edition = "2021"
 authors = ["The Matter Labs Team <hello@matterlabs.dev>"]
 homepage = "https://zksync.io/"
@@ -18,7 +18,7 @@ serde = { version = "1", features = ["derive"] }
 static_assertions = "1"
 num_enum = "0.6"
 
-zkevm_opcode_defs = { vesion = "=0.150.0", path = "../zkevm_opcode_defs" }
+zkevm_opcode_defs.workspace = true
 
 
 [dev-dependencies]

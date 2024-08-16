@@ -1,6 +1,6 @@
 [package]
 name = "zkevm_test_harness"
-version = "0.150.2"
+version.workspace = true
 edition = "2021"
 authors = ["Alex Vlasov <alex.m.vlasov@gmail.com>", "Konstantin Panarin <kp@matterlabs.dev>"]
 homepage = "https://zksync.io/"
@@ -25,11 +25,11 @@ name = "geometry_config_generator"
 path = "src/geometry_config_generator/main.rs"
 
 [dependencies]
-circuit_definitions = { version = "=0.150.2", path = "../circuit_definitions"}
-circuit_sequencer_api = { version = "=0.150.2", path = "../circuit_sequencer_api"}
-kzg = { package = "zksync_kzg", version = "=0.150.2", path = "../kzg"}
+circuit_definitions.workspace = true
+circuit_sequencer_api.workspace = true
+kzg.workspace = true
 
-zkevm-assembly = { version = "=0.150.0", path = "../zkEVM-assembly" }
+zkevm-assembly.workspace = true
 
 rand = "0.4"
 rayon = "1.10"
