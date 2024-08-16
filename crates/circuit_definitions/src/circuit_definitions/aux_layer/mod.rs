@@ -16,6 +16,7 @@ use crate::zkevm_circuits::recursion::compression::CompressionRecursionConfig;
 use snark_wrapper::boojum::config::CSConfig;
 use snark_wrapper::boojum::dag::CircuitResolver;
 use snark_wrapper::boojum::dag::StCircuitResolver;
+use snark_wrapper::verifier::WrapperCircuitWidth3NoLookupNoCustomGate;
 
 use crate::ProofConfig;
 
@@ -650,6 +651,14 @@ use snark_wrapper::implementations::poseidon2::CircuitPoseidon2Sponge;
 use snark_wrapper::verifier::WrapperCircuit;
 
 pub type ZkSyncSnarkWrapperCircuit = WrapperCircuit<
+    Bn256,
+    Poseidon2Sponge<Bn256, GoldilocksField, AbsorptionModeReplacement<Fr>, 2, 3>,
+    CircuitPoseidon2Sponge<Bn256, 2, 3, 3, true>,
+    CircuitPoseidon2Transcript<Bn256, 2, 3, 3, true>,
+    ZkSyncCompressionWrapper,
+>;
+
+pub type ZkSyncSnarkWrapperCircuitNoLookupCustomGate = WrapperCircuitWidth3NoLookupNoCustomGate<
     Bn256,
     Poseidon2Sponge<Bn256, GoldilocksField, AbsorptionModeReplacement<Fr>, 2, 3>,
     CircuitPoseidon2Sponge<Bn256, 2, 3, 3, true>,

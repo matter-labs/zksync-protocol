@@ -14,7 +14,9 @@ description = "ZKsync Era circuits definitions"
 
 [dependencies]
 circuit_encodings.workspace = true
-snark_wrapper = "=0.1.2"
+# snark_wrapper = "=0.1.2"
+snark_wrapper = {git = "https://github.com/matter-labs/zksync-crypto.git", package = "snark-wrapper", branch = "si/fflonk"}
+# snark_wrapper = {path = "../../../zksync-crypto/crates/snark-wrapper", package = "snark-wrapper"}
 
 derivative = "2.2"
 serde = {version = "1", features = ["derive"]}

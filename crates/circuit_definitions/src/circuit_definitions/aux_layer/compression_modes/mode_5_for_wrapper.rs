@@ -1,6 +1,7 @@
 use super::*;
 use crate::boojum::gadgets::traits::configuration::ConfigurationFunction;
 
+
 // no lookup, just enough copiable width, moderate LDE factor,
 // and matrix multiplication gate,
 pub struct CompressionMode5ForWrapper;
@@ -10,7 +11,7 @@ impl ProofCompressionFunction for CompressionMode5ForWrapper {
     type PreviousLayerPoW = NoPow;
 
     // no PoW on this step too
-    type ThisLayerPoW = NoPow;
+    type ThisLayerPoW = CompressionPoWForWrapper;
     type ThisLayerHasher = CompressionTreeHasherForWrapper;
     type ThisLayerTranscript = CompressionTranscriptForWrapper;
 
@@ -100,7 +101,7 @@ impl ProofCompressionFunction for CompressionMode5ForWrapper {
             merkle_tree_cap_size: 8,
             fri_folding_schedule: None,
             security_level: crate::L1_SECURITY_BITS,
-            pow_bits: 0,
+            pow_bits: 8,
         }
     }
 

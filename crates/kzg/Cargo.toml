@@ -22,7 +22,9 @@ hex = "0.4"
 once_cell = "1"
 serde_with = {version = "1", features = ["hex"]}
 
-boojum = "=0.2.2"
+# boojum = "=0.2.2"
+boojum = {git = "https://github.com/matter-labs/zksync-crypto.git", package = "boojum", branch = "si/fflonk"}
+# boojum = {path = "../../../zksync-crypto/crates/boojum", package = "boojum"}
 zkevm_circuits.workspace = true
 
 [dev-dependencies]

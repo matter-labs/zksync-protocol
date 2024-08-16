@@ -29,7 +29,9 @@ seq-macro = "0.3"
 
 zkevm_opcode_defs.workspace = true
 cs_derive = "=0.2.2"
-boojum = "=0.2.2"
+# boojum = "=0.2.2"
+boojum = {git = "https://github.com/matter-labs/zksync-crypto.git", package = "boojum", branch = "si/fflonk"}
+# boojum = {path = "../../../zksync-crypto/crates/boojum", package = "boojum"}
 
 [features]
 default = []
