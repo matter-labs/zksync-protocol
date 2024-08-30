@@ -1,3 +1,4 @@
 {
-    "zksync-protocol": "0.150.4"
+    "zksync-protocol": "0.150.4",
+    ".": "1.0.0"
 }
