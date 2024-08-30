@@ -17,7 +17,6 @@ use circuit_definitions::circuit_definitions::base_layer::{
     RAMPermutationInstanceSynthesisFunction, ZkSyncBaseLayerCircuit,
 };
 use circuit_definitions::encodings::memory_query::MemoryQueueSimulator;
-use circuit_definitions::encodings::memory_query::MemoryQueueState;
 use circuit_definitions::encodings::recursion_request::RecursionQueueSimulator;
 use circuit_definitions::zkevm_circuits::scheduler::aux::BaseLayerCircuitType;
 use circuit_definitions::{encodings::*, Field, RoundFunction};
@@ -36,8 +35,12 @@ use crate::zk_evm::zkevm_opcode_defs::BOOTLOADER_HEAP_PAGE;
 
 pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)>(
     total_amount_of_queries: usize, // including additional queries from precompiles
-    memory_queue_states_accumulator: LastPerCircuitAccumulator<MemoryQueueState<Field>>,
-    sorted_memory_queue_states_accumulator: LastPerCircuitAccumulator<MemoryQueueState<Field>>,
+    memory_queue_states_accumulator: LastPerCircuitAccumulator<
+        QueueStateWitness<Field, FULL_SPONGE_QUEUE_STATE_WIDTH>,
+    >,
+    sorted_memory_queue_states_accumulator: LastPerCircuitAccumulator<
+        QueueStateWitness<Field, FULL_SPONGE_QUEUE_STATE_WIDTH>,
+    >,
     memory_queue_simulator: MemoryQueuePerCircuitSimulator<Field>,
     sorted_memory_queries_simulator: MemoryQueuePerCircuitSimulator<Field>,
     sorted_queries_aux_data_for_chunks: Vec<(u32, MemoryQuery, usize)>,
@@ -171,8 +174,8 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
         .clone();
 
     assert_eq!(
-        unsorted_global_final_state.num_items,
-        sorted_global_final_state.num_items
+        unsorted_global_final_state.tail.length,
+        sorted_global_final_state.tail.length
     );
 
     let it = unsorted_memory_queue_chunk_final_states
@@ -264,17 +267,17 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
         );
 
         // we use current final state as the intermediate head
-        let mut final_unsorted_state = transform_sponge_like_queue_state(last_unsorted_state);
+        let mut final_unsorted_state = last_unsorted_state;
         final_unsorted_state.head = final_unsorted_state.tail.tail;
-        final_unsorted_state.tail.tail = unsorted_global_final_state.tail;
+        final_unsorted_state.tail.tail = unsorted_global_final_state.tail.tail;
         final_unsorted_state.tail.length =
-            unsorted_global_final_state.num_items - final_unsorted_state.tail.length;
+            unsorted_global_final_state.tail.length - final_unsorted_state.tail.length;
 
-        let mut final_sorted_state = transform_sponge_like_queue_state(last_sorted_state);
+        let mut final_sorted_state = last_sorted_state;
         final_sorted_state.head = final_sorted_state.tail.tail;
-        final_sorted_state.tail.tail = sorted_global_final_state.tail;
+        final_sorted_state.tail.tail = sorted_global_final_state.tail.tail;
         final_sorted_state.tail.length =
-            sorted_global_final_state.num_items - final_sorted_state.tail.length;
+            sorted_global_final_state.tail.length - final_sorted_state.tail.length;
 
         assert_eq!(
             final_unsorted_state.tail.length,
@@ -286,12 +289,8 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
                 start_flag: if_first,
                 completion_flag: is_last,
                 observable_input: RamPermutationInputDataWitness {
-                    unsorted_queue_initial_state: transform_sponge_like_queue_state(
-                        unsorted_global_final_state,
-                    ),
-                    sorted_queue_initial_state: transform_sponge_like_queue_state(
-                        sorted_global_final_state,
-                    ),
+                    unsorted_queue_initial_state: unsorted_global_final_state.clone(),
+                    sorted_queue_initial_state: sorted_global_final_state.clone(),
                     non_deterministic_bootloader_memory_snapshot_length:
                         num_non_deterministic_heap_queries as u32,
                 },

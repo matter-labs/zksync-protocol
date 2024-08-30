@@ -26,6 +26,7 @@ use circuit_definitions::zk_evm::vm_state::cycle;
 use storage::{InMemoryCustomRefundStorage, StorageRefund};
 use witness::oracle::WitnessGenerationArtifact;
 use zkevm_assembly::Assembly;
+use zkevm_circuits::base_structures::vm_state::FULL_SPONGE_QUEUE_STATE_WIDTH;
 
 #[test]
 fn run_and_try_create_witness() {
@@ -322,14 +323,26 @@ pub(crate) fn run_with_options(entry_point_bytecode: Vec<[u8; 32]>, options: Opt
     let mut sorted_memory_queue_witnesses = sorted_memory_queue_witnesses.into_iter();
     for el in basic_block_circuits {
         println!("Doing {} circuit", el.short_description());
+        use circuit_definitions::boojum::field::Field;
         match &el {
             ZkSyncBaseLayerCircuit::RAMPermutation(inner) => {
                 let mut witness = inner.witness.take().unwrap();
+                let zero_state = [GoldilocksField::ZERO; FULL_SPONGE_QUEUE_STATE_WIDTH];
                 witness.sorted_queue_witness = FullStateCircuitQueueRawWitness {
-                    elements: sorted_memory_queue_witnesses.next().unwrap().into(),
+                    elements: sorted_memory_queue_witnesses
+                        .next()
+                        .unwrap()
+                        .into_iter()
+                        .map(|x| (x, zero_state))
+                        .collect(),
                 };
                 witness.unsorted_queue_witness = FullStateCircuitQueueRawWitness {
-                    elements: unsorted_memory_queue_witnesses_it.next().unwrap().into(),
+                    elements: unsorted_memory_queue_witnesses_it
+                        .next()
+                        .unwrap()
+                        .into_iter()
+                        .map(|x| (x, zero_state))
+                        .collect(),
                 };
 
                 inner.witness.store(Some(witness));

@@ -523,7 +523,7 @@ use core::marker::PhantomData;
 pub struct FullWidthMemoryQueueSimulator<
     F: SmallField,
     I,
-    C: ContainerForSimulator<([F; N], [F; SW], I)>,
+    C: ContainerForSimulator<([F; N], I)>,
     const N: usize,
     const SW: usize,
     const ROUNDS: usize,
@@ -540,7 +540,7 @@ pub struct FullWidthMemoryQueueSimulator<
 impl<
         F: SmallField,
         I: OutOfCircuitFixedLengthEncodable<F, N>,
-        C: ContainerForSimulator<([F; N], [F; SW], I)>,
+        C: ContainerForSimulator<([F; N], I)>,
         const N: usize,
         const SW: usize,
         const ROUNDS: usize,
@@ -574,7 +574,7 @@ impl<
         result
     }
 
-    pub fn push_and_output_intermediate_data<
+    pub fn push_and_output_queue_state_witness<
         R: CircuitRoundFunction<F, AW, SW, CW> + AlgebraicRoundFunction<F, AW, SW, CW>,
         const AW: usize,
         const CW: usize,
@@ -584,32 +584,29 @@ impl<
         _round_function: &R,
     ) -> (
         [F; SW], // old tail
-        FullWidthQueueIntermediateStates<F, SW, ROUNDS>,
+        QueueStateWitness<F, SW>,
     ) {
-        let old_tail = self.tail;
         assert!(N % AW == 0);
         let encoding = element.encoding_witness();
+        self.witness.push((encoding, element));
 
+        let old_tail = self.tail;
         let mut state = old_tail;
-        let states = absorb_multiple_rounds::<F, R, AbsorptionModeOverwrite, AW, SW, CW, ROUNDS>(
+        let _ = absorb_multiple_rounds::<F, R, AbsorptionModeOverwrite, AW, SW, CW, ROUNDS>(
             &mut state, &encoding,
         );
-        let new_tail = state;
-
-        let states = make_round_function_pairs(old_tail, states);
-
-        self.witness.push((encoding, new_tail, element));
+        self.tail = state;
         self.num_items += 1;
-        self.tail = new_tail;
 
-        let intermediate_info = FullWidthQueueIntermediateStates {
+        let state_witness = QueueStateWitness {
             head: self.head,
-            tail: new_tail,
-            num_items: self.num_items,
-            round_function_execution_pairs: states,
+            tail: QueueTailStateWitness {
+                tail: self.tail,
+                length: self.num_items,
+            },
         };
 
-        (old_tail, intermediate_info)
+        (old_tail, state_witness)
     }
 }
 
@@ -623,14 +620,6 @@ pub struct FullWidthStackIntermediateStates<F: SmallField, const SW: usize, cons
     #[serde(with = "crate::boojum::serde_utils::BigArraySerde")]
     pub new_state: [F; SW],
     pub depth: u32,
-    #[serde(skip)]
-    #[serde(default = "empty_array_of_arrays::<F, SW, ROUNDS>")]
-    pub round_function_execution_pairs: [([F; SW], [F; SW]); ROUNDS],
-}
-
-fn empty_array_of_arrays<F: SmallField, const SW: usize, const ROUNDS: usize>(
-) -> [([F; SW], [F; SW]); ROUNDS] {
-    [([F::ZERO; SW], [F::ZERO; SW]); ROUNDS]
 }
 
 pub struct FullWidthStackSimulator<
@@ -688,12 +677,10 @@ impl<
         let old_state = self.state;
 
         let mut state = old_state;
-        let states = absorb_multiple_rounds::<F, R, AbsorptionModeOverwrite, AW, SW, CW, ROUNDS>(
+        let _ = absorb_multiple_rounds::<F, R, AbsorptionModeOverwrite, AW, SW, CW, ROUNDS>(
             &mut state, &encoding,
         );
         let new_state = state;
-
-        let states = make_round_function_pairs(old_state, states);
 
         self.witness.push((self.state, element));
         self.num_items += 1;
@@ -704,7 +691,6 @@ impl<
             previous_state: old_state,
             new_state,
             depth: self.num_items,
-            round_function_execution_pairs: states,
         };
 
         intermediate_info
@@ -729,13 +715,11 @@ impl<
         let encoding = element.encoding_witness();
 
         let mut state = previous_state;
-        let states = absorb_multiple_rounds::<F, R, AbsorptionModeOverwrite, AW, SW, CW, ROUNDS>(
+        let _ = absorb_multiple_rounds::<F, R, AbsorptionModeOverwrite, AW, SW, CW, ROUNDS>(
             &mut state, &encoding,
         );
         let new_state = state;
         assert_eq!(new_state, self.state);
-
-        let states = make_round_function_pairs(previous_state, states);
 
         self.state = previous_state;
 
@@ -744,7 +728,6 @@ impl<
             previous_state: current_state,
             new_state: previous_state,
             depth: self.num_items,
-            round_function_execution_pairs: states,
         };
 
         (element, intermediate_info)

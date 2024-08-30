@@ -12,7 +12,6 @@ use circuit_definitions::encodings::decommittment_request::normalized_preimage_a
 use circuit_definitions::encodings::decommittment_request::DecommittmentQueueSimulator;
 use circuit_definitions::encodings::decommittment_request::DecommittmentQueueState;
 use circuit_definitions::encodings::memory_query::MemoryQueueSimulator;
-use circuit_definitions::encodings::memory_query::MemoryQueueState;
 use circuit_definitions::zk_evm::aux_structures::DecommittmentQuery;
 use std::collections::VecDeque;
 
@@ -56,8 +55,8 @@ pub(crate) fn compute_decommitter_circuit_snapshots<
     amount_of_memory_queries: usize,
     decommitter_memory_queries: Vec<MemoryQuery>,
     decommitter_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
-    decommitter_memory_states: Vec<MemoryQueueState<F>>,
-    final_explicit_memory_queue_state: MemoryQueueState<F>,
+    decommitter_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
+    final_explicit_memory_queue_state: QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>,
     decommiter_circuit_inputs: DecommiterCircuitProcessingInputs<F>,
     round_function: &R,
     decommiter_circuit_capacity: usize,
@@ -178,7 +177,7 @@ pub(crate) fn compute_decommitter_circuit_snapshots<
         current_circuit_witness
             .closed_form_input
             .hidden_fsm_input
-            .memory_queue_state = transform_sponge_like_queue_state(wintess_state.clone());
+            .memory_queue_state = wintess_state.clone();
 
         let initial_decommittment_queue_state = results
             .last()
@@ -393,7 +392,7 @@ pub(crate) fn compute_decommitter_circuit_snapshots<
         current_circuit_witness
             .closed_form_input
             .hidden_fsm_output
-            .memory_queue_state = transform_sponge_like_queue_state(wintess_state.clone());
+            .memory_queue_state = wintess_state.clone();
 
         current_circuit_witness
             .closed_form_input

@@ -11,7 +11,6 @@ use crate::zkevm_circuits::base_structures::log_query::*;
 use crate::zkevm_circuits::sha256_round_function::input::*;
 use crate::zkevm_circuits::sha256_round_function::*;
 use circuit_definitions::encodings::memory_query::MemoryQueueSimulator;
-use circuit_definitions::encodings::memory_query::MemoryQueueState;
 use circuit_definitions::encodings::*;
 use derivative::*;
 
@@ -73,7 +72,7 @@ pub(crate) fn sha256_decompose_into_per_circuit_witness<
     amount_of_memory_queries_before: usize,
     sha256_memory_queries: Vec<MemoryQuery>,
     sha256_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
-    sha256_memory_states: Vec<MemoryQueueState<F>>,
+    sha256_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     sha256_round_function_witnesses: Vec<(u32, LogQuery_, Vec<Sha256RoundWitness>)>,
     sha256_precompile_queries: Vec<LogQuery_>,
     mut demuxed_sha256_precompile_queue: LogQueueStates<F>,
@@ -176,8 +175,7 @@ pub(crate) fn sha256_decompose_into_per_circuit_witness<
                 assert_eq!(read, read_query);
                 memory_reads_per_request.push(read_query.value);
 
-                current_memory_queue_state =
-                    transform_sponge_like_queue_state(*memory_queue_states_it.next().unwrap());
+                current_memory_queue_state = memory_queue_states_it.next().unwrap().clone();
 
                 precompile_request.input_memory_offset += 1;
             }
@@ -195,8 +193,7 @@ pub(crate) fn sha256_decompose_into_per_circuit_witness<
                 let write_query = memory_queries_it.next().unwrap();
                 assert_eq!(write, write_query);
 
-                current_memory_queue_state =
-                    transform_sponge_like_queue_state(*memory_queue_states_it.next().unwrap());
+                current_memory_queue_state = memory_queue_states_it.next().unwrap().clone();
 
                 if is_last_request {
                     precompile_state = Sha256PrecompileState::Finished;

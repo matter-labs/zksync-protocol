@@ -321,7 +321,6 @@ impl<F: SmallField> WitnessOracle<F> for VmWitnessOracle<F> {
                 previous_state: _,
                 new_state: _,
                 depth: witness_depth,
-                round_function_execution_pairs: _,
             } = internediate_info;
             // compare
             let witness = current_record;
@@ -420,7 +419,6 @@ impl<F: SmallField> WitnessOracle<F> for VmWitnessOracle<F> {
                 previous_state: _,
                 new_state,
                 depth: witness_depth,
-                round_function_execution_pairs: _,
             } = internediate_info;
 
             assert!(
