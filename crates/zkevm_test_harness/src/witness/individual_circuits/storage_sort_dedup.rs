@@ -364,8 +364,7 @@ pub(crate) fn compute_storage_dedup_and_sort<
                         } else {
                             // read
                             if new_this_cell_current_depth == 0 {
-                                new_this_cell_has_explicit_read_and_rollback_depth_zero =
-                                    true || new_this_cell_has_explicit_read_and_rollback_depth_zero;
+                                new_this_cell_has_explicit_read_and_rollback_depth_zero = true;
                             }
                             new_this_cell_current_value = item.raw_query.read_value;
                         }

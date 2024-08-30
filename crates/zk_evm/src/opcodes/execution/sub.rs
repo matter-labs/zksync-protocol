@@ -50,7 +50,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
             vm_state.local_state.monotonic_cycle_counter,
             result,
             dst0_mem_location,
-            &self,
+            self,
         );
     }
 }

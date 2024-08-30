@@ -624,7 +624,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
             code_page: mapped_code_page,
             sp: E::PcOrImm::from_u64_clipped(INITIAL_SP_ON_FAR_CALL),
             pc: E::PcOrImm::from_u64_clipped(0u64),
-            exception_handler_location: exception_handler_location,
+            exception_handler_location,
             ergs_remaining: passed_ergs,
             this_shard_id: new_this_shard_id,
             caller_shard_id,

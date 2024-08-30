@@ -10,9 +10,7 @@ lazy_static! {
 }
 
 pub fn contract_bytecode_to_words(code: &[[u8; 32]]) -> Vec<U256> {
-    code.into_iter()
-        .map(|el| U256::from_big_endian(el))
-        .collect()
+    code.iter().map(|el| U256::from_big_endian(el)).collect()
 
     // for code each 8 byte sequence is somehow encoded integer,
     // or full 32 byte word is an integer constant (also encoded with some endianess)
@@ -47,7 +45,7 @@ pub fn u256_to_address_unchecked(integer: &U256) -> crate::Address {
     crate::Address::from_slice(&buffer[12..32])
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct GenericNoopTracer<M: Memory> {
     _marker: std::marker::PhantomData<M>,
 }
