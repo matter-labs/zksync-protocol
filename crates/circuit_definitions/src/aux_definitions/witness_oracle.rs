@@ -318,7 +318,6 @@ impl<F: SmallField> WitnessOracle<F> for VmWitnessOracle<F> {
 
             let CallstackSimulatorState {
                 is_push,
-                previous_state: _,
                 new_state: _,
                 depth: witness_depth,
             } = internediate_info;
@@ -416,7 +415,6 @@ impl<F: SmallField> WitnessOracle<F> for VmWitnessOracle<F> {
                 self.callstack_values_witnesses.pop_front().unwrap();
             let CallstackSimulatorState {
                 is_push,
-                previous_state: _,
                 new_state,
                 depth: witness_depth,
             } = internediate_info;

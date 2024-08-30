@@ -472,7 +472,6 @@ pub type LogQueueState<F> = QueueIntermediateStates<
     F,
     QUEUE_STATE_WIDTH,
     FULL_SPONGE_QUEUE_STATE_WIDTH,
-    LOG_QUERY_ABSORBTION_ROUNDS,
 >;
 
 pub type LogWithExtendedEnumerationQueueSimulator<F> = QueueSimulator<

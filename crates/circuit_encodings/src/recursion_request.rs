@@ -45,4 +45,4 @@ pub type RecursionQueueSimulator<F> = FullWidthQueueSimulator<
     1,
 >;
 pub type RecursionQueueState<F> =
-    FullWidthQueueIntermediateStates<F, FULL_SPONGE_QUEUE_STATE_WIDTH, 1>;
+    FullWidthQueueIntermediateStates<F, FULL_SPONGE_QUEUE_STATE_WIDTH>;

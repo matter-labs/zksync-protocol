@@ -57,18 +57,17 @@ pub struct QueueIntermediateStates<
     F: SmallField,
     const T: usize,
     const SW: usize,
-    const ROUNDS: usize,
 > {
     pub head: [F; T],
     pub tail: [F; T],
     pub previous_head: [F; T],
     pub previous_tail: [F; T],
     pub num_items: u32,
-    pub round_function_execution_pairs: [([F; SW], [F; SW]); ROUNDS],
+    //pub round_function_execution_pairs: [([F; SW], [F; SW]); ROUNDS],
 }
 
-impl<F: SmallField, const T: usize, const SW: usize, const ROUNDS: usize>
-    QueueIntermediateStates<F, T, SW, ROUNDS>
+impl<F: SmallField, const T: usize, const SW: usize>
+    QueueIntermediateStates<F, T, SW>
 {
     pub fn empty() -> Self {
         Self {
@@ -77,7 +76,6 @@ impl<F: SmallField, const T: usize, const SW: usize, const ROUNDS: usize>
             previous_head: [F::ZERO; T],
             previous_tail: [F::ZERO; T],
             num_items: 0,
-            round_function_execution_pairs: [([F::ZERO; SW], [F::ZERO; SW]); ROUNDS],
         }
     }
 }
@@ -184,6 +182,44 @@ impl<
         let _ = self.push_and_output_intermediate_data(element, round_function);
     }
 
+    fn absorb_element<
+        R: CircuitRoundFunction<F, AW, SW, CW> + AlgebraicRoundFunction<F, AW, SW, CW>,
+        const AW: usize,
+        const SW: usize,
+        const CW: usize,
+    >(
+        &mut self,
+        element_encoding: [F; N],
+        prev_commitment: [F; T],
+        _round_function: &R,
+    ) -> (
+        [F; T], // new commitment
+        [[F; SW]; ROUNDS] // intermediate states
+    ) {
+        let mut to_hash = Vec::with_capacity(N + T); // TODO CHECK
+        to_hash.extend_from_slice(&element_encoding);
+        to_hash.extend(prev_commitment);
+
+        let mut state = R::initial_state();
+        let states = absorb_multiple_rounds::<F, R, AbsorptionModeOverwrite, AW, SW, CW, ROUNDS>(
+            &mut state, &to_hash,
+        );
+
+        let commitment =
+            <R as AlgebraicRoundFunction<F, AW, SW, CW>>::state_into_commitment::<T>(&state);
+
+        (commitment, states)
+    }
+
+    pub fn make_round_function_pairs<
+        R: CircuitRoundFunction<F, AW, SW, CW> + AlgebraicRoundFunction<F, AW, SW, CW>,
+        const AW: usize,
+        const SW: usize,
+        const CW: usize,
+    >(round_states: [[F; SW]; ROUNDS], _round_function: &R) -> [([F; SW], [F; SW]); ROUNDS] {
+        make_round_function_pairs(R::initial_state(), round_states)
+    }
+
     pub fn push_and_output_intermediate_data<
         R: CircuitRoundFunction<F, AW, SW, CW> + AlgebraicRoundFunction<F, AW, SW, CW>,
         const AW: usize,
@@ -192,26 +228,17 @@ impl<
     >(
         &mut self,
         element: I,
-        _round_function: &R,
+        round_function: &R,
     ) -> (
-        [F; T],                                    // old tail
-        QueueIntermediateStates<F, T, SW, ROUNDS>, // new head/tail, as well as round function ins/outs
+        [[F; SW]; ROUNDS],                 // intermediate round states
+        QueueIntermediateStates<F, T, SW>, // new head/tail
     ) {
         let old_tail = self.tail;
-        let encoding = element.encoding_witness();
-        let mut to_hash = Vec::with_capacity(N + T);
-        to_hash.extend_from_slice(&encoding);
-        to_hash.extend(self.tail);
+        let encoding = element.encoding_witness(); 
 
-        let mut state = R::initial_state();
-        let states = absorb_multiple_rounds::<F, R, AbsorptionModeOverwrite, AW, SW, CW, ROUNDS>(
-            &mut state, &to_hash,
-        );
-        let new_tail =
-            <R as AlgebraicRoundFunction<F, AW, SW, CW>>::state_into_commitment::<T>(&state);
         self.witness.push_back((encoding, old_tail, element));
 
-        let states = make_round_function_pairs(R::initial_state(), states);
+        let (new_tail, round_states) = self.absorb_element(encoding, old_tail, round_function);
 
         self.num_items += 1;
         self.tail = new_tail;
@@ -222,10 +249,9 @@ impl<
             previous_head: self.head, // unchanged
             previous_tail: old_tail,
             num_items: self.num_items,
-            round_function_execution_pairs: states,
         };
 
-        (old_tail, intermediate_info)
+        (round_states, intermediate_info)
     }
 
     pub fn pop_and_output_intermediate_data<
@@ -235,24 +261,14 @@ impl<
         const CW: usize,
     >(
         &mut self,
-        _round_function: &R,
-    ) -> (I, QueueIntermediateStates<F, T, SW, ROUNDS>) {
+        round_function: &R,
+    ) -> (I, QueueIntermediateStates<F, T, SW>) {
         let old_head = self.head;
         let (_, _, element) = self.witness.pop_front().unwrap();
 
         let encoding = element.encoding_witness();
-        let mut to_hash = Vec::with_capacity(N + T);
-        to_hash.extend_from_slice(&encoding);
-        to_hash.extend(self.head);
 
-        let mut state = R::initial_state();
-        let states = absorb_multiple_rounds::<F, R, AbsorptionModeOverwrite, AW, SW, CW, ROUNDS>(
-            &mut state, &to_hash,
-        );
-        let new_head =
-            <R as AlgebraicRoundFunction<F, AW, SW, CW>>::state_into_commitment::<T>(&state);
-
-        let states = make_round_function_pairs(R::initial_state(), states);
+        let (new_head, _states) = self.absorb_element(encoding, old_head, round_function);
 
         self.num_items -= 1;
         self.head = new_head;
@@ -267,7 +283,6 @@ impl<
             previous_head: old_head,
             previous_tail: self.tail,
             num_items: self.num_items,
-            round_function_execution_pairs: states,
         };
 
         (element, intermediate_info)
@@ -313,11 +328,10 @@ impl<
 
 #[derive(Derivative)]
 #[derivative(Debug, Clone(bound = ""), Copy(bound = ""))]
-pub struct FullWidthQueueIntermediateStates<F: SmallField, const SW: usize, const ROUNDS: usize> {
+pub struct FullWidthQueueIntermediateStates<F: SmallField, const SW: usize> {
     pub head: [F; SW],
     pub tail: [F; SW],
     pub num_items: u32,
-    pub round_function_execution_pairs: [([F; SW], [F; SW]); ROUNDS],
 }
 
 #[derive(Derivative, serde::Serialize, serde::Deserialize)]
@@ -410,19 +424,17 @@ impl<
         _round_function: &R,
     ) -> (
         [F; SW], // old tail
-        FullWidthQueueIntermediateStates<F, SW, ROUNDS>,
+        FullWidthQueueIntermediateStates<F, SW>,
     ) {
         let old_tail = self.tail;
         assert!(N % AW == 0);
         let encoding = element.encoding_witness();
 
         let mut state = old_tail;
-        let states = absorb_multiple_rounds::<F, R, AbsorptionModeOverwrite, AW, SW, CW, ROUNDS>(
+        let _states = absorb_multiple_rounds::<F, R, AbsorptionModeOverwrite, AW, SW, CW, ROUNDS>(
             &mut state, &encoding,
         );
         let new_tail = state;
-
-        let states = make_round_function_pairs(old_tail, states);
 
         self.witness.push_back((encoding, new_tail, element));
         self.num_items += 1;
@@ -432,7 +444,6 @@ impl<
             head: self.head,
             tail: new_tail,
             num_items: self.num_items,
-            round_function_execution_pairs: states,
         };
 
         (old_tail, intermediate_info)
@@ -445,19 +456,17 @@ impl<
     >(
         &mut self,
         _round_function: &R,
-    ) -> (I, FullWidthQueueIntermediateStates<F, SW, ROUNDS>) {
+    ) -> (I, FullWidthQueueIntermediateStates<F, SW>) {
         let old_head = self.head;
         assert!(N % AW == 0);
         let (_, _, element) = self.witness.pop_front().unwrap();
         let encoding = element.encoding_witness();
 
         let mut state = old_head;
-        let states = absorb_multiple_rounds::<F, R, AbsorptionModeOverwrite, AW, SW, CW, ROUNDS>(
+        let _states = absorb_multiple_rounds::<F, R, AbsorptionModeOverwrite, AW, SW, CW, ROUNDS>(
             &mut state, &encoding,
         );
         let new_head = state;
-
-        let states = make_round_function_pairs(old_head, states);
 
         self.num_items -= 1;
         self.head = new_head;
@@ -470,7 +479,6 @@ impl<
             head: self.head,
             tail: self.tail,
             num_items: self.num_items,
-            round_function_execution_pairs: states,
         };
 
         (element, intermediate_info)
@@ -616,8 +624,6 @@ impl<
 pub struct FullWidthStackIntermediateStates<F: SmallField, const SW: usize, const ROUNDS: usize> {
     pub is_push: bool,
     #[serde(with = "crate::boojum::serde_utils::BigArraySerde")]
-    pub previous_state: [F; SW],
-    #[serde(with = "crate::boojum::serde_utils::BigArraySerde")]
     pub new_state: [F; SW],
     pub depth: u32,
 }
@@ -688,7 +694,6 @@ impl<
 
         let intermediate_info = FullWidthStackIntermediateStates {
             is_push: true,
-            previous_state: old_state,
             new_state,
             depth: self.num_items,
         };
@@ -705,8 +710,6 @@ impl<
         _round_function: &R,
     ) -> (I, FullWidthStackIntermediateStates<F, SW, ROUNDS>) {
         assert!(N % AW == 0);
-
-        let current_state = self.state;
 
         let popped = self.witness.pop().unwrap();
         self.num_items -= 1;
@@ -725,7 +728,6 @@ impl<
 
         let intermediate_info = FullWidthStackIntermediateStates {
             is_push: false,
-            previous_state: current_state,
             new_state: previous_state,
             depth: self.num_items,
         };

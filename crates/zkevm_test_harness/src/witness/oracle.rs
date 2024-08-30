@@ -271,7 +271,7 @@ fn process_multiplexed_log_queue(
         };
 
         // actually simulate new queue state
-        let (_, simulator_state) =
+        let (round_states, simulator_state) =
             log_queue_simulator.push_and_output_intermediate_data(query, &round_function);
 
         let pointer_to_chain_of_states = states_data.chain_of_states.len();
@@ -285,10 +285,15 @@ fn process_multiplexed_log_queue(
         }
 
         let timestamp = query.timestamp.0; // special "timestamp-like" value
+        let round_function_execution_pairs = LogQueueSimulator::make_round_function_pairs(
+            round_states, 
+            &round_function
+        );
+
         if !query.rollback {
             let sponge_data = sponges_data.entry(timestamp).or_default();
-            sponge_data.rf_0 = simulator_state.round_function_execution_pairs[0];
-            sponge_data.rf_1 = simulator_state.round_function_execution_pairs[1];
+            sponge_data.rf_0 = round_function_execution_pairs[0];
+            sponge_data.rf_1 = round_function_execution_pairs[1];
             // forward case
             states_data
                 .forward_and_rollback_pointers
@@ -301,11 +306,11 @@ fn process_multiplexed_log_queue(
                 .expect("rollbacks always happen after forward case");
             assert_eq!(
                 &sponge_data.rf_0,
-                &simulator_state.round_function_execution_pairs[0]
+                &round_function_execution_pairs[0]
             );
             assert_eq!(
                 &sponge_data.rf_1,
-                &simulator_state.round_function_execution_pairs[1]
+                &round_function_execution_pairs[1]
             );
             // rollback case
             states_data
