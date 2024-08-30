@@ -1,12 +1,3 @@
 {
-    "bootstrap-sha": "4bb5cca0b113f06185201d10db31a73f0f56ea1e",
-    "bump-minor-pre-major": true,
-    "bump-patch-for-minor-pre-major": true,
-    "release-as": "0.150.5",
-    "packages": {
-        ".": {
-            "component": "zksync-protocol",
-            "release-type": "simple"
-        }
-    }
+    "zksync-protocol": "0.150.4"
 }
