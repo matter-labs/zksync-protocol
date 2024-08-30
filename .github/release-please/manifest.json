@@ -2,6 +2,7 @@
     "bootstrap-sha": "653bd479e3604c81852702c6870f0cb8a4540508",
     "bump-minor-pre-major": true,
     "bump-patch-for-minor-pre-major": true,
+    "release-as": "0.150.5",
     "packages": {
         ".": {
             "release-type": "simple"
