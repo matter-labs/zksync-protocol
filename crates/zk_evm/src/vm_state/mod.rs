@@ -23,8 +23,6 @@ pub const SUPPORTED_ISA_VERSION: ISAVersion = ISAVersion(2);
 
 const _: () = if SUPPORTED_ISA_VERSION.0 != zkevm_opcode_defs::DEFAULT_ISA_VERSION.0 {
     panic!()
-} else {
-    ()
 };
 
 use crate::zkevm_opcode_defs::{STARTING_BASE_PAGE, STARTING_TIMESTAMP};
@@ -101,7 +99,7 @@ impl<const N: usize, E: VmEncodingMode<N>> VmLocalState<N, E> {
     }
 
     pub fn timestamp_for_code_or_src_read(&self) -> Timestamp {
-        Timestamp(self.timestamp + 0)
+        Timestamp(self.timestamp)
     }
 
     pub fn callstack_is_full(&self) -> bool {

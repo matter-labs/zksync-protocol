@@ -239,7 +239,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
                     assert_eq!(pubdata_cost.0, 0);
                     assert_eq!(ergs_refund, 0);
                 } else {
-                    assert!(abs(pubdata_cost.0) <= MAX_PUBDATA_COST_PER_QUERY as i32);
+                    assert!(abs(pubdata_cost.0) <= MAX_PUBDATA_COST_PER_QUERY);
                     assert!(ergs_refund <= LogOpcode::StorageWrite.ergs_price());
                 }
 
@@ -298,7 +298,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
                         vm_state.local_state.monotonic_cycle_counter,
                         PrimitiveValue::empty(),
                         dst0_mem_location,
-                        &self,
+                        self,
                     );
 
                     (PubdataCost(0), 0)
@@ -366,7 +366,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
                         vm_state.local_state.monotonic_cycle_counter,
                         result,
                         dst0_mem_location,
-                        &self,
+                        self,
                     );
 
                     let extra_pubdata_cost = precompile_aux_data.extra_pubdata_cost;
@@ -419,7 +419,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
                         offset: 0,
                         memory_page: output_memory_page.0,
                         start: 0,
-                        length: preimage_len_in_bytes as u32,
+                        length: preimage_len_in_bytes,
                     };
 
                     (
@@ -436,7 +436,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
                     vm_state.local_state.monotonic_cycle_counter,
                     dst_0_value,
                     dst0_mem_location,
-                    &self,
+                    self,
                 );
 
                 (pubdata_cost, refund)

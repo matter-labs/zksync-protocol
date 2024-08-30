@@ -81,7 +81,7 @@ impl<
 
     pub fn read_code(&mut self, monotonic_cycle_counter: u32, key: MemoryKey) -> MemoryQuery {
         read_code(
-            &mut self.memory,
+            &self.memory,
             &mut self.witness_tracer,
             monotonic_cycle_counter,
             key,
