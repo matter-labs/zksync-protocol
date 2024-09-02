@@ -4,6 +4,14 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  CARGO_TERM_COLOR: "always"
+  CARGO_INCREMENTAL: "0"
+  RUSTC_WRAPPER: "sccache"
+  SCCACHE_GHA_ENABLED: "true"
+  # Rust version to use.
+  nightly: nightly-2024-08-01
+
 permissions:
   contents: write
   pull-requests: write
@@ -12,6 +20,8 @@ name: release-please
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    outputs: 
+      release_please_output: ${{ steps.release.outputs }}
     steps:
       - name: Run release-please
         id: release
@@ -21,9 +31,57 @@ jobs:
             config-file: .github/release-please/config.json
             manifest-file: .github/release-please/manifest.json
 
+      - name: Show outputs
+        run: echo "${{ toJSON(steps.release.outputs) }}"
+
+  process-release:
+    runs-on: [ubuntu-22.04-github-hosted-32core]
+    needs: [release-please]
+    if: ${{ needs.release-please.outputs.release_please_output.releases_created == 'true' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4
+
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: ${{ env.nightly }}
+          # Remove default `-D warnings`. This is a temporary measure.
+          rustflags: ""
+
+      - name: Install sccache
+        uses: mozilla-actions/sccache-action@v0.0.4
+
+      - name: Install cargo-workspaces
+        run: cargo install cargo-workspaces
+
+      - name: Build each package separately
+        run: cargo ws exec cargo build
+
+      - name: Login to crates.io
+        run: cargo login ${{ secrets.CRATES_IO_TOKEN }}
+      
+      - name: Publish
+        run: cargo ws publish --publish-as-is --allow-dirty
+
+      - name: Set owners for new packages
+        # `cargo owner --add` fails if the package is already owned by the same entity,
+        # so we have to check if the package is already owned by the organization.
+        run: |
+          ORG_OWNER=github:matter-labs:crates-io
+          for PKG in $(cargo ws list); do
+            cargo owner --list --quiet $PKG | grep $ORG_OWNER || cargo owner --add $ORG_OWNER $PKG
+          done
+
       - name: Send Release Info
-        if: ${{ steps.release.outputs.releases_created == 'true' }}
         uses: matter-labs/format-release-please-for-slack-action@69e6fe9e4ec531b7b5fb0d826f73c190db83cf42 # v2.1.0
         with:
-          release-please-output: ${{ toJSON(steps.release.outputs) }}
+          release-please-output: ${{ toJSON(needs.release-please.outputs.release_please_output) }}
+          slack-webhook-url: ${{ secrets.SLACK_WEBHOOK_RELEASES }}
+      
+      - name: Notify about failure
+        if: failure()
+        uses: matter-labs/format-release-please-for-slack-action@69e6fe9e4ec531b7b5fb0d826f73c190db83cf42 # v2.1.0
+        with:
+          release-please-output: '{ "body": "⚠️ Failed to publish the release" }'
           slack-webhook-url: ${{ secrets.SLACK_WEBHOOK_RELEASES }}
