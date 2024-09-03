@@ -40,6 +40,8 @@ jobs:
     if: ${{ needs.check_state.outputs.already_committed != 'true' }}
     steps:
       - uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4
+        with:
+          persist-credentials: false
 
       - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
