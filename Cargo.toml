@@ -6,17 +6,17 @@ resolver = "2"
 
 [workspace.package]
 # All the packages in the workspace should have the same version
-version = "0.150.4"
+version = "0.150.5"
 
 [workspace.dependencies]
-circuit_definitions = { version = "=0.150.4", path = "crates/circuit_definitions" }
-circuit_encodings = { version = "=0.150.4", path = "crates/circuit_encodings" }
-circuit_sequencer_api = { version = "=0.150.4", path = "crates/circuit_sequencer_api" }
-kzg = { version = "=0.150.4", path = "crates/kzg", package = "zksync_kzg" }
-zk_evm = { version = "=0.150.4", path = "crates/zk_evm" }
-zk_evm_abstractions = { version = "=0.150.4", path = "crates/zk_evm_abstractions" }
-zkevm_circuits = { version = "=0.150.4", path = "crates/zkevm_circuits" } 
-zkevm_opcode_defs = { version = "=0.150.4", path = "crates/zkevm_opcode_defs" }
-zkevm_test_harness = { version = "=0.150.4", path = "crates/zkevm_test_harness" }
-zkevm-assembly = { version = "=0.150.4", path = "crates/zkEVM-assembly" }
+circuit_definitions = { version = "=0.150.5", path = "crates/circuit_definitions" }
+circuit_encodings = { version = "=0.150.5", path = "crates/circuit_encodings" }
+circuit_sequencer_api = { version = "=0.150.5", path = "crates/circuit_sequencer_api" }
+kzg = { version = "=0.150.5", path = "crates/kzg", package = "zksync_kzg" }
+zk_evm = { version = "=0.150.5", path = "crates/zk_evm" }
+zk_evm_abstractions = { version = "=0.150.5", path = "crates/zk_evm_abstractions" }
+zkevm_circuits = { version = "=0.150.5", path = "crates/zkevm_circuits" } 
+zkevm_opcode_defs = { version = "=0.150.5", path = "crates/zkevm_opcode_defs" }
+zkevm_test_harness = { version = "=0.150.5", path = "crates/zkevm_test_harness" }
+zkevm-assembly = { version = "=0.150.5", path = "crates/zkEVM-assembly" }
 
