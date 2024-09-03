@@ -54,7 +54,7 @@ jobs:
 
       - name: Bump version
         run: |
-          NEW_VERSION=$(cat .github/release-please/manifest.json | jq '."."')
+          NEW_VERSION=$(cat .github/release-please/manifest.json | jq -r '."."')
           cargo ws version custom $NEW_VERSION --yes --no-git-commit --exact
 
       - name: Push changes
