@@ -25,8 +25,10 @@ use crate::zkevm_circuits::main_vm::main_vm_entry_point;
 use boojum::gadgets::queue::full_state_queue::FullStateCircuitQueueRawWitness;
 use circuit_definitions::aux_definitions::witness_oracle::VmWitnessOracle;
 use circuit_definitions::zk_evm::vm_state::cycle;
+use helper::artifact_utils::save_predeployed_evm_contract_stubs;
 use storage::{InMemoryCustomRefundStorage, StorageRefund};
 use witness::oracle::WitnessGenerationArtifact;
+use zk_evm::zkevm_opcode_defs::{BlobSha256, VersionedHashGeneric};
 use zkevm_assembly::Assembly;
 use zkevm_circuits::base_structures::vm_state::FULL_SPONGE_QUEUE_STATE_WIDTH;
 
@@ -191,6 +193,8 @@ pub struct Options {
     pub other_contracts: Vec<(H160, Vec<[u8; 32]>)>,
     // How many cycles should a single VM handle (default is DEFAULT_CYCLES_PER_VM_SNAPSHOT = 5)
     pub cycles_per_vm_snapshot: u32,
+    pub evm_interpreter: Option<Vec<[u8; 32]>>,
+    pub other_evm_contracts: Vec<H160>,
 }
 
 impl Default for Options {
@@ -199,6 +203,8 @@ impl Default for Options {
             cycle_limit: DEFAULT_CYCLE_LIMIT,
             other_contracts: Default::default(),
             cycles_per_vm_snapshot: DEFAULT_CYCLES_PER_VM_SNAPSHOT,
+            evm_interpreter: None,
+            other_evm_contracts: Default::default()
         }
     }
 }
@@ -245,6 +251,15 @@ pub(crate) fn run_with_options(entry_point_bytecode: Vec<[u8; 32]>, options: Opt
     use crate::witness::tree::BinarySparseStorageTree;
     use crate::witness::tree::ZKSyncTestingTree;
 
+    // We must pass a correct empty code hash (with proper version) into the run method.
+    let empty_code_hash = U256::from_big_endian(&bytecode_to_code_hash(&[[0; 32]]).unwrap());
+
+    let evm_simulator_hash = if options.evm_interpreter.is_some() {
+        U256::from_big_endian(&bytecode_to_code_hash(options.evm_interpreter.as_ref().unwrap()).unwrap())
+    } else {
+        empty_code_hash
+    };
+
     let mut used_bytecodes_and_hashes = HashMap::new();
     used_bytecodes_and_hashes.extend(options.other_contracts.iter().cloned().map(|(_, code)| {
         let code_hash = bytecode_to_code_hash(&code).unwrap();
@@ -252,12 +267,28 @@ pub(crate) fn run_with_options(entry_point_bytecode: Vec<[u8; 32]>, options: Opt
         (U256::from_big_endian(&code_hash), code)
     }));
 
-    // We must pass a correct empty code hash (with proper version) into the run method.
-    let empty_code_hash = U256::from_big_endian(&bytecode_to_code_hash(&[[0; 32]]).unwrap());
 
     let mut storage_impl = InMemoryCustomRefundStorage::new();
 
     let mut tree = ZKSyncTestingTree::empty();
+
+    if !options.other_evm_contracts.is_empty() {
+        let mut evm_stub_hash = empty_code_hash;
+        let versioned_hash =
+        VersionedHashGeneric::<BlobSha256>::from_digest_and_preimage_length(
+            evm_stub_hash.into(),
+            0,
+        );
+
+        evm_stub_hash = U256::from_big_endian(&versioned_hash.serialize().unwrap());
+        used_bytecodes_and_hashes.insert(evm_stub_hash, vec![[0; 32]]);
+
+        save_predeployed_evm_contract_stubs(&mut storage_impl.storage, &mut tree, &options.other_evm_contracts)
+    }
+
+    if options.evm_interpreter.is_some() {
+        used_bytecodes_and_hashes.insert(evm_simulator_hash, options.evm_interpreter.unwrap());
+    }
 
     let mut known_contracts = HashMap::new();
     known_contracts.extend(options.other_contracts.iter().cloned());
@@ -292,7 +323,7 @@ pub(crate) fn run_with_options(entry_point_bytecode: Vec<[u8; 32]>, options: Opt
         vec![],
         false,
         empty_code_hash,
-        empty_code_hash,
+        evm_simulator_hash,
         used_bytecodes_and_hashes,
         vec![],
         options.cycle_limit,
