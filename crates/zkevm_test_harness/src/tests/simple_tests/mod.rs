@@ -15,3 +15,4 @@ mod ptr;
 mod stack;
 mod storage;
 mod uma;
+mod evm_interpreter;
