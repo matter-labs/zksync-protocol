@@ -8,7 +8,10 @@ fn test_far_call_to_evm_contract() {
         "src/tests/simple_tests/testdata/evm_interpreter/call_zkevm_to_evm",
         &[],
         &[65536], // evm contracts
-        Default::default(),
+        Options {
+            cycles_per_vm_snapshot: 1,
+            ..Default::default()
+        },
     );
 }
 
@@ -18,7 +21,10 @@ fn test_far_call_evm_to_zkvm_contract() {
         "src/tests/simple_tests/testdata/evm_interpreter/call_evm_to_zkevm",
         &[65537], // zkvm contracts
         &[65536], // evm contracts
-        Default::default(),
+        Options {
+            cycles_per_vm_snapshot: 1,
+            ..Default::default()
+        },
     );
 }
 
@@ -28,7 +34,10 @@ fn test_static_call_to_evm_and_zkvm() {
         "src/tests/simple_tests/testdata/evm_interpreter/static_call_to_evm_and_zkvm",
         &[65537], // zkvm contracts
         &[65536], // evm contracts
-        Default::default(),
+        Options {
+            cycles_per_vm_snapshot: 1,
+            ..Default::default()
+        },
     );
 }
 
@@ -38,7 +47,10 @@ fn test_static_call_to_zkevm_and_evm() {
         "src/tests/simple_tests/testdata/evm_interpreter/static_call_to_zkvm_and_evm",
         &[65537], // zkvm contracts
         &[65536], // evm contracts
-        Default::default(),
+        Options {
+            cycles_per_vm_snapshot: 1,
+            ..Default::default()
+        },
     );
 }
 
@@ -48,6 +60,9 @@ fn test_delegate_call_to_evm() {
         "src/tests/simple_tests/testdata/evm_interpreter/delegatecall_zkevm_to_evm",
         &[],      // zkvm contracts
         &[65536], // evm contracts
-        Default::default(),
+        Options {
+            cycles_per_vm_snapshot: 1,
+            ..Default::default()
+        },
     );
 }
