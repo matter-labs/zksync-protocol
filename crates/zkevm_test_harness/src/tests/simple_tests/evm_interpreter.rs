@@ -43,3 +43,13 @@ fn test_static_call_to_zkevm_and_evm() {
         Default::default(), 
     );
 }
+
+#[test_log::test]
+fn test_delegate_call_to_evm() {
+    run_asm_based_test_with_evm_contracts(
+        "src/tests/simple_tests/testdata/evm_interpreter/delegatecall_zkevm_to_evm",
+        &[],      // zkvm contracts
+        &[65536], // evm contracts
+        Default::default(),
+    );
+}
