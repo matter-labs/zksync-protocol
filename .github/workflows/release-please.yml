@@ -32,7 +32,7 @@ jobs:
             manifest-file: .github/release-please/manifest.json
 
       - name: Show outputs
-        run: echo "${{ toJSON(steps.release.outputs) }}"
+        run: echo "${{ join(steps.release.outputs.*, '\n') }}"
 
   process-release:
     runs-on: [ubuntu-22.04-github-hosted-32core]
