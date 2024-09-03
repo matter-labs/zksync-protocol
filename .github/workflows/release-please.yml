@@ -20,8 +20,9 @@ name: release-please
 jobs:
   release-please:
     runs-on: ubuntu-latest
-    outputs: 
-      release_please_output: ${{ steps.release.outputs }}
+    outputs:
+      releases_created: ${{ steps.release.outputs.releases_created }}
+      release_please_output_json: ${{ toJSON(steps.release.outputs) }}
     steps:
       - name: Run release-please
         id: release
@@ -32,12 +33,14 @@ jobs:
             manifest-file: .github/release-please/manifest.json
 
       - name: Show outputs
-        run: echo "${{ join(steps.release.outputs.*, '\n') }}"
+        env:
+          OUTPUTS: ${{ toJSON(steps.release.outputs) }}
+        run: echo "$OUTPUTS"
 
   process-release:
     runs-on: [ubuntu-22.04-github-hosted-32core]
     needs: [release-please]
-    if: ${{ needs.release-please.outputs.release_please_output.releases_created == 'true' }}
+    if: ${{ needs.release-please.outputs.releases_created == 'true' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4
@@ -76,7 +79,7 @@ jobs:
       - name: Send Release Info
         uses: matter-labs/format-release-please-for-slack-action@69e6fe9e4ec531b7b5fb0d826f73c190db83cf42 # v2.1.0
         with:
-          release-please-output: ${{ toJSON(needs.release-please.outputs.release_please_output) }}
+          release-please-output: ${{ needs.release-please.outputs.release_please_output_json }}
           slack-webhook-url: ${{ secrets.SLACK_WEBHOOK_RELEASES }}
       
       - name: Notify about failure
