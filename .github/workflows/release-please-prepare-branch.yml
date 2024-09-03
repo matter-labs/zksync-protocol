@@ -52,14 +52,9 @@ jobs:
       - name: Install cargo-workspaces
         run: cargo install cargo-workspaces
 
-      - name: Extract version from PR title
-        id: extract_version
-        run: |
-          NEW_VERSION=$(echo "${{ github.event.pull_request.title }}" | grep -oP 'v\d+\.\d+\.\d+')
-          echo "version=$NEW_VERSION" >> "$GITHUB_ENV"
-
       - name: Bump version
         run: |
+          NEW_VERSION=$(cat .github/release-please/manifest.json | jq '."."')
           cargo ws version custom $NEW_VERSION --yes --no-git-commit --exact
 
       - name: Push changes
