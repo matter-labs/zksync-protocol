@@ -888,19 +888,21 @@ fn simulate_memory_queue(
     )
 }
 
-fn simulate_sorted_memory_queue(
+fn simulate_sorted_memory_queue<'a>(
     geometry: GeometryConfig,
     memory_queries: Arc<Vec<(Cycle, MemoryQuery)>>,
     implicit_memory_queries: Arc<ImplicitMemoryQueries>,
     round_function: Poseidon2Goldilocks,
 ) -> (
+    Vec<usize>,
     LastPerCircuitAccumulator<QueueStateWitness<GoldilocksField, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     MemoryQueuePerCircuitSimulator<GoldilocksField>,
 ) {
-    let mut all_memory_queries_sorted: Vec<&MemoryQuery> = memory_queries
+    let mut all_memory_queries_sorted: Vec<(usize, &MemoryQuery)> = memory_queries
         .iter()
         .map(|(_, query)| query)
         .chain(implicit_memory_queries.iter())
+        .enumerate()
         .collect();
 
     use crate::witness::aux_data_structs::per_circuit_accumulator::PerCircuitAccumulator;
@@ -908,7 +910,7 @@ fn simulate_sorted_memory_queue(
     use std::cmp::Ordering;
 
     // sort by memory location, and then by timestamp
-    all_memory_queries_sorted.par_sort_by(|a, b| match a.location.cmp(&b.location) {
+    all_memory_queries_sorted.par_sort_by(|(_, a), (_, b)| match a.location.cmp(&b.location) {
         Ordering::Equal => a.timestamp.cmp(&b.timestamp),
         a @ _ => a,
     });
@@ -929,15 +931,19 @@ fn simulate_sorted_memory_queue(
         amount_of_queries,
     );
 
+    let mut sorted_indexes = Vec::with_capacity(all_memory_queries_sorted.len());
+    
     // the simulation is mostly a sequential computation of hashes
     // for this reason it is one of the slowest parts
-    for query in all_memory_queries_sorted.into_iter() {
+    for (index, query) in all_memory_queries_sorted.into_iter() {
         let (_, state_witness) = sorted_memory_queries_simulator
             .push_and_output_queue_state_witness(*query, &round_function);
         sorted_memory_queue_states_accumulator.push(state_witness);
+        sorted_indexes.push(index);
     }
 
     (
+        sorted_indexes,
         sorted_memory_queue_states_accumulator,
         sorted_memory_queries_simulator,
     )
@@ -1075,8 +1081,11 @@ fn process_memory_related_circuits<CB: FnMut(WitnessGenerationArtifact)>(
         implicit_memory_states,
     ) = unsorted_handle.join().unwrap();
 
-    let (sorted_memory_queue_states_accumulator, sorted_memory_queue_simulator) =
-        sorted_handle.join().unwrap();
+    let (
+        sorted_memory_queries_indexes,
+        sorted_memory_queue_states_accumulator,
+        sorted_memory_queue_simulator,
+    ) = sorted_handle.join().unwrap();
 
     let memory_artifacts_for_main_vm = MemoryArtifacts {
         memory_queries: Arc::into_inner(memory_queries_arc).unwrap(),
@@ -1098,6 +1107,7 @@ fn process_memory_related_circuits<CB: FnMut(WitnessGenerationArtifact)>(
 
     let (ram_permutation_circuits, ram_permutation_circuits_compact_forms_witnesses) =
         compute_ram_circuit_snapshots(
+            sorted_memory_queries_indexes,
             &memory_artifacts_for_main_vm.memory_queries,
             &implicit_memory_queries,
             memory_queue_states_accumulator,

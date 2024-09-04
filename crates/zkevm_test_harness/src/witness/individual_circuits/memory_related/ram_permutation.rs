@@ -34,6 +34,7 @@ use zkevm_circuits::base_structures::vm_state::QUEUE_STATE_WIDTH;
 use crate::zk_evm::zkevm_opcode_defs::BOOTLOADER_HEAP_PAGE;
 
 pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)>(
+    sorted_memory_queries_indexes: Vec<usize>,
     memory_queries: &Vec<(u32, MemoryQuery)>,
     implicit_memory_queries: &ImplicitMemoryQueries,
     memory_queue_states_accumulator: LastPerCircuitAccumulator<
@@ -104,15 +105,10 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
         .chain(implicit_memory_queries.iter())
         .collect();
 
-    use crate::witness::aux_data_structs::per_circuit_accumulator::PerCircuitAccumulator;
-    use rayon::prelude::*;
-    use std::cmp::Ordering;
-    let mut all_memory_queries_sorted = all_memory_queries.clone();
-    // sort by memory location, and then by timestamp
-    all_memory_queries_sorted.par_sort_by(|a, b| match a.location.cmp(&b.location) {
-        Ordering::Equal => a.timestamp.cmp(&b.timestamp),
-        a @ _ => a,
-    });
+    let mut all_memory_queries_sorted = Vec::with_capacity(all_memory_queries.len()); // TODO cleanup?
+    for index in sorted_memory_queries_indexes.iter() {
+        all_memory_queries_sorted.push(all_memory_queries[*index]);
+    }
 
     assert_eq!(
         memory_queue_simulator.num_items as usize,
@@ -124,6 +120,9 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
     let mut rhs_grand_product_chains =
         Vec::with_capacity(DEFAULT_NUM_PERMUTATION_ARGUMENT_REPETITIONS);
     {
+        let lhs_contributions: Vec<_> = all_memory_queries.par_iter().map(|x| x.encoding_witness()).collect();
+        let rhs_contributions: Vec<_> = sorted_memory_queries_indexes.into_par_iter().map(|x| lhs_contributions[x]).collect();
+        
         let challenges = produce_fs_challenges::<
             Field,
             RoundFunction,
@@ -137,15 +136,6 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
                 .tail,
             round_function,
         );
-
-        let lhs_contributions: Vec<_> = all_memory_queries
-            .iter()
-            .map(|x| x.encoding_witness())
-            .collect();
-        let rhs_contributions: Vec<_> = all_memory_queries_sorted
-            .iter()
-            .map(|x| x.encoding_witness())
-            .collect();
 
         for idx in 0..DEFAULT_NUM_PERMUTATION_ARGUMENT_REPETITIONS {
             let (lhs_grand_product_chain, rhs_grand_product_chain) = compute_grand_product_chains(
