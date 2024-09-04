@@ -116,18 +116,8 @@ pub type RamPermutationCycleInputOutputWitness<F> = crate::fsm_input_output::Clo
 pub struct RamPermutationCircuitInstanceWitness<F: SmallField> {
     pub closed_form_input: RamPermutationCycleInputOutputWitness<F>,
 
-    pub unsorted_queue_witness: FullStateCircuitQueueRawWitness<
-        F,
-        MemoryQuery<F>,
-        FULL_SPONGE_QUEUE_STATE_WIDTH,
-        MEMORY_QUERY_PACKED_WIDTH,
-    >,
-    pub sorted_queue_witness: FullStateCircuitQueueRawWitness<
-        F,
-        MemoryQuery<F>,
-        FULL_SPONGE_QUEUE_STATE_WIDTH,
-        MEMORY_QUERY_PACKED_WIDTH,
-    >,
+    pub unsorted_queue_witness: Vec<<MemoryQuery<F> as CSAllocatable<F>>::Witness>,
+    pub sorted_queue_witness: Vec<<MemoryQuery<F> as CSAllocatable<F>>::Witness>,
 }
 
 pub type MemoryQueriesQueue<F, R> =

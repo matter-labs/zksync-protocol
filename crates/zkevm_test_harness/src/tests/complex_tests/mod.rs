@@ -302,7 +302,7 @@ pub(crate) fn generate_base_layer(
     let mut sorted_memory_queue_witnesses = sorted_memory_queue_witnesses.into_iter();
     for el in basic_block_circuits.iter_mut() {
         use circuit_definitions::boojum::field::Field;
-        match &el {
+        /*match &el {
             ZkSyncBaseLayerCircuit::RAMPermutation(inner) => {
                 let mut witness = inner.witness.take().unwrap();
                 let zero_state = [GoldilocksField::ZERO; FULL_SPONGE_QUEUE_STATE_WIDTH];
@@ -326,7 +326,7 @@ pub(crate) fn generate_base_layer(
                 inner.witness.store(Some(witness));
             }
             _ => {}
-        }
+        }*/
     }
 
     (

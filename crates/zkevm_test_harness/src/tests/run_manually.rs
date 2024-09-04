@@ -324,7 +324,7 @@ pub(crate) fn run_with_options(entry_point_bytecode: Vec<[u8; 32]>, options: Opt
     for el in basic_block_circuits {
         println!("Doing {} circuit", el.short_description());
         use circuit_definitions::boojum::field::Field;
-        match &el {
+        /*match &el {
             ZkSyncBaseLayerCircuit::RAMPermutation(inner) => {
                 let mut witness = inner.witness.take().unwrap();
                 let zero_state = [GoldilocksField::ZERO; FULL_SPONGE_QUEUE_STATE_WIDTH];
@@ -348,7 +348,7 @@ pub(crate) fn run_with_options(entry_point_bytecode: Vec<[u8; 32]>, options: Opt
                 inner.witness.store(Some(witness));
             }
             _ => {}
-        }
+        }*/
         base_test_circuit(el);
     }
 

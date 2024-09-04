@@ -952,13 +952,9 @@ fn simulate_sorted_memory_queue(
         amount_of_queries,
     );
 
-    let amount_of_ram_circuits = (amount_of_queries as u32 + geometry.cycles_per_ram_permutation
-        - 1)
-        / geometry.cycles_per_ram_permutation;
-
     // the simulation is mostly a sequential computation of hashes
     // for this reason it is one of the slowest parts
-    for (query) in all_memory_queries_sorted.into_iter() {
+    for query in all_memory_queries_sorted.into_iter() {
         let (_, state_witness) = sorted_memory_queries_simulator
             .push_and_output_queue_state_witness(*query, &round_function);
         sorted_memory_queue_states_accumulator.push(state_witness);
@@ -1055,11 +1051,6 @@ fn process_memory_related_circuits<CB: FnMut(WitnessGenerationArtifact)>(
     );
 
     let amount_of_explicit_memory_queries = memory_queries.len();
-    let amount_of_ram_circuits = ((amount_of_explicit_memory_queries
-        + implicit_memory_queries.amount_of_queries()) as u32
-        + geometry.cycles_per_ram_permutation
-        - 1)
-        / geometry.cycles_per_ram_permutation;
 
     // Memory queues simulation is a slowest part in basic witness generation.
     // Each queue simulation is sequential single-threaded computation of hashes.
@@ -1228,7 +1219,7 @@ fn process_memory_related_circuits<CB: FnMut(WitnessGenerationArtifact)>(
 
     tracing::debug!("Running secp256r1_simulation simulation");
 
-    let (secp256r1_verify_circuits_data, amount_of_memory_queries) =
+    let (secp256r1_verify_circuits_data, _amount_of_memory_queries) =
         secp256r1_verify_decompose_into_per_circuit_witness(
             amount_of_memory_queries,
             implicit_memory_queries.secp256r1_memory_queries,

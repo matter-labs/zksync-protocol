@@ -127,6 +127,12 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
     let mut rhs_grand_product_chains =
         Vec::with_capacity(DEFAULT_NUM_PERMUTATION_ARGUMENT_REPETITIONS);
     {
+
+        let lhs_contributions: Vec<_> = all_memory_queries.par_iter().map(|x| x.encoding_witness()).collect();
+        let rhs_contributions: Vec<_> = all_memory_queries_sorted.par_iter().map(|x| x.encoding_witness()).collect();
+        
+        snapshot_prof("ENCODED CONTRIBUTIONS");
+
         let challenges = produce_fs_challenges::<
             Field,
             RoundFunction,
@@ -140,9 +146,6 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
                 .tail,
             round_function,
         );
-
-        let lhs_contributions: Vec<_> = all_memory_queries.iter().map(|x| x.encoding_witness()).collect();
-        let rhs_contributions: Vec<_> = all_memory_queries_sorted.iter().map(|x| x.encoding_witness()).collect();
 
         for idx in 0..DEFAULT_NUM_PERMUTATION_ARGUMENT_REPETITIONS {
             let (lhs_grand_product_chain, rhs_grand_product_chain) = compute_grand_product_chains(
@@ -167,8 +170,12 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
         }
     }
 
+    snapshot_prof("PRODUCED CHALLENGES");
+
     let transposed_lhs_chains = transpose_chunks(&lhs_grand_product_chains, per_circuit_capacity);
     let transposed_rhs_chains = transpose_chunks(&rhs_grand_product_chains, per_circuit_capacity);
+
+    snapshot_prof("TRANSPOSED CHAINS");
 
     // now we need to split them into individual circuits
     // splitting is not extra hard here, we walk over iterator over everything and save states on checkpoints
@@ -225,6 +232,8 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
 
     let circuit_type = BaseLayerCircuitType::RamValidation;
     let mut maker = CircuitMaker::new(geometry.cycles_per_ram_permutation, round_function.clone());
+
+    snapshot_prof("BEFORE CYCLE");
 
     for (
         idx,
@@ -352,12 +361,8 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
                 },
             },
             // we will need witnesses to pop elements from the front of the queue
-            unsorted_queue_witness: FullStateCircuitQueueRawWitness {
-                elements: unsorted_queries_in_chunk.into_iter().map(|x| (x.reflect(), [Field::ZERO; FULL_SPONGE_QUEUE_STATE_WIDTH])).collect(),
-            },
-            sorted_queue_witness: FullStateCircuitQueueRawWitness {
-                elements: sorted_queries_in_chunk.into_iter().map(|x| (x.reflect(), [Field::ZERO; FULL_SPONGE_QUEUE_STATE_WIDTH])).collect(),
-            },
+            unsorted_queue_witness: unsorted_queries_in_chunk.into_par_iter().map(|x| x.reflect()).collect(),
+            sorted_queue_witness: sorted_queries_in_chunk.into_par_iter().map(|x| x.reflect()).collect(),
         };
 
         if sorted_states_len % per_circuit_capacity != 0 {
@@ -400,6 +405,8 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
             ZkSyncBaseLayerCircuit::RAMPermutation(maker.process(instance_witness, circuit_type)),
         ));
     }
+
+    snapshot_prof("AFTER CYCLE");
 
     drop(lhs_grand_product_chains);
     drop(rhs_grand_product_chains);
