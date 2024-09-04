@@ -149,8 +149,8 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
 
         for idx in 0..DEFAULT_NUM_PERMUTATION_ARGUMENT_REPETITIONS {
             let (lhs_grand_product_chain, rhs_grand_product_chain) = compute_grand_product_chains(
-                &lhs_contributions.iter().collect(),
-                &rhs_contributions.iter().collect(),
+                &lhs_contributions,
+                &rhs_contributions,
                 &challenges[idx],
             );
 

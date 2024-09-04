@@ -124,10 +124,9 @@ pub type MemoryQueueSimulator<F> = FullWidthQueueSimulator<
     FULL_SPONGE_QUEUE_STATE_WIDTH,
     1,
 >;
-pub type CustomMemoryQueueSimulator<F, C> = FullWidthMemoryQueueSimulator<
+pub type CustomMemoryQueueSimulator<F> = FullWidthMemoryQueueSimulator<
     F,
     MemoryQuery,
-    C,
     MEMORY_QUERY_PACKED_WIDTH,
     FULL_SPONGE_QUEUE_STATE_WIDTH,
     1,
