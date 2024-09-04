@@ -18,6 +18,10 @@ pub struct GeometryConfig {
     pub cycles_per_ecrecover_circuit: u32,
     pub cycles_per_secp256r1_verify_circuit: u32,
     pub cycles_per_transient_storage_sorter: u32,
+    pub cycles_per_modexp_circuit: u32,
+    pub cycles_per_ecadd_circuit: u32,
+    pub cycles_per_ecmul_circuit: u32,
+    pub cycles_per_ecpairing_circuit: u32,
 
     pub limit_for_l1_messages_pudata_hasher: u32,
 }
@@ -63,6 +67,14 @@ const fn get_geometry_config_1_4_0() -> GeometryConfig {
         cycles_per_transient_storage_sorter: 0,
         // Not supported in this version
         cycles_per_secp256r1_verify_circuit: 0,
+        // Not supported in this version
+        cycles_per_modexp_circuit: 0,
+        // Not supported in this version
+        cycles_per_ecadd_circuit: 0,
+        // Not supported in this version
+        cycles_per_ecmul_circuit: 0,
+        // Not supported in this version
+        cycles_per_ecpairing_circuit: 0,
     }
 }
 
@@ -84,6 +96,14 @@ const fn get_geometry_config_1_4_1() -> GeometryConfig {
         cycles_per_transient_storage_sorter: 0,
         // Not supported in this version
         cycles_per_secp256r1_verify_circuit: 0,
+        // Not supported in this version
+        cycles_per_modexp_circuit: 0,
+        // Not supported in this version
+        cycles_per_ecadd_circuit: 0,
+        // Not supported in this version
+        cycles_per_ecmul_circuit: 0,
+        // Not supported in this version
+        cycles_per_ecpairing_circuit: 0,
     }
 }
 
@@ -105,6 +125,14 @@ const fn get_geometry_config_1_4_2() -> GeometryConfig {
         cycles_per_transient_storage_sorter: 0,
         // Not supported in this version
         cycles_per_secp256r1_verify_circuit: 0,
+        // Not supported in this version
+        cycles_per_modexp_circuit: 0,
+        // Not supported in this version
+        cycles_per_ecadd_circuit: 0,
+        // Not supported in this version
+        cycles_per_ecmul_circuit: 0,
+        // Not supported in this version
+        cycles_per_ecpairing_circuit: 0,
     }
 }
 
@@ -124,5 +152,9 @@ const fn get_geometry_config_1_5_0() -> GeometryConfig {
         limit_for_l1_messages_pudata_hasher: 774,
         cycles_per_transient_storage_sorter: 50875,
         cycles_per_secp256r1_verify_circuit: 4,
+        cycles_per_modexp_circuit: 0, // this was added manually to ensure code compiles
+        cycles_per_ecadd_circuit: 0,  // this was added manually to ensure code compiles
+        cycles_per_ecmul_circuit: 0,  // this was added manually to ensure code compiles
+        cycles_per_ecpairing_circuit: 0, // this was added manually to ensure code compiles
     }
 }
