@@ -34,7 +34,8 @@ use zkevm_circuits::base_structures::vm_state::QUEUE_STATE_WIDTH;
 use crate::zk_evm::zkevm_opcode_defs::BOOTLOADER_HEAP_PAGE;
 
 pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)>(
-    total_amount_of_queries: usize, // including additional queries from precompiles
+    memory_queries: &Vec<(u32, MemoryQuery)>,
+    implicit_memory_queries: &ImplicitMemoryQueries,
     memory_queue_states_accumulator: LastPerCircuitAccumulator<
         QueueStateWitness<Field, FULL_SPONGE_QUEUE_STATE_WIDTH>,
     >,
@@ -43,9 +44,6 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
     >,
     memory_queue_simulator: MemoryQueuePerCircuitSimulator<Field>,
     sorted_memory_queries_simulator: MemoryQueuePerCircuitSimulator<Field>,
-    sorted_queries_aux_data_for_chunks: Vec<(u32, MemoryQuery, usize)>,
-    sorted_encodings: Vec<[Field; MEMORY_QUERY_PACKED_WIDTH]>,
-    unsorted_encodings: Vec<[Field; MEMORY_QUERY_PACKED_WIDTH]>,
     round_function: &RoundFunction,
     num_non_deterministic_heap_queries: usize,
     geometry: &GeometryConfig,
@@ -54,6 +52,8 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
     FirstAndLastCircuitWitness<RamPermutationObservableWitness<Field>>,
     Vec<ClosedFormInputCompactFormWitness<Field>>,
 ) {
+    let total_amount_of_queries = memory_queries.len() + implicit_memory_queries.amount_of_queries();
+
     assert_eq!(
         total_amount_of_queries,
         memory_queue_states_accumulator.len()
@@ -97,12 +97,30 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
     // since encodings of the elements provide all the information necessary to perform sorting argument,
     // we use them naively
 
+    snapshot_prof("BEFORE SORT");
+
+    let all_memory_queries: Vec<&MemoryQuery> = memory_queries
+    .iter()
+    .map(|(_, query)| query)
+    .chain(implicit_memory_queries.iter())
+    .collect();
+
+    use crate::witness::aux_data_structs::per_circuit_accumulator::PerCircuitAccumulator;
+    use rayon::prelude::*;
+    use std::cmp::Ordering;
+    let mut all_memory_queries_sorted = all_memory_queries.clone();
+    // sort by memory location, and then by timestamp
+    all_memory_queries_sorted.par_sort_by(|a, b| match a.location.cmp(&b.location) {
+        Ordering::Equal => a.timestamp.cmp(&b.timestamp),
+        a @ _ => a,
+    });
+
+    snapshot_prof("AFTER SORT");
+
     assert_eq!(
         memory_queue_simulator.num_items as usize,
         total_amount_of_queries
     );
-
-    assert_eq!(unsorted_encodings.len(), sorted_encodings.len());
 
     let mut lhs_grand_product_chains =
         Vec::with_capacity(DEFAULT_NUM_PERMUTATION_ARGUMENT_REPETITIONS);
@@ -123,8 +141,8 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
             round_function,
         );
 
-        let lhs_contributions = unsorted_encodings;
-        let rhs_contributions = sorted_encodings;
+        let lhs_contributions: Vec<_> = all_memory_queries.iter().map(|x| x.encoding_witness()).collect();
+        let rhs_contributions: Vec<_> = all_memory_queries_sorted.iter().map(|x| x.encoding_witness()).collect();
 
         for idx in 0..DEFAULT_NUM_PERMUTATION_ARGUMENT_REPETITIONS {
             let (lhs_grand_product_chain, rhs_grand_product_chain) = compute_grand_product_chains(
@@ -183,7 +201,8 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
         .zip(sorted_memory_queue_chunk_final_states.into_iter())
         .zip(transposed_lhs_chains.into_iter())
         .zip(transposed_rhs_chains.into_iter())
-        .zip(sorted_queries_aux_data_for_chunks);
+        .zip(all_memory_queries.chunks(per_circuit_capacity))
+        .zip(all_memory_queries_sorted.chunks(per_circuit_capacity));
 
     // now trivial transformation into desired data structures,
     // and we are all good
@@ -211,10 +230,13 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
         idx,
         (
             (
+            (
                 ((unsorted_sponge_final_state, sorted_sponge_final_state), lhs_grand_product),
                 rhs_grand_product,
             ),
-            (num_nondet_writes_in_chunk, last_sorted_query, sorted_states_len),
+            unsorted_queries_in_chunk,
+        ),
+            sorted_queries_in_chunk
         ),
     ) in it.enumerate()
     {
@@ -231,6 +253,17 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
 
         let if_first = idx == 0;
         let is_last = idx == num_circuits - 1;
+
+        let sorted_states_len = sorted_queries_in_chunk.len();
+        let num_nondet_writes_in_chunk = sorted_queries_in_chunk
+            .iter()
+            .filter(|query| {
+                query.rw_flag == true
+                    && query.timestamp.0 == 0
+                    && query.location.page.0 == BOOTLOADER_HEAP_PAGE
+            })
+            .count();
+        let last_sorted_query = sorted_queries_in_chunk.last().unwrap();
 
         let new_num_nondet_writes =
             current_number_of_nondet_writes + (num_nondet_writes_in_chunk as u32);
@@ -319,10 +352,12 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
                 },
             },
             // we will need witnesses to pop elements from the front of the queue
-            // but this data should be saved to storage before, during queues simulation (RAM-heavy)
-            // so we use placeholders here
-            unsorted_queue_witness: Default::default(),
-            sorted_queue_witness: Default::default(),
+            unsorted_queue_witness: FullStateCircuitQueueRawWitness {
+                elements: unsorted_queries_in_chunk.into_iter().map(|x| (x.reflect(), [Field::ZERO; FULL_SPONGE_QUEUE_STATE_WIDTH])).collect(),
+            },
+            sorted_queue_witness: FullStateCircuitQueueRawWitness {
+                elements: sorted_queries_in_chunk.into_iter().map(|x| (x.reflect(), [Field::ZERO; FULL_SPONGE_QUEUE_STATE_WIDTH])).collect(),
+            },
         };
 
         if sorted_states_len % per_circuit_capacity != 0 {

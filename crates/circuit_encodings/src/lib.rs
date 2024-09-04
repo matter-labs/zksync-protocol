@@ -596,7 +596,6 @@ impl<
     ) {
         assert!(N % AW == 0);
         let encoding = element.encoding_witness();
-        self.witness.push((encoding, element));
 
         let old_tail = self.tail;
         let mut state = old_tail;
