@@ -34,6 +34,7 @@ use zkevm_circuits::base_structures::vm_state::QUEUE_STATE_WIDTH;
 use crate::zk_evm::zkevm_opcode_defs::BOOTLOADER_HEAP_PAGE;
 
 pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)>(
+    sorted_memory_queries_indexes: Vec<usize>,
     memory_queries: &Vec<(u32, MemoryQuery)>,
     implicit_memory_queries: &ImplicitMemoryQueries,
     memory_queue_states_accumulator: LastPerCircuitAccumulator<
@@ -105,15 +106,10 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
     .chain(implicit_memory_queries.iter())
     .collect();
 
-    use crate::witness::aux_data_structs::per_circuit_accumulator::PerCircuitAccumulator;
-    use rayon::prelude::*;
-    use std::cmp::Ordering;
-    let mut all_memory_queries_sorted = all_memory_queries.clone();
-    // sort by memory location, and then by timestamp
-    all_memory_queries_sorted.par_sort_by(|a, b| match a.location.cmp(&b.location) {
-        Ordering::Equal => a.timestamp.cmp(&b.timestamp),
-        a @ _ => a,
-    });
+    let mut all_memory_queries_sorted = Vec::with_capacity(all_memory_queries.len());
+    for index in sorted_memory_queries_indexes.iter() {
+        all_memory_queries_sorted.push(all_memory_queries[*index]);
+    }
 
     snapshot_prof("AFTER SORT");
 
@@ -129,7 +125,7 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
     {
 
         let lhs_contributions: Vec<_> = all_memory_queries.par_iter().map(|x| x.encoding_witness()).collect();
-        let rhs_contributions: Vec<_> = all_memory_queries_sorted.par_iter().map(|x| x.encoding_witness()).collect();
+        let rhs_contributions: Vec<_> = sorted_memory_queries_indexes.into_par_iter().map(|x| lhs_contributions[x]).collect();
         
         snapshot_prof("ENCODED CONTRIBUTIONS");
 
