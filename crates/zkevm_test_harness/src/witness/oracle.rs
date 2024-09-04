@@ -861,12 +861,7 @@ fn simulate_memory_queue(
     );
 
     use crate::witness::aux_data_structs::per_circuit_accumulator::PerCircuitAccumulator;
-    // simulator states are very RAM-heavy
-    let mut memory_queue_simulator =
-        MemoryQueuePerCircuitSimulator::using_container(PerCircuitAccumulator::with_flat_capacity(
-            geometry.cycles_per_ram_permutation as usize,
-            geometry.cycles_per_ram_permutation as usize,
-        ));
+    let mut memory_queue_simulator = MemoryQueuePerCircuitSimulator::new();
 
     // the simulation is mostly a sequential computation of hashes
     // for this reason it is one of the slowest parts
@@ -937,12 +932,7 @@ fn simulate_sorted_memory_queue(
         amount_of_queries
     );
 
-    // simulator states are very RAM-heavy
-    let mut sorted_memory_queries_simulator =
-        MemoryQueuePerCircuitSimulator::using_container(PerCircuitAccumulator::with_flat_capacity(
-            geometry.cycles_per_ram_permutation as usize,
-            amount_of_queries,
-        ));
+    let mut sorted_memory_queries_simulator = MemoryQueuePerCircuitSimulator::new();
 
     // for RAM permutation circuits
     let mut sorted_memory_queue_states_accumulator = LastPerCircuitAccumulator::<

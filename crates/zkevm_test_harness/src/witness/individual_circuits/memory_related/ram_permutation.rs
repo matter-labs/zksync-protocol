@@ -149,8 +149,8 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
 
         for idx in 0..DEFAULT_NUM_PERMUTATION_ARGUMENT_REPETITIONS {
             let (lhs_grand_product_chain, rhs_grand_product_chain) = compute_grand_product_chains(
-                &lhs_contributions.iter().collect(),
-                &rhs_contributions.iter().collect(),
+                &lhs_contributions,
+                &rhs_contributions,
                 &challenges[idx],
             );
 
@@ -174,8 +174,6 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
 
     let transposed_lhs_chains = transpose_chunks(&lhs_grand_product_chains, per_circuit_capacity);
     let transposed_rhs_chains = transpose_chunks(&rhs_grand_product_chains, per_circuit_capacity);
-
-    snapshot_prof("TRANSPOSED CHAINS");
 
     // now we need to split them into individual circuits
     // splitting is not extra hard here, we walk over iterator over everything and save states on checkpoints

@@ -527,11 +527,10 @@ pub trait ContainerForSimulator<T> {
 }
 
 use core::marker::PhantomData;
-/// Simplified version of FullWidthQueueSimulator with custom container instead of VecDeque
+/// Simplified version of FullWidthQueueSimulator
 pub struct FullWidthMemoryQueueSimulator<
     F: SmallField,
     I,
-    C: ContainerForSimulator<([F; N], I)>,
     const N: usize,
     const SW: usize,
     const ROUNDS: usize,
@@ -541,33 +540,24 @@ pub struct FullWidthMemoryQueueSimulator<
     pub head: [F; SW],
     pub tail: [F; SW],
     pub num_items: u32,
-    pub witness: C,
     _marker: PhantomData<I>,
 }
 
 impl<
         F: SmallField,
         I: OutOfCircuitFixedLengthEncodable<F, N>,
-        C: ContainerForSimulator<([F; N], I)>,
         const N: usize,
         const SW: usize,
         const ROUNDS: usize,
-    > FullWidthMemoryQueueSimulator<F, I, C, N, SW, ROUNDS>
+    > FullWidthMemoryQueueSimulator<F, I, N, SW, ROUNDS>
 {
-    pub fn using_container(container: C) -> Self {
+    pub fn new() -> Self {
         Self {
             head: [F::ZERO; SW],
             tail: [F::ZERO; SW],
             num_items: 0,
-            witness: container,
             _marker: Default::default(),
         }
-    }
-
-    pub fn replace_container(mut self, container: C) -> (Self, C) {
-        let prev_container = self.witness;
-        self.witness = container;
-        (self, prev_container)
     }
 
     pub fn take_sponge_like_queue_state(&self) -> QueueStateWitness<F, SW> {
