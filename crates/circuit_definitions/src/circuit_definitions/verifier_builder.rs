@@ -37,6 +37,14 @@ pub type Secp256r1VerifyVerifierBuilder =
     CircuitBuilderProxy<GoldilocksField, Secp256r1VerifyFunctionInstanceSynthesisFunction>;
 pub type EIP4844VerifierBuilder =
     CircuitBuilderProxy<GoldilocksField, EIP4844InstanceSynthesisFunction>;
+pub type ModexpBuilder =
+    CircuitBuilderProxy<GoldilocksField, ModexpFunctionInstanceSynthesisFunction>;
+pub type ECAddBuilder =
+    CircuitBuilderProxy<GoldilocksField, ECAddFunctionInstanceSynthesisFunction>;
+pub type ECMulBuilder =
+    CircuitBuilderProxy<GoldilocksField, ECMulFunctionInstanceSynthesisFunction>;
+pub type ECPairingBuilder =
+    CircuitBuilderProxy<GoldilocksField, ECPairingFunctionInstanceSynthesisFunction>;
 
 type F = GoldilocksField;
 type EXT = GoldilocksExt2;
@@ -103,6 +111,18 @@ where
         }
         i if i == BaseLayerCircuitType::EIP4844Repack as u8 => {
             EIP4844VerifierBuilder::dyn_verifier_builder()
+        }
+        i if i == BaseLayerCircuitType::ModexpPrecompile as u8 => {
+            ModexpBuilder::dyn_verifier_builder()
+        }
+        i if i == BaseLayerCircuitType::ECAddPrecompile as u8 => {
+            ECAddBuilder::dyn_verifier_builder()
+        }
+        i if i == BaseLayerCircuitType::ECMulPrecompile as u8 => {
+            ECMulBuilder::dyn_verifier_builder()
+        }
+        i if i == BaseLayerCircuitType::ECPairingPrecompile as u8 => {
+            ECPairingBuilder::dyn_verifier_builder()
         }
         _ => {
             panic!("unknown circuit type = {}", circuit_type);
@@ -174,6 +194,18 @@ where
         }
         i if i == BaseLayerCircuitType::EIP4844Repack as u8 => {
             EIP4844VerifierBuilder::dyn_recursive_verifier_builder()
+        }
+        i if i == BaseLayerCircuitType::ModexpPrecompile as u8 => {
+            ModexpBuilder::dyn_recursive_verifier_builder()
+        }
+        i if i == BaseLayerCircuitType::ECAddPrecompile as u8 => {
+            ECAddBuilder::dyn_recursive_verifier_builder()
+        }
+        i if i == BaseLayerCircuitType::ECMulPrecompile as u8 => {
+            ECMulBuilder::dyn_recursive_verifier_builder()
+        }
+        i if i == BaseLayerCircuitType::ECPairingPrecompile as u8 => {
+            ECPairingBuilder::dyn_recursive_verifier_builder()
         }
         _ => {
             panic!("unknown circuit type = {}", circuit_type);
