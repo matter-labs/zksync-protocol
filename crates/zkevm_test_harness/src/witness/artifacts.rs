@@ -1,5 +1,7 @@
 use crate::boojum::field::SmallField;
 use crate::boojum::gadgets::queue::QueueStateWitness;
+use crate::witness::aux_data_structs::one_per_circuit_accumulator::CircuitsEntryAccumulatorSparse;
+use crate::witness::aux_data_structs::per_circuit_accumulator::PerCircuitAccumulatorSparse;
 use crate::zk_evm::aux_structures::{DecommittmentQuery, LogQuery, MemoryQuery};
 use crate::zkevm_circuits::base_structures::vm_state::FULL_SPONGE_QUEUE_STATE_WIDTH;
 use crate::zkevm_circuits::code_unpacker_sha256::input::CodeDecommitterCircuitInstanceWitness;
@@ -12,14 +14,19 @@ use crate::zkevm_circuits::sort_decommittment_requests::input::CodeDecommittment
 use crate::zkevm_circuits::storage_validity_by_grand_product::input::StorageDeduplicatorInstanceWitness;
 use circuit_definitions::encodings::decommittment_request::DecommittmentQueueState;
 use circuit_definitions::encodings::*;
+use circuit_definitions::zk_evm::zkevm_opcode_defs::{
+    ECADD_PRECOMPILE_FORMAL_ADDRESS, ECMUL_PRECOMPILE_FORMAL_ADDRESS,
+    ECPAIRING_PRECOMPILE_FORMAL_ADDRESS, MODEXP_PRECOMPILE_FORMAL_ADDRESS,
+};
+use circuit_definitions::zkevm_circuits::bn254::ec_add::input::EcAddCircuitInstanceWitness;
+use circuit_definitions::zkevm_circuits::bn254::ec_mul::input::EcMulCircuitInstanceWitness;
+use circuit_definitions::zkevm_circuits::bn254::ec_pairing::input::EcPairingCircuitInstanceWitness;
+use circuit_definitions::zkevm_circuits::modexp::input::ModexpCircuitInstanceWitness;
 use circuit_definitions::zkevm_circuits::secp256r1_verify::Secp256r1VerifyCircuitInstanceWitness;
 use circuit_definitions::zkevm_circuits::transient_storage_validity_by_grand_product::input::TransientStorageDeduplicatorInstanceWitness;
 use circuit_sequencer_api::toolset::GeometryConfig;
 use derivative::Derivative;
 use zkevm_circuits::fsm_input_output::ClosedFormInputCompactFormWitness;
-
-use crate::witness::aux_data_structs::one_per_circuit_accumulator::CircuitsEntryAccumulatorSparse;
-use crate::witness::aux_data_structs::per_circuit_accumulator::PerCircuitAccumulatorSparse;
 
 use crate::zk_evm::zkevm_opcode_defs::system_params::{
     EVENT_AUX_BYTE, L1_MESSAGE_AUX_BYTE, PRECOMPILE_AUX_BYTE, STORAGE_AUX_BYTE,
@@ -57,6 +64,10 @@ pub struct DemuxedPrecompilesLogQueries {
     pub sha256: Vec<LogQuery>,
     pub ecrecover: Vec<LogQuery>,
     pub secp256r1_verify: Vec<LogQuery>,
+    pub modexp: Vec<LogQuery>,
+    pub ecadd: Vec<LogQuery>,
+    pub ecmul: Vec<LogQuery>,
+    pub ecpairing: Vec<LogQuery>,
 }
 
 impl DemuxedLogQueries {
@@ -84,20 +95,32 @@ impl DemuxedLogQueries {
                 self.io.event.push(query);
             }
             PRECOMPILE_AUX_BYTE => {
-                let precomplies = &mut self.precompiles;
+                let precompiles = &mut self.precompiles;
                 assert!(!query.rollback);
                 match query.address {
                     a if a == *KECCAK256_ROUND_FUNCTION_PRECOMPILE_FORMAL_ADDRESS => {
-                        precomplies.keccak.push(query);
+                        precompiles.keccak.push(query);
                     }
                     a if a == *SHA256_ROUND_FUNCTION_PRECOMPILE_FORMAL_ADDRESS => {
-                        precomplies.sha256.push(query);
+                        precompiles.sha256.push(query);
                     }
                     a if a == *ECRECOVER_INNER_FUNCTION_PRECOMPILE_FORMAL_ADDRESS => {
-                        precomplies.ecrecover.push(query);
+                        precompiles.ecrecover.push(query);
                     }
                     a if a == *SECP256R1_VERIFY_INNER_FUNCTION_PRECOMPILE_FORMAL_ADDRESS => {
-                        precomplies.secp256r1_verify.push(query);
+                        precompiles.secp256r1_verify.push(query);
+                    }
+                    a if a == *MODEXP_PRECOMPILE_FORMAL_ADDRESS => {
+                        precompiles.modexp.push(query);
+                    }
+                    a if a == *ECADD_PRECOMPILE_FORMAL_ADDRESS => {
+                        precompiles.ecadd.push(query);
+                    }
+                    a if a == *ECMUL_PRECOMPILE_FORMAL_ADDRESS => {
+                        precompiles.ecmul.push(query);
+                    }
+                    a if a == *ECPAIRING_PRECOMPILE_FORMAL_ADDRESS => {
+                        precompiles.ecpairing.push(query);
                     }
                     _ => {
                         // just burn ergs
@@ -176,17 +199,33 @@ pub(crate) struct MemoryCircuitsArtifacts<F: SmallField> {
         FirstAndLastCircuitWitness<Secp256r1VerifyObservableWitness<F>>,
         Vec<ClosedFormInputCompactFormWitness<F>>,
     ),
+    pub modexp_circuits_data: (
+        FirstAndLastCircuitWitness<ModexpObservableWitness<F>>,
+        Vec<ClosedFormInputCompactFormWitness<F>>,
+    ),
+    pub ecadd_circuits_data: (
+        FirstAndLastCircuitWitness<ECAddObservableWitness<F>>,
+        Vec<ClosedFormInputCompactFormWitness<F>>,
+    ),
+    pub ecmul_circuits_data: (
+        FirstAndLastCircuitWitness<ECMulObservableWitness<F>>,
+        Vec<ClosedFormInputCompactFormWitness<F>>,
+    ),
+    pub ecpairing_circuits_data: (
+        FirstAndLastCircuitWitness<ECPairingObservableWitness<F>>,
+        Vec<ClosedFormInputCompactFormWitness<F>>,
+    ),
 }
 
 use crate::witness::aux_data_structs::one_per_circuit_accumulator::LastPerCircuitAccumulator;
 
 use super::postprocessing::observable_witness::{
-    CodeDecommitterObservableWitness, EcrecoverObservableWitness,
-    EventsDeduplicatorObservableWitness, Keccak256RoundFunctionObservableWitness,
-    LinearHasherObservableWitness, RamPermutationObservableWitness,
-    Secp256r1VerifyObservableWitness, Sha256RoundFunctionObservableWitness,
-    StorageApplicationObservableWitness, StorageDeduplicatorObservableWitness,
-    TransientStorageDeduplicatorObservableWitness,
+    CodeDecommitterObservableWitness, ECAddObservableWitness, ECMulObservableWitness,
+    ECPairingObservableWitness, EcrecoverObservableWitness, EventsDeduplicatorObservableWitness,
+    Keccak256RoundFunctionObservableWitness, LinearHasherObservableWitness,
+    ModexpObservableWitness, RamPermutationObservableWitness, Secp256r1VerifyObservableWitness,
+    Sha256RoundFunctionObservableWitness, StorageApplicationObservableWitness,
+    StorageDeduplicatorObservableWitness, TransientStorageDeduplicatorObservableWitness,
 };
 use super::postprocessing::FirstAndLastCircuitWitness;
 

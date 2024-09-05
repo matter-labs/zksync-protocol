@@ -195,6 +195,30 @@ pub fn get_circuit_capacity(circuit_type: u8) -> usize {
             // https://github.com/matter-labs/sync_vm/blob/b538a6105bbc0586ad437484f7f76b2c3e329c46/src/glue/merkleize_l1_messages/merkleize.rs#L298-L301
             Some(|cycles: usize| { 2usize.pow((cycles as f64).log2().floor() as u32) }),
         ),
+        19 => compute_inner::<ModexpFunctionInstanceSynthesisFunction, _>(
+            |x: usize| {
+                x
+            },
+            None,
+        ),
+        20 => compute_inner::<ECAddFunctionInstanceSynthesisFunction, _>(
+            |x: usize| {
+                x
+            },
+            None,
+        ),
+        21 => compute_inner::<ECMulFunctionInstanceSynthesisFunction, _>(
+            |x: usize| {
+                x
+            },
+            None,
+        ),
+        22 => compute_inner::<ECPairingFunctionInstanceSynthesisFunction, _>(
+            |x: usize| {
+                x
+            },
+            None,
+        ),
         _ => panic!("Unknown circuit type for which the limit can be computed {}", circuit_type)
     }
 }

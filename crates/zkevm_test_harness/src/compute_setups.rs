@@ -150,6 +150,30 @@ fn get_all_basic_circuits(geometry: &GeometryConfig) -> Vec<ZkSyncBaseLayerCircu
             round_function: Arc::new(Poseidon2Goldilocks),
             expected_public_input: None,
         }),
+        ZkSyncBaseLayerCircuit::Modexp(ZkSyncUniformCircuitInstance {
+            witness: AtomicCell::new(None),
+            config: Arc::new(geometry.cycles_per_modexp_circuit as usize),
+            round_function: Arc::new(Poseidon2Goldilocks),
+            expected_public_input: None,
+        }),
+        ZkSyncBaseLayerCircuit::ECAdd(ZkSyncUniformCircuitInstance {
+            witness: AtomicCell::new(None),
+            config: Arc::new(geometry.cycles_per_ecadd_circuit as usize),
+            round_function: Arc::new(Poseidon2Goldilocks),
+            expected_public_input: None,
+        }),
+        ZkSyncBaseLayerCircuit::ECMul(ZkSyncUniformCircuitInstance {
+            witness: AtomicCell::new(None),
+            config: Arc::new(geometry.cycles_per_ecmul_circuit as usize),
+            round_function: Arc::new(Poseidon2Goldilocks),
+            expected_public_input: None,
+        }),
+        ZkSyncBaseLayerCircuit::ECPairing(ZkSyncUniformCircuitInstance {
+            witness: AtomicCell::new(None),
+            config: Arc::new(geometry.cycles_per_ecpairing_circuit as usize),
+            round_function: Arc::new(Poseidon2Goldilocks),
+            expected_public_input: None,
+        }),
     ]
 }
 
@@ -173,7 +197,7 @@ fn get_leaf_circuits(
     let mut result = vec![];
 
     for base_circuit_type in ((BaseLayerCircuitType::VM as u8)
-        ..=(BaseLayerCircuitType::Secp256r1Verify as u8))
+        ..=(BaseLayerCircuitType::ECPairingPrecompile as u8))
         .chain(std::iter::once(BaseLayerCircuitType::EIP4844Repack as u8))
     {
         let _recursive_circuit_type = base_circuit_type_into_recursive_leaf_circuit_type(
@@ -650,7 +674,7 @@ pub fn compute_leaf_params(
     let mut leaf_vk_commits = vec![];
 
     for circuit_type in ((BaseLayerCircuitType::VM as u8)
-        ..=(BaseLayerCircuitType::Secp256r1Verify as u8))
+        ..=(BaseLayerCircuitType::ECPairingPrecompile as u8))
         .chain(std::iter::once(BaseLayerCircuitType::EIP4844Repack as u8))
     {
         let recursive_circuit_type = base_circuit_type_into_recursive_leaf_circuit_type(
