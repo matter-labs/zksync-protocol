@@ -16,8 +16,12 @@ use crate::zk_evm::zk_evm_abstractions::precompiles::secp256r1_verify::Secp256r1
 use crate::zk_evm::zk_evm_abstractions::precompiles::sha256::Sha256RoundWitness;
 
 pub(crate) mod decommit_code;
+pub(crate) mod ecadd;
+pub(crate) mod ecmul;
+pub(crate) mod ecpairing;
 pub(crate) mod ecrecover;
 pub(crate) mod keccak256_round_function;
+pub(crate) mod modexp;
 pub(crate) mod ram_permutation;
 pub(crate) mod secp256r1_verify;
 pub(crate) mod sha256_round_function;
@@ -30,6 +34,10 @@ pub(crate) struct ImplicitMemoryQueries {
     pub keccak256_memory_queries: Vec<MemoryQuery>,
     pub secp256r1_memory_queries: Vec<MemoryQuery>,
     pub sha256_memory_queries: Vec<MemoryQuery>,
+    pub modexp_memory_queries: Vec<MemoryQuery>,
+    pub ecadd_memory_queries: Vec<MemoryQuery>,
+    pub ecmul_memory_queries: Vec<MemoryQuery>,
+    pub ecpairing_memory_queries: Vec<MemoryQuery>,
 }
 
 impl ImplicitMemoryQueries {
@@ -39,6 +47,10 @@ impl ImplicitMemoryQueries {
             + self.keccak256_memory_queries.len()
             + self.secp256r1_memory_queries.len()
             + self.sha256_memory_queries.len()
+            + self.modexp_memory_queries.len()
+            + self.ecadd_memory_queries.len()
+            + self.ecmul_memory_queries.len()
+            + self.ecpairing_memory_queries.len()
     }
 
     fn get_vector(&self, index: usize) -> Option<&Vec<MemoryQuery>> {
@@ -48,6 +60,10 @@ impl ImplicitMemoryQueries {
             2 => Some(&self.sha256_memory_queries),
             3 => Some(&self.ecrecover_memory_queries),
             4 => Some(&self.secp256r1_memory_queries),
+            5 => Some(&self.modexp_memory_queries),
+            6 => Some(&self.ecadd_memory_queries),
+            7 => Some(&self.ecmul_memory_queries),
+            8 => Some(&self.ecpairing_memory_queries),
             _ => None,
         }
     }
@@ -109,6 +125,10 @@ pub fn get_implicit_memory_queries(
         sha256_memory_queries: sha256_memory_queries(
             &precompiles_inputs.sha256_round_function_witnesses,
         ),
+        modexp_memory_queries: modexp_memory_queries(&precompiles_inputs.modexp_witnesses),
+        ecadd_memory_queries: ecadd_memory_queries(&precompiles_inputs.ecadd_witnesses),
+        ecmul_memory_queries: ecmul_memory_queries(&precompiles_inputs.ecmul_witnesses),
+        ecpairing_memory_queries: ecpairing_memory_queries(&precompiles_inputs.ecpairing_witnesses),
     }
 }
 
@@ -146,6 +166,14 @@ pub(crate) struct ImplicitMemoryStates<F: SmallField> {
     pub secp256r1_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     pub sha256_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     pub sha256_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
+    pub modexp_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
+    pub modexp_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
+    pub ecadd_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
+    pub ecadd_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
+    pub ecmul_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
+    pub ecmul_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
+    pub ecpairing_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
+    pub ecpairing_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
 }
 
 impl<F: SmallField> ImplicitMemoryStates<F> {
@@ -155,6 +183,10 @@ impl<F: SmallField> ImplicitMemoryStates<F> {
             + self.keccak256_memory_states.len()
             + self.secp256r1_memory_states.len()
             + self.sha256_memory_states.len()
+            + self.modexp_memory_states.len()
+            + self.ecadd_memory_states.len()
+            + self.ecmul_memory_states.len()
+            + self.ecpairing_memory_states.len()
     }
 }
 use crate::witness::aux_data_structs::MemoryQueuePerCircuitSimulator;
@@ -170,6 +202,10 @@ fn get_simulator_snapshot<F: SmallField>(
 }
 
 use crate::witness::aux_data_structs::one_per_circuit_accumulator::LastPerCircuitAccumulator;
+use crate::witness::individual_circuits::memory_related::ecadd::ecadd_memory_queries;
+use crate::witness::individual_circuits::memory_related::ecmul::ecmul_memory_queries;
+use crate::witness::individual_circuits::memory_related::ecpairing::ecpairing_memory_queries;
+use crate::witness::individual_circuits::memory_related::modexp::modexp_memory_queries;
 
 pub(crate) fn simulate_implicit_memory_queues<
     F: SmallField,
@@ -225,6 +261,26 @@ pub(crate) fn simulate_implicit_memory_queues<
     implicit_memory_states.secp256r1_simulator_snapshots = simulate_subqueue(
         &implicit_memory_queries.secp256r1_memory_queries,
         &mut implicit_memory_states.secp256r1_memory_states,
+    );
+
+    implicit_memory_states.modexp_simulator_snapshots = simulate_subqueue(
+        &implicit_memory_queries.modexp_memory_queries,
+        &mut implicit_memory_states.modexp_memory_states,
+    );
+
+    implicit_memory_states.ecadd_simulator_snapshots = simulate_subqueue(
+        &implicit_memory_queries.ecadd_memory_queries,
+        &mut implicit_memory_states.ecadd_memory_states,
+    );
+
+    implicit_memory_states.ecmul_simulator_snapshots = simulate_subqueue(
+        &implicit_memory_queries.ecmul_memory_queries,
+        &mut implicit_memory_states.ecmul_memory_states,
+    );
+
+    implicit_memory_states.ecpairing_simulator_snapshots = simulate_subqueue(
+        &implicit_memory_queries.ecpairing_memory_queries,
+        &mut implicit_memory_states.ecpairing_memory_states,
     );
 
     implicit_memory_states
