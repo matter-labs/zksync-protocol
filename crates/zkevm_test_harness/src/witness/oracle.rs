@@ -925,6 +925,7 @@ fn simulate_memory_queue(
         &mut memory_queue_states_accumulator,
         &implicit_memory_queries,
         round_function,
+        geometry
     );
 
     (
@@ -1216,6 +1217,66 @@ fn process_memory_related_circuits(
         implicit_memory_states.amount_of_states()
     );
 
+
+    tracing::debug!("Running code code decommitter simulation");
+
+    let (code_decommitter_circuits_data, amount_of_memory_queries) =
+        compute_decommitter_circuit_snapshots(
+            explicit_memory_queries.len(),
+            &implicit_memory_queries.decommitter_memory_queries,
+            implicit_memory_states.decommitter_simulator_snapshots,
+            implicit_memory_states.decommitter_memory_states,
+            final_explicit_memory_queue_state,
+            decommiter_circuit_inputs,
+            round_function,
+            geometry.cycles_per_code_decommitter as usize,
+        );
+
+    circuits_data.code_decommitter_artifacts =
+    make_circuits(
+        geometry.cycles_per_code_decommitter,
+        BaseLayerCircuitType::Decommiter,
+        code_decommitter_circuits_data,
+        *round_function,
+        |x| ZkSyncBaseLayerCircuit::CodeDecommitter(x),
+        artifacts_callback_sender.clone(),
+    );
+
+    snapshot_prof("Done decommiter");
+
+    use crate::zkevm_circuits::demux_log_queue::DemuxOutput;
+
+    // keccak precompile
+
+    use crate::witness::individual_circuits::memory_related::keccak256_round_function::keccak256_decompose_into_per_circuit_witness;
+
+    tracing::debug!("Running keccak simulation");
+
+    let (keccak256_circuits_data, amount_of_memory_queries) =
+        keccak256_decompose_into_per_circuit_witness(
+            amount_of_memory_queries,
+            &implicit_memory_queries.keccak256_memory_queries,
+            implicit_memory_states.keccak256_simulator_snapshots,
+            implicit_memory_states.keccak256_memory_states,
+            precompiles_data.keccak_round_function_witnesses,
+            precompiles_data.logs_queries.keccak,
+            precompiles_data.logs_queues_states.keccak,
+            geometry.cycles_per_keccak256_circuit as usize,
+            round_function,
+        );
+
+    circuits_data.keccak256_circuits_data =
+    make_circuits(
+        geometry.cycles_per_keccak256_circuit,
+        BaseLayerCircuitType::KeccakPrecompile,
+        keccak256_circuits_data,
+        *round_function,
+        |x| ZkSyncBaseLayerCircuit::KeccakRoundFunction(x),
+        artifacts_callback_sender.clone(),
+    );
+
+    snapshot_prof("Done keccak");
+
     use crate::witness::individual_circuits::memory_related::ram_permutation::compute_ram_circuit_snapshots;
 
     tracing::debug!("Running RAM permutation simulation");
@@ -1237,60 +1298,7 @@ fn process_memory_related_circuits(
 
     use crate::witness::individual_circuits::memory_related::decommit_code::compute_decommitter_circuit_snapshots;
 
-    tracing::debug!("Running code code decommitter simulation");
-
-    let (code_decommitter_circuits_data, amount_of_memory_queries) =
-        compute_decommitter_circuit_snapshots(
-            explicit_memory_queries.len(),
-            implicit_memory_queries.decommitter_memory_queries,
-            implicit_memory_states.decommitter_simulator_snapshots,
-            implicit_memory_states.decommitter_memory_states,
-            final_explicit_memory_queue_state,
-            decommiter_circuit_inputs,
-            round_function,
-            geometry.cycles_per_code_decommitter as usize,
-        );
-
-    circuits_data.code_decommitter_artifacts =
-    make_circuits(
-        geometry.cycles_per_code_decommitter,
-        BaseLayerCircuitType::Decommiter,
-        code_decommitter_circuits_data,
-        *round_function,
-        |x| ZkSyncBaseLayerCircuit::CodeDecommitter(x),
-        artifacts_callback_sender.clone(),
-    );
-
-    use crate::zkevm_circuits::demux_log_queue::DemuxOutput;
-
-    // keccak precompile
-
-    use crate::witness::individual_circuits::memory_related::keccak256_round_function::keccak256_decompose_into_per_circuit_witness;
-
-    tracing::debug!("Running keccak simulation");
-
-    let (keccak256_circuits_data, amount_of_memory_queries) =
-        keccak256_decompose_into_per_circuit_witness(
-            amount_of_memory_queries,
-            implicit_memory_queries.keccak256_memory_queries,
-            implicit_memory_states.keccak256_simulator_snapshots,
-            implicit_memory_states.keccak256_memory_states,
-            precompiles_data.keccak_round_function_witnesses,
-            precompiles_data.logs_queries.keccak,
-            precompiles_data.logs_queues_states.keccak,
-            geometry.cycles_per_keccak256_circuit as usize,
-            round_function,
-        );
-
-    circuits_data.keccak256_circuits_data =
-    make_circuits(
-        geometry.cycles_per_keccak256_circuit,
-        BaseLayerCircuitType::KeccakPrecompile,
-        keccak256_circuits_data,
-        *round_function,
-        |x| ZkSyncBaseLayerCircuit::KeccakRoundFunction(x),
-        artifacts_callback_sender.clone(),
-    );
+    snapshot_prof("Done ram circuits");
 
     // sha256 precompile
 
@@ -1321,6 +1329,8 @@ fn process_memory_related_circuits(
         artifacts_callback_sender.clone(),
     );
 
+    snapshot_prof("Done sha256");
+
     // ecrecover precompile
 
     use crate::witness::individual_circuits::memory_related::ecrecover::ecrecover_decompose_into_per_circuit_witness;
@@ -1350,6 +1360,8 @@ fn process_memory_related_circuits(
         artifacts_callback_sender.clone(),
     );
 
+    snapshot_prof("Done ecrecover");
+
     use crate::witness::individual_circuits::memory_related::secp256r1_verify::secp256r1_verify_decompose_into_per_circuit_witness;
 
     tracing::debug!("Running secp256r1_simulation simulation");
@@ -1376,6 +1388,8 @@ fn process_memory_related_circuits(
         |x| ZkSyncBaseLayerCircuit::Secp256r1Verify(x),
         artifacts_callback_sender.clone(),
     );
+
+    snapshot_prof("Done secp");
 
     circuits_data
 }

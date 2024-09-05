@@ -81,9 +81,9 @@ pub(crate) fn keccak256_decompose_into_per_circuit_witness<
     R: BuildableCircuitRoundFunction<F, 8, 12, 4> + AlgebraicRoundFunction<F, 8, 12, 4>,
 >(
     amount_of_memory_queries_before: usize,
-    keccak256_memory_queries: Vec<MemoryQuery>,
+    keccak256_memory_queries: &Vec<MemoryQuery>,
     keccak256_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
-    keccak256_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
+    keccak256_memory_states: LastPerCircuitAccumulator<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     keccak_round_function_witnesses: Vec<(u32, LogQuery_, Vec<Keccak256RoundWitness>)>,
     keccak_precompile_queries: Vec<LogQuery_>,
     mut demuxed_keccak_precompile_queue: LogQueueStates<F>,
@@ -134,9 +134,9 @@ pub(crate) fn keccak256_decompose_into_per_circuit_witness<
             let mapped = log_query_into_circuit_log_query_witness::<F>(&el.2);
 
             (mapped, el.1)
-        })
-        .collect();
-
+        }).collect();
+    let mut keccak_requests_queue_witness_iter = keccak_requests_queue_witness_copy.into_iter();
+    
     // convension
     let mut log_queue_input_state =
         take_queue_state_from_simulator(&demuxed_keccak_precompile_queue.simulator);
@@ -148,11 +148,10 @@ pub(crate) fn keccak256_decompose_into_per_circuit_witness<
     let mut precompile_state = Keccak256PrecompileState::GetRequestFromQueue;
 
     let mut memory_queue_input_state = memory_simulator_before.take_sponge_like_queue_state();
-    let mut current_memory_queue_state = memory_queue_input_state.clone();
 
     let mut memory_reads_per_circuit = VecDeque::new();
 
-    let mut memory_queue_states_it = keccak256_memory_states.iter();
+    let mut memory_queue_states_it = keccak256_memory_states.into_circuits().into_iter();
 
     for (request_idx, (request, per_request_work)) in keccak_precompile_calls
         .into_iter()
@@ -259,8 +258,6 @@ pub(crate) fn keccak256_decompose_into_per_circuit_witness<
                 assert_eq!(read, *read_query);
                 memory_reads_per_circuit.push_back(read_query.value);
 
-                current_memory_queue_state = memory_queue_states_it.next().unwrap().clone();
-
                 input_buffer.fill_with_bytes(
                     &bytes32_buffer,
                     unalignment as usize,
@@ -309,8 +306,6 @@ pub(crate) fn keccak256_decompose_into_per_circuit_witness<
                 let write_query = memory_queries_it.next().unwrap();
                 assert_eq!(write, *write_query);
 
-                current_memory_queue_state = memory_queue_states_it.next().unwrap().clone();
-
                 if is_last_request {
                     precompile_state = Keccak256PrecompileState::Finished;
                 } else {
@@ -321,6 +316,8 @@ pub(crate) fn keccak256_decompose_into_per_circuit_witness<
             round_counter += 1;
 
             if round_counter == num_rounds_per_circuit || (is_last_request && is_last_round) {
+                let current_memory_queue_state = memory_queue_states_it.next().unwrap();
+
                 let early_termination = round_counter != num_rounds_per_circuit;
                 round_counter = 0;
 
@@ -402,13 +399,9 @@ pub(crate) fn keccak256_decompose_into_per_circuit_witness<
                     hidden_fsm_output_state
                 );
 
-                let range = starting_request_idx_for_circuit..(request_idx + 1);
-                starting_request_idx_for_circuit = request_idx + 1;
+                let wit: VecDeque<_> = (&mut keccak_requests_queue_witness_iter).take(request_idx + 1 - starting_request_idx_for_circuit).collect();
 
-                let wit: VecDeque<_> = keccak_requests_queue_witness_copy[range]
-                    .iter()
-                    .cloned()
-                    .collect();
+                starting_request_idx_for_circuit = request_idx + 1;
 
                 let mut observable_input_data = PrecompileFunctionInputData::placeholder_witness();
                 if result.len() == 0 {
@@ -452,7 +445,7 @@ pub(crate) fn keccak256_decompose_into_per_circuit_witness<
                     > {
                         elements: wit,
                     },
-                    memory_reads_witness: memory_reads_witness,
+                    memory_reads_witness,
                 };
 
                 // make non-inclusize

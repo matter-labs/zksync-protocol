@@ -23,7 +23,7 @@ pub(crate) fn compute_decommitts_sorter_circuit_snapshots<
     F: SmallField,
     R: BuildableCircuitRoundFunction<F, 8, 12, 4> + AlgebraicRoundFunction<F, 8, 12, 4>,
 >(
-    mut executed_decommittment_queries: Vec<(u32, DecommittmentQuery, Vec<U256>)>,
+    executed_decommittment_queries: Vec<(u32, DecommittmentQuery, Vec<U256>)>,
     round_function: &R,
     deduplicator_circuit_capacity: usize,
 ) -> (
@@ -61,21 +61,17 @@ pub(crate) fn compute_decommitts_sorter_circuit_snapshots<
     let mut sorted_decommittment_queue_states = Vec::with_capacity(total_executed_queries);
     let mut unsorted_decommittment_requests_with_data = Vec::with_capacity(total_executed_queries);
 
-    for (_cycle, decommittment_request, writes) in executed_decommittment_queries.iter_mut() {
-        let data = std::mem::take(writes);
-        unsorted_decommittment_requests_with_data.push((*decommittment_request, data));
-    }
-
     let num_circuits = (executed_decommittment_queries.len() + deduplicator_circuit_capacity - 1)
         / deduplicator_circuit_capacity;
 
-    // internally parallelizable by the factor of 3
-    for (cycle, decommittment_request, _) in executed_decommittment_queries.iter() {
+    for (cycle, decommittment_request, writes) in executed_decommittment_queries.into_iter() {
         // sponge
+        // internally parallelizable by the factor of 3
         let (_, intermediate_info) = unsorted_decommittment_queue_simulator
-            .push_and_output_intermediate_data(*decommittment_request, round_function);
+        .push_and_output_intermediate_data(decommittment_request, round_function);
 
-        all_decommittment_queue_states.push((*cycle, intermediate_info));
+        all_decommittment_queue_states.push((cycle, intermediate_info));
+        unsorted_decommittment_requests_with_data.push((decommittment_request, writes));
     }
 
     // sort queries

@@ -44,7 +44,7 @@ pub(crate) fn ecrecover_decompose_into_per_circuit_witness<
     amount_of_memory_queries_before: usize,
     ecrecover_memory_queries: Vec<MemoryQuery>,
     ecrecover_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
-    ecrecover_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
+    ecrecover_memory_states: LastPerCircuitAccumulator<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     ecrecover_witnesses: Vec<(u32, LogQuery_, ECRecoverRoundWitness)>,
     ecrecover_queries: Vec<LogQuery_>,
     mut demuxed_ecrecover_queue: LogQueueStates<F>,
@@ -90,9 +90,8 @@ pub(crate) fn ecrecover_decompose_into_per_circuit_witness<
     let mut starting_request_idx = 0;
 
     let mut memory_queue_input_state = memory_simulator_before.take_sponge_like_queue_state();
-    let mut current_memory_queue_state = memory_queue_input_state.clone();
 
-    let mut memory_queue_states_it = ecrecover_memory_states.iter();
+    let mut memory_queue_states_it = ecrecover_memory_states.into_circuits().into_iter();
 
     for (request_idx, (request, per_request_work)) in precompile_calls
         .into_iter()
@@ -120,8 +119,6 @@ pub(crate) fn ecrecover_decompose_into_per_circuit_witness<
             assert!(read_query.rw_flag == false);
             memory_reads_per_request.push(read_query.value);
 
-            current_memory_queue_state = memory_queue_states_it.next().unwrap().clone();
-
             precompile_request.input_memory_offset += 1;
             amount_of_queries += 1;
         }
@@ -132,8 +129,6 @@ pub(crate) fn ecrecover_decompose_into_per_circuit_witness<
             assert!(write == write_query);
             assert!(write_query.rw_flag == true);
 
-            current_memory_queue_state = memory_queue_states_it.next().unwrap().clone();
-
             precompile_request.output_memory_offset += 1;
             amount_of_queries += 1;
         }
@@ -142,6 +137,7 @@ pub(crate) fn ecrecover_decompose_into_per_circuit_witness<
         round_counter += 1;
 
         if round_counter == num_rounds_per_circuit || is_last_request {
+            let current_memory_queue_state = memory_queue_states_it.next().unwrap();
             round_counter = 0;
 
             let finished = is_last_request;

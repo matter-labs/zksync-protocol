@@ -53,7 +53,7 @@ pub(crate) fn compute_decommitter_circuit_snapshots<
     R: BuildableCircuitRoundFunction<F, 8, 12, 4> + AlgebraicRoundFunction<F, 8, 12, 4>,
 >(
     amount_of_memory_queries: usize,
-    decommitter_memory_queries: Vec<MemoryQuery>,
+    decommitter_memory_queries: &Vec<MemoryQuery>,
     decommitter_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     decommitter_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     final_explicit_memory_queue_state: QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>,

@@ -72,7 +72,7 @@ pub(crate) fn sha256_decompose_into_per_circuit_witness<
     amount_of_memory_queries_before: usize,
     sha256_memory_queries: Vec<MemoryQuery>,
     sha256_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
-    sha256_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
+    sha256_memory_states: LastPerCircuitAccumulator<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     sha256_round_function_witnesses: Vec<(u32, LogQuery_, Vec<Sha256RoundWitness>)>,
     sha256_precompile_queries: Vec<LogQuery_>,
     mut demuxed_sha256_precompile_queue: LogQueueStates<F>,
@@ -126,9 +126,8 @@ pub(crate) fn sha256_decompose_into_per_circuit_witness<
     let mut starting_request_idx = 0;
 
     let mut memory_queue_input_state = memory_simulator_before.take_sponge_like_queue_state();
-    let mut current_memory_queue_state = memory_queue_input_state.clone();
 
-    let mut memory_queue_states_it = sha256_memory_states.iter();
+    let mut memory_queue_states_it = sha256_memory_states.into_circuits().into_iter();
 
     for (request_idx, (request, per_request_work)) in precompile_calls
         .into_iter()
@@ -175,8 +174,6 @@ pub(crate) fn sha256_decompose_into_per_circuit_witness<
                 assert_eq!(read, read_query);
                 memory_reads_per_request.push(read_query.value);
 
-                current_memory_queue_state = memory_queue_states_it.next().unwrap().clone();
-
                 precompile_request.input_memory_offset += 1;
             }
             use crate::zk_evm::zk_evm_abstractions::precompiles::sha256::Digest;
@@ -193,8 +190,6 @@ pub(crate) fn sha256_decompose_into_per_circuit_witness<
                 let write_query = memory_queries_it.next().unwrap();
                 assert_eq!(write, write_query);
 
-                current_memory_queue_state = memory_queue_states_it.next().unwrap().clone();
-
                 if is_last_request {
                     precompile_state = Sha256PrecompileState::Finished;
                 } else {
@@ -205,6 +200,7 @@ pub(crate) fn sha256_decompose_into_per_circuit_witness<
             round_counter += 1;
 
             if round_counter == num_rounds_per_circuit || (is_last_request && is_last_round) {
+                let current_memory_queue_state = memory_queue_states_it.next().unwrap();
                 let early_termination = round_counter != num_rounds_per_circuit;
                 round_counter = 0;
 
