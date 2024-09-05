@@ -4,6 +4,7 @@
 
 use super::artifacts::LogCircuitsArtifacts;
 use super::individual_circuits::main_vm::CallstackSimulationResult;
+use super::individual_circuits::memory_related::decommit_code::DecommiterCircuitProcessingInputs;
 use super::individual_circuits::memory_related::{ImplicitMemoryQueries, ImplicitMemoryStates};
 use super::postprocessing::{
     BlockFirstAndLastBasicCircuitsObservableWitnesses, FirstAndLastCircuitWitness,
@@ -47,6 +48,7 @@ use circuit_definitions::zkevm_circuits::base_structures::memory_query::{
 use circuit_definitions::zkevm_circuits::eip_4844::input::EIP4844CircuitInstanceWitness;
 use circuit_definitions::zkevm_circuits::fsm_input_output::ClosedFormInputCompactFormWitness;
 use circuit_definitions::zkevm_circuits::scheduler::aux::BaseLayerCircuitType;
+use circuit_definitions::zkevm_circuits::sort_decommittment_requests::input::CodeDecommittmentsDeduplicatorInstanceWitness;
 use derivative::Derivative;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::mpsc::{self, Receiver, Sender};
@@ -961,27 +963,31 @@ pub(crate) struct PrecompilesInputData {
     pub logs_queries: DemuxedPrecompilesLogQueries,
 }
 
-fn process_memory_related_circuits<CB: FnMut(WitnessGenerationArtifact)>(
+fn prepare_memory_queues_and_decommitments(    
     geometry: &GeometryConfig,
     vm_snapshots: &Vec<VmSnapshot>,
     memory_queries: Vec<(Cycle, MemoryQuery)>,
-    num_non_deterministic_heap_queries: usize,
     prepared_decommittment_queries: Vec<(Cycle, DecommittmentQuery)>,
     executed_decommittment_queries: Vec<(Cycle, DecommittmentQuery, Vec<U256>)>,
-    precompiles_data: PrecompilesInputData,
+    precompiles_data: &PrecompilesInputData,
     round_function: &Poseidon2Goldilocks,
-    mut artifacts_callback: &mut CB,
 ) -> (
-    MemoryCircuitsArtifacts<GoldilocksField>,
-    MemoryArtifacts<GoldilocksField>,
     DecommitmentArtifactsForMainVM<GoldilocksField>,
-    FirstAndLastCircuitWitness<RamPermutationObservableWitness<GoldilocksField>>,
-    Vec<ClosedFormInputCompactFormWitness<GoldilocksField>>,
+    Vec<CodeDecommittmentsDeduplicatorInstanceWitness<GoldilocksField>>,
+    DecommiterCircuitProcessingInputs<GoldilocksField>,
+    Vec<(u32, MemoryQuery)>,
+    MemoryArtifacts<GoldilocksField>,
+
+    (QueueStateWitness<GoldilocksField, FULL_SPONGE_QUEUE_STATE_WIDTH>,
+    LastPerCircuitAccumulator<QueueStateWitness<GoldilocksField, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
+    MemoryQueuePerCircuitSimulator<GoldilocksField>,
+    ImplicitMemoryQueries,
+    ImplicitMemoryStates<GoldilocksField>,),
+
+    (Vec<usize>,
+    LastPerCircuitAccumulator<QueueStateWitness<GoldilocksField, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
+    MemoryQueuePerCircuitSimulator<GoldilocksField>,)
 ) {
-    tracing::debug!("Processing memory related queues");
-
-    let mut circuits_data = MemoryCircuitsArtifacts::default();
-
     use crate::witness::individual_circuits::memory_related::sort_decommit_requests::compute_decommitts_sorter_circuit_snapshots;
 
     tracing::debug!("Running code decommittments sorter simulation");
@@ -1020,8 +1026,6 @@ fn process_memory_related_circuits<CB: FnMut(WitnessGenerationArtifact)>(
                 .map(|el| (el.0, transform_sponge_like_queue_state(el.1))),
         ),
     };
-    circuits_data.decommittments_deduplicator_circuits_data =
-        decommittments_deduplicator_circuits_data;
 
     tracing::debug!("Running unsorted memory queue simulation");
 
@@ -1032,8 +1036,6 @@ fn process_memory_related_circuits<CB: FnMut(WitnessGenerationArtifact)>(
         &decommiter_circuit_inputs.deduplicated_decommit_requests_with_data,
         &precompiles_data,
     );
-
-    let amount_of_explicit_memory_queries = memory_queries.len();
 
     // Memory queues simulation is a slowest part in basic witness generation.
     // Each queue simulation is sequential single-threaded computation of hashes.
@@ -1087,14 +1089,66 @@ fn process_memory_related_circuits<CB: FnMut(WitnessGenerationArtifact)>(
         sorted_memory_queue_simulator,
     ) = sorted_handle.join().unwrap();
 
+    let memory_queries = Arc::into_inner(memory_queries_arc).unwrap();
     let memory_artifacts_for_main_vm = MemoryArtifacts {
-        memory_queries: Arc::into_inner(memory_queries_arc).unwrap(),
         memory_queue_entry_states: memory_queue_entry_states_for_main_vm,
     };
     let implicit_memory_queries = Arc::into_inner(implicit_memory_queries_arc).unwrap();
 
+    (
+        decommitment_artifacts_for_main_vm,
+        decommittments_deduplicator_circuits_data,
+        decommiter_circuit_inputs,
+        memory_queries,
+        memory_artifacts_for_main_vm,
+        // unsorted artifacts
+        (final_explicit_memory_queue_state,
+        memory_queue_states_accumulator,
+        memory_queue_simulator,
+        implicit_memory_queries,
+        implicit_memory_states,),
+        // sorted artifacts
+        (sorted_memory_queries_indexes,
+        sorted_memory_queue_states_accumulator,
+        sorted_memory_queue_simulator,),
+    )
+}
+
+fn process_memory_related_circuits<CB: FnMut(WitnessGenerationArtifact)>(
+    geometry: &GeometryConfig,
+    num_non_deterministic_heap_queries: usize,
+    explicit_memory_queries: Vec<(u32, MemoryQuery)>,
+    unsorted_mem_queue_artifacts: (QueueStateWitness<GoldilocksField, FULL_SPONGE_QUEUE_STATE_WIDTH>, LastPerCircuitAccumulator<QueueStateWitness<GoldilocksField, FULL_SPONGE_QUEUE_STATE_WIDTH>>, MemoryQueuePerCircuitSimulator<GoldilocksField>, ImplicitMemoryQueries, ImplicitMemoryStates<GoldilocksField>),
+    sorted_mem_queue_artifacts: (Vec<usize>, LastPerCircuitAccumulator<QueueStateWitness<GoldilocksField, FULL_SPONGE_QUEUE_STATE_WIDTH>>, MemoryQueuePerCircuitSimulator<GoldilocksField>),
+    decommiter_circuit_inputs: DecommiterCircuitProcessingInputs<GoldilocksField>,
+    precompiles_data: PrecompilesInputData,
+    round_function: &Poseidon2Goldilocks,
+    mut artifacts_callback: &mut CB,
+) -> (
+    MemoryCircuitsArtifacts<GoldilocksField>,
+    FirstAndLastCircuitWitness<RamPermutationObservableWitness<GoldilocksField>>,
+    Vec<ClosedFormInputCompactFormWitness<GoldilocksField>>,
+) {
+    tracing::debug!("Processing memory related queues");
+
+    let mut circuits_data = MemoryCircuitsArtifacts::default();
+
     // direct VM related part is done, other subcircuit's functionality is moved to other functions
     // that should properly do sorts and memory writes
+
+    let (
+        final_explicit_memory_queue_state,
+        memory_queue_states_accumulator,
+        memory_queue_simulator,
+        implicit_memory_queries,
+        implicit_memory_states,
+    ) = unsorted_mem_queue_artifacts;
+
+    let (
+        sorted_memory_queries_indexes,
+        sorted_memory_queue_states_accumulator,
+        sorted_memory_queue_simulator,
+    ) = sorted_mem_queue_artifacts;
 
     assert_eq!(
         implicit_memory_queries.amount_of_queries(),
@@ -1108,7 +1162,7 @@ fn process_memory_related_circuits<CB: FnMut(WitnessGenerationArtifact)>(
     let (ram_permutation_circuits, ram_permutation_circuits_compact_forms_witnesses) =
         compute_ram_circuit_snapshots(
             sorted_memory_queries_indexes,
-            &memory_artifacts_for_main_vm.memory_queries,
+            &explicit_memory_queries,
             &implicit_memory_queries,
             memory_queue_states_accumulator,
             sorted_memory_queue_states_accumulator,
@@ -1126,7 +1180,7 @@ fn process_memory_related_circuits<CB: FnMut(WitnessGenerationArtifact)>(
 
     let (code_decommitter_circuits_data, amount_of_memory_queries) =
         compute_decommitter_circuit_snapshots(
-            amount_of_explicit_memory_queries,
+            explicit_memory_queries.len(),
             implicit_memory_queries.decommitter_memory_queries,
             implicit_memory_states.decommitter_simulator_snapshots,
             implicit_memory_states.decommitter_memory_states,
@@ -1220,8 +1274,6 @@ fn process_memory_related_circuits<CB: FnMut(WitnessGenerationArtifact)>(
 
     (
         circuits_data,
-        memory_artifacts_for_main_vm,
-        decommitment_artifacts_for_main_vm,
         ram_permutation_circuits,
         ram_permutation_circuits_compact_forms_witnesses,
     )
@@ -1394,21 +1446,21 @@ pub(crate) fn create_artifacts_from_tracer<CB: FnMut(WitnessGenerationArtifact)>
     // Also makes ram permutation circuits and compact form witnesses.
     // The most RAM- and CPU-demanding part of the witness generation.
     let (
-        memory_circuits_data,
-        memory_artifacts_for_main_vm,
         decommitment_artifacts_for_main_vm,
-        ram_permutation_circuits,
-        ram_permutation_circuits_compact_forms_witnesses,
-    ) = process_memory_related_circuits(
+        decommittments_deduplicator_circuits_data,
+        decommiter_circuit_inputs,
+        explicit_memory_queries,
+        memory_artifacts_for_main_vm,
+        unsorted_mem_queue_artifacts,
+        sorted_mem_queue_artifacts
+    ) = prepare_memory_queues_and_decommitments(
         geometry,
         &vm_snapshots,
         vm_memory_queries_accumulated,
-        num_non_deterministic_heap_queries,
         prepared_decommittment_queries,
         executed_decommittment_queries,
-        precompiles_data,
+        &precompiles_data,
         round_function,
-        &mut artifacts_callback,
     );
 
     tracing::debug!("Waiting for callstack sumulation");
@@ -1433,6 +1485,7 @@ pub(crate) fn create_artifacts_from_tracer<CB: FnMut(WitnessGenerationArtifact)>
     let (main_vm_circuits, main_vm_circuits_compact_forms_witnesses) = process_main_vm(
         geometry,
         in_circuit_global_context,
+        &explicit_memory_queries,
         memory_artifacts_for_main_vm,
         decommitment_artifacts_for_main_vm,
         storage_queries,
@@ -1444,6 +1497,27 @@ pub(crate) fn create_artifacts_from_tracer<CB: FnMut(WitnessGenerationArtifact)>
         flat_new_frames_history,
         vm_snapshots,
         *round_function,
+        &mut artifacts_callback,
+    );
+
+    // Prepare inputs for processing of all circuits related to memory
+    // (decommitts sorter, decommiter, precompiles, ram permutation).
+    // Prepare decommitment an memory inputs for MainVM circuits processing.
+    // Also makes ram permutation circuits and compact form witnesses.
+    // The most RAM- and CPU-demanding part of the witness generation.
+    let (
+        memory_circuits_data,
+        ram_permutation_circuits,
+        ram_permutation_circuits_compact_forms_witnesses,
+    ) = process_memory_related_circuits(
+        geometry,
+        num_non_deterministic_heap_queries,
+        explicit_memory_queries,
+        unsorted_mem_queue_artifacts,
+        sorted_mem_queue_artifacts,
+        decommiter_circuit_inputs,
+        precompiles_data,
+        round_function,
         &mut artifacts_callback,
     );
 
@@ -1462,7 +1536,6 @@ pub(crate) fn create_artifacts_from_tracer<CB: FnMut(WitnessGenerationArtifact)>
 
     let MemoryCircuitsArtifacts {
         code_decommitter_circuits_data,
-        decommittments_deduplicator_circuits_data,
         keccak256_circuits_data,
         sha256_circuits_data,
         ecrecover_circuits_data,
