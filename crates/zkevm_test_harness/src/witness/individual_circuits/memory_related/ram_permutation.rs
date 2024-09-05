@@ -28,12 +28,13 @@ use rayon::prelude::*;
 use snark_wrapper::boojum::field::Field as _;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
+use std::sync::mpsc::SyncSender;
 use std::sync::Arc;
 use zkevm_circuits::base_structures::vm_state::QUEUE_STATE_WIDTH;
 
 use crate::zk_evm::zkevm_opcode_defs::BOOTLOADER_HEAP_PAGE;
 
-pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)>(
+pub(crate) fn compute_ram_circuit_snapshots(
     sorted_memory_queries_indexes: Vec<usize>,
     memory_queries: &Vec<(u32, MemoryQuery)>,
     implicit_memory_queries: &ImplicitMemoryQueries,
@@ -48,7 +49,7 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
     round_function: &RoundFunction,
     num_non_deterministic_heap_queries: usize,
     geometry: &GeometryConfig,
-    mut artifacts_callback: CB,
+    artifacts_callback_sender: SyncSender<WitnessGenerationArtifact>,
 ) -> (
     FirstAndLastCircuitWitness<RamPermutationObservableWitness<Field>>,
     Vec<ClosedFormInputCompactFormWitness<Field>>,
@@ -395,9 +396,9 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
             tmp.current_sorted_queue_state.clone(),
         );
 
-        artifacts_callback(WitnessGenerationArtifact::BaseLayerCircuit(
+        artifacts_callback_sender.send(WitnessGenerationArtifact::BaseLayerCircuit(
             ZkSyncBaseLayerCircuit::RAMPermutation(maker.process(instance_witness, circuit_type)),
-        ));
+        )).unwrap();
     }
 
     snapshot_prof("AFTER CYCLE");
@@ -410,11 +411,11 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
         queue_simulator,
         ram_permutation_circuits_compact_forms_witnesses,
     ) = maker.into_results();
-    artifacts_callback(WitnessGenerationArtifact::RecursionQueue((
+    artifacts_callback_sender.send(WitnessGenerationArtifact::RecursionQueue((
         circuit_type as u64,
         queue_simulator,
         ram_permutation_circuits_compact_forms_witnesses.clone(),
-    )));
+    ))).unwrap();
 
     (
         ram_permutation_circuits,

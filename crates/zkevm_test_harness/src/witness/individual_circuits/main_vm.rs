@@ -1,3 +1,4 @@
+use std::sync::mpsc::SyncSender;
 use std::sync::Arc;
 
 use crate::witness::artifacts::{DecommitmentArtifactsForMainVM, MemoryArtifacts};
@@ -317,7 +318,7 @@ use crate::zkevm_circuits::fsm_input_output::circuit_inputs::main_vm::VmCircuitW
 use super::oracle::WitnessGenerationArtifact;
 use super::vm_instance_witness_to_circuit_formal_input;
 
-pub(crate) fn process_main_vm<CB: FnMut(WitnessGenerationArtifact)>(
+pub(crate) fn process_main_vm(
     geometry: &GeometryConfig,
     in_circuit_global_context: GlobalContextWitness<GoldilocksField>,
     explicit_memory_queries: &Vec<(u32, MemoryQuery)>,
@@ -335,7 +336,7 @@ pub(crate) fn process_main_vm<CB: FnMut(WitnessGenerationArtifact)>(
     flat_new_frames_history: Vec<(Cycle, CallStackEntry)>,
     mut vm_snapshots: Vec<VmSnapshot>,
     round_function: Poseidon2Goldilocks,
-    artifacts_callback: &mut CB,
+    artifacts_callback_sender: SyncSender<WitnessGenerationArtifact>,
 ) -> (
     FirstAndLastCircuitWitness<VmObservableWitness<GoldilocksField>>,
     Vec<ClosedFormInputCompactFormWitness<GoldilocksField>>,
@@ -401,7 +402,7 @@ pub(crate) fn process_main_vm<CB: FnMut(WitnessGenerationArtifact)>(
         };
         queue_simulator.push(recursive_request, &round_function);
 
-        artifacts_callback(WitnessGenerationArtifact::BaseLayerCircuit(instance));
+        artifacts_callback_sender.send(WitnessGenerationArtifact::BaseLayerCircuit(instance)).unwrap();
         main_vm_circuits_compact_forms_witnesses.push(compact_form_witness);
     };
 
@@ -534,11 +535,11 @@ pub(crate) fn process_main_vm<CB: FnMut(WitnessGenerationArtifact)>(
         }
     }
 
-    artifacts_callback(WitnessGenerationArtifact::RecursionQueue((
+    artifacts_callback_sender.send(WitnessGenerationArtifact::RecursionQueue((
         BaseLayerCircuitType::VM as u64,
         queue_simulator,
         main_vm_circuits_compact_forms_witnesses.clone(),
-    )));
+    ))).unwrap();
 
     (main_vm_circuits, main_vm_circuits_compact_forms_witnesses)
 }

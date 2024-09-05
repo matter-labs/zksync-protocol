@@ -41,6 +41,7 @@ use circuit_definitions::zk_evm::zkevm_opcode_defs::VersionedHashLen32;
 use circuit_definitions::zkevm_circuits::fsm_input_output::ClosedFormInputCompactFormWitness;
 use circuit_definitions::{Field as MainField, ZkSyncDefaultRoundFunction};
 use std::collections::VecDeque;
+use std::sync::mpsc::SyncSender;
 
 pub const SCHEDULER_TIMESTAMP: u32 = 1;
 
@@ -62,7 +63,7 @@ pub type RunVMsResult = (
 /// - witness with AUX data (with information that might be useful during verification to generate the public input)
 ///
 /// This function will setup the environment and will run out-of-circuit and then in-circuit
-pub fn run_vms<S: Storage, CB: FnMut(WitnessGenerationArtifact)>(
+pub fn run_vms<S: Storage>(
     caller: Address,                 // for real block must be zero
     entry_point_address: Address,    // for real block must be the bootloader
     entry_point_code: Vec<[u8; 32]>, // for read block must be a bootloader code
@@ -78,7 +79,7 @@ pub fn run_vms<S: Storage, CB: FnMut(WitnessGenerationArtifact)>(
     tree: impl BinarySparseStorageTree<256, 32, 32, 8, 32, Blake2s256, ZkSyncStorageLeaf>,
     trusted_setup_path: &str,
     eip_4844_repack_inputs: [Option<Vec<u8>>; MAX_4844_BLOBS_PER_BLOCK],
-    artifacts_callback: CB,
+    artifacts_callback_sender: SyncSender<WitnessGenerationArtifact>,
     out_of_circuit_tracer: &mut impl Tracer<SupportedMemory = SimpleMemory>,
 ) -> Result<RunVMsResult, RunVmError> {
     let round_function = ZkSyncDefaultRoundFunction::default();
@@ -246,7 +247,7 @@ pub fn run_vms<S: Storage, CB: FnMut(WitnessGenerationArtifact)>(
         evm_simulator_code_hash,
         eip_4844_repack_inputs.clone(),
         trusted_setup_path,
-        artifacts_callback,
+        artifacts_callback_sender,
     );
 
     let (scheduler_circuit_witness, aux_data) = {
