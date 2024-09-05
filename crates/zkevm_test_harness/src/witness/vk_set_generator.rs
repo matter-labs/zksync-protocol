@@ -206,6 +206,46 @@ pub fn circuits_for_vk_generation(
     let circuit = ZkSyncCircuit::<Bn256, VmWitnessOracle<Bn256>>::ECRecover(circuit);
     result.push(circuit);
 
+    // modexp
+    let circuit = ModexpFunctionCircuit::new(
+        None,
+        geometry.cycles_per_modexp_circuit as usize,
+        round_function.clone(),
+        None,
+    );
+    let circuit = ZkSyncCircuit::<Bn256, VmWitnessOracle<Bn256>>::Modexp(circuit);
+    result.push(circuit);
+
+    // ecadd
+    let circuit = ECAddFunctionCircuit::new(
+        None,
+        geometry.cycles_per_ecadd_circuit as usize,
+        round_function.clone(),
+        None,
+    );
+    let circuit = ZkSyncCircuit::<Bn256, VmWitnessOracle<Bn256>>::ECAdd(circuit);
+    result.push(circuit);
+
+    // ecmul
+    let circuit = ModexpFunctionCircuit::new(
+        None,
+        geometry.cycles_per_ecmul_circuit as usize,
+        round_function.clone(),
+        None,
+    );
+    let circuit = ZkSyncCircuit::<Bn256, VmWitnessOracle<Bn256>>::ECMul(circuit);
+    result.push(circuit);
+
+    // ecpairing
+    let circuit = ECPairingFunctionCircuit::new(
+        None,
+        geometry.cycles_per_ecpairing_circuit as usize,
+        round_function.clone(),
+        None,
+    );
+    let circuit = ZkSyncCircuit::<Bn256, VmWitnessOracle<Bn256>>::ECPairing(circuit);
+    result.push(circuit);
+
     // ram permutation
     let circuit = RAMPermutationCircuit::new(
         None,
