@@ -126,6 +126,7 @@ struct MainVmSimulationInput {
 fn repack_input_for_main_vm(
     geometry: &GeometryConfig,
     vm_snapshots: &Vec<VmSnapshot>,
+    explicit_memory_queries: &Vec<(u32, MemoryQuery)>,
     memory_artifacts_for_main_vm: MemoryArtifacts<GoldilocksField>,
     decommitment_artifacts_for_main_vm: DecommitmentArtifactsForMainVM<GoldilocksField>,
     callstack_simulation_result: CallstackSimulationResult<GoldilocksField>,
@@ -143,7 +144,6 @@ fn repack_input_for_main_vm(
 
     let MemoryArtifacts {
         memory_queue_entry_states,
-        memory_queries,
     } = memory_artifacts_for_main_vm;
 
     let DecommitmentArtifactsForMainVM {
@@ -163,7 +163,7 @@ fn repack_input_for_main_vm(
     // split the oracle witness
     let memory_write_witnesses = PerCircuitAccumulatorSparse::from_iter(
         geometry.cycles_per_vm_snapshot as usize,
-        memory_queries
+        explicit_memory_queries
             .iter()
             .filter(|(_, query)| query.rw_flag)
             .copied(),
@@ -171,12 +171,12 @@ fn repack_input_for_main_vm(
 
     let memory_read_witnesses = PerCircuitAccumulatorSparse::from_iter(
         geometry.cycles_per_vm_snapshot as usize,
-        memory_queries
+        explicit_memory_queries
             .iter()
             .filter(|(_, query)| !query.rw_flag)
             .copied(),
     );
-    drop(memory_queries);
+    drop(explicit_memory_queries);
 
     // prepare some inputs for MainVM circuits
 
@@ -320,6 +320,7 @@ use super::vm_instance_witness_to_circuit_formal_input;
 pub(crate) fn process_main_vm<CB: FnMut(WitnessGenerationArtifact)>(
     geometry: &GeometryConfig,
     in_circuit_global_context: GlobalContextWitness<GoldilocksField>,
+    explicit_memory_queries: &Vec<(u32, MemoryQuery)>,
     memory_artifacts_for_main_vm: MemoryArtifacts<GoldilocksField>,
     decommitment_artifacts_for_main_vm: DecommitmentArtifactsForMainVM<GoldilocksField>,
     storage_queries: PerCircuitAccumulatorSparse<(Cycle, LogQuery)>,
@@ -411,6 +412,7 @@ pub(crate) fn process_main_vm<CB: FnMut(WitnessGenerationArtifact)>(
     let main_vm_inputs = repack_input_for_main_vm(
         geometry,
         &vm_snapshots,
+        explicit_memory_queries,
         memory_artifacts_for_main_vm,
         decommitment_artifacts_for_main_vm,
         callstack_simulation_result,

@@ -115,7 +115,6 @@ pub struct DecommitmentArtifactsForMainVM<F: SmallField> {
 }
 
 pub struct MemoryArtifacts<F: SmallField> {
-    pub memory_queries: Vec<(u32, MemoryQuery)>,
     pub memory_queue_entry_states:
         CircuitsEntryAccumulatorSparse<(u32, QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>)>,
 }
@@ -136,8 +135,6 @@ pub struct LogCircuitsArtifacts<F: SmallField> {
 pub struct MemoryCircuitsArtifacts<F: SmallField> {
     // processed code decommitter circuits, as well as sorting circuit
     pub code_decommitter_circuits_data: Vec<CodeDecommitterCircuitInstanceWitness<F>>,
-    pub decommittments_deduplicator_circuits_data:
-        Vec<CodeDecommittmentsDeduplicatorInstanceWitness<F>>,
     //
     pub keccak256_circuits_data: Vec<Keccak256RoundFunctionCircuitInstanceWitness<F>>,
     //
