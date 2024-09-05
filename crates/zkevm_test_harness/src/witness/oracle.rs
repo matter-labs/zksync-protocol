@@ -1222,9 +1222,8 @@ fn process_memory_related_circuits(
 
     tracing::debug!("Running code code decommitter simulation");
 
-    let (code_decommitter_circuits_data, amount_of_memory_queries) =
+    let code_decommitter_circuits_data =
         compute_decommitter_circuit_snapshots(
-            explicit_memory_queries.len(),
             implicit_memory_queries.decommitter_memory_queries,
             implicit_memory_states.decommitter_simulator_snapshots,
             implicit_memory_states.decommitter_memory_states,
@@ -1252,9 +1251,8 @@ fn process_memory_related_circuits(
 
     tracing::debug!("Running keccak simulation");
 
-    let (keccak256_circuits_data, amount_of_memory_queries) =
+    let keccak256_circuits_data =
         keccak256_decompose_into_per_circuit_witness(
-            amount_of_memory_queries,
             implicit_memory_queries.keccak256_memory_queries,
             implicit_memory_states.keccak256_simulator_snapshots,
             implicit_memory_states.keccak256_memory_states,
@@ -1281,9 +1279,8 @@ fn process_memory_related_circuits(
 
     tracing::debug!("Running sha256 simulation");
 
-    let (sha256_circuits_data, amount_of_memory_queries) =
+    let sha256_circuits_data =
         sha256_decompose_into_per_circuit_witness(
-            amount_of_memory_queries,
             implicit_memory_queries.sha256_memory_queries,
             implicit_memory_states.sha256_simulator_snapshots,
             implicit_memory_states.sha256_memory_states,
@@ -1310,9 +1307,8 @@ fn process_memory_related_circuits(
 
     tracing::debug!("Running ecrecover simulation");
 
-    let (ecrecover_circuits_data, amount_of_memory_queries) =
+    let ecrecover_circuits_data =
         ecrecover_decompose_into_per_circuit_witness(
-            amount_of_memory_queries,
             implicit_memory_queries.ecrecover_memory_queries,
             implicit_memory_states.ecrecover_simulator_snapshots,
             implicit_memory_states.ecrecover_memory_states,
@@ -1337,9 +1333,8 @@ fn process_memory_related_circuits(
 
     tracing::debug!("Running secp256r1_simulation simulation");
 
-    let (secp256r1_verify_circuits_data, _amount_of_memory_queries) =
+    let secp256r1_verify_circuits_data =
         secp256r1_verify_decompose_into_per_circuit_witness(
-            amount_of_memory_queries,
             implicit_memory_queries.secp256r1_memory_queries,
             implicit_memory_states.secp256r1_simulator_snapshots,
             implicit_memory_states.secp256r1_memory_states,

@@ -52,7 +52,6 @@ pub(crate) fn compute_decommitter_circuit_snapshots<
     F: SmallField,
     R: BuildableCircuitRoundFunction<F, 8, 12, 4> + AlgebraicRoundFunction<F, 8, 12, 4>,
 >(
-    amount_of_memory_queries: usize,
     decommitter_memory_queries: Vec<MemoryQuery>,
     decommitter_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     decommitter_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
@@ -60,17 +59,19 @@ pub(crate) fn compute_decommitter_circuit_snapshots<
     decommiter_circuit_inputs: DecommiterCircuitProcessingInputs<F>,
     round_function: &R,
     decommiter_circuit_capacity: usize,
-) -> (Vec<CodeDecommitterCircuitInstanceWitness<F>>, usize) {
+) -> Vec<CodeDecommitterCircuitInstanceWitness<F>> {
     assert_eq!(
         decommitter_memory_queries.len(),
         decommitter_memory_states.len()
     );
 
     let memory_simulator_before = &decommitter_simulator_snapshots[0];
+    let memory_simulator_after = &decommitter_simulator_snapshots[1];
     assert_eq!(
-        amount_of_memory_queries,
-        memory_simulator_before.num_items as usize
+        decommitter_memory_queries.len(),
+        memory_simulator_after.num_items as usize - memory_simulator_before.num_items as usize
     );
+
     let start_idx_for_memory_accumulator = 0;
 
     let initial_memory_queue_state = &memory_simulator_before.take_sponge_like_queue_state();
@@ -425,14 +426,5 @@ pub(crate) fn compute_decommitter_circuit_snapshots<
         }
     }
 
-    let memory_simulator_after = &decommitter_simulator_snapshots[1];
-
-    let amount_of_memory_queries_after =
-        amount_of_memory_queries + decommitter_memory_queries.len();
-    assert_eq!(
-        amount_of_memory_queries_after,
-        memory_simulator_after.num_items as usize
-    );
-
-    (results, amount_of_memory_queries_after)
+    results
 }
