@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::sync::mpsc::sync_channel;
+use std::thread;
 
 use super::*;
 use crate::entry_point::create_out_of_circuit_global_context;
@@ -263,24 +265,23 @@ pub(crate) fn run_with_options(entry_point_bytecode: Vec<[u8; 32]>, options: Opt
     save_predeployed_contracts(&mut storage_impl.storage, &mut tree, &known_contracts);
 
     let mut basic_block_circuits = vec![];
-    let mut unsorted_memory_queue_witnesses = vec![];
-    let mut sorted_memory_queue_witnesses = vec![];
 
     // we are using TestingTracer to track prints and exceptions inside out_of_circuit_vm cycles
     let mut out_of_circuit_tracer =
         TestingTracer::new(Some(storage_impl.create_refund_controller()));
+    
+    let (sender, receiver) = sync_channel(1);
 
-    let artifacts_callback = |artifact: WitnessGenerationArtifact| match artifact {
-        WitnessGenerationArtifact::BaseLayerCircuit(circuit) => basic_block_circuits.push(circuit),
-        WitnessGenerationArtifact::MemoryQueueWitness((witnesses, sorted)) => {
-            if sorted {
-                sorted_memory_queue_witnesses.push(witnesses)
-            } else {
-                unsorted_memory_queue_witnesses.push(witnesses)
+    let artifacts_receiver_handle = thread::spawn(move || {
+        while let Ok(artifact) = receiver.recv() {
+            match artifact {
+                WitnessGenerationArtifact::BaseLayerCircuit(circuit) => basic_block_circuits.push(circuit),
+                _ => {}
             }
         }
-        _ => {}
-    };
+
+        basic_block_circuits
+    });
 
     if let Err(err) = run_vms(
         Address::zero(),
@@ -298,7 +299,7 @@ pub(crate) fn run_with_options(entry_point_bytecode: Vec<[u8; 32]>, options: Opt
         tree,
         "../kzg/src/trusted_setup.json",
         std::array::from_fn(|_| None),
-        artifacts_callback,
+        sender,
         &mut out_of_circuit_tracer,
     ) {
         let error_text = match err {
@@ -318,6 +319,8 @@ pub(crate) fn run_with_options(entry_point_bytecode: Vec<[u8; 32]>, options: Opt
     }
 
     println!("Simulation and witness creation are completed");
+
+    let basic_block_circuits = artifacts_receiver_handle.join().unwrap();
 
     for el in basic_block_circuits {
         println!("Doing {} circuit", el.short_description());
