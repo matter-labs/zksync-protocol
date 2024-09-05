@@ -295,7 +295,7 @@ pub(crate) fn generate_base_layer(
         geometry,
         storage_impl,
         tree,
-        "../kzg/src/trusted_setup.json",
+        "../kzg/src/trusted_setup.json".to_owned(),
         blobs,
         sender,
     );
