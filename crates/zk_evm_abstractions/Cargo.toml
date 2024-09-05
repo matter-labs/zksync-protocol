@@ -11,13 +11,14 @@ categories.workspace = true
 description = "ZKsync EraVM abstractions"
 
 [dependencies]
+# "Owned" dependencies
+zkevm_opcode_defs.workspace = true
+
+# "External" dependencies
 anyhow = "1.0"
 serde = { version = "1", features = ["derive"] }
 static_assertions = "1"
 num_enum = "0.6"
-
-zkevm_opcode_defs.workspace = true
-
 
 [dev-dependencies]
 hex = "0.4"

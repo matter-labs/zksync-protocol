@@ -23,12 +23,13 @@ name = "geometry_config_generator"
 path = "src/geometry_config_generator/main.rs"
 
 [dependencies]
+# "Owned" dependencies
 circuit_definitions.workspace = true
 circuit_sequencer_api.workspace = true
 kzg.workspace = true
-
 zkevm-assembly.workspace = true
 
+# "External" dependencies
 rand = "0.4"
 rayon = "1.10"
 derivative = "2.2"

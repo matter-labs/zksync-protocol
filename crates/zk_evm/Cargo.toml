@@ -11,12 +11,15 @@ categories.workspace = true
 description = "ZKsync out-of-circuit EraEVM implementation"
 
 [dependencies]
+# "Owned" dependencies
+zk_evm_abstractions.workspace = true
+
+# "External" dependencies
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0"
 anyhow = "1.0"
 num = { version = "0.4"}
 static_assertions = "1"
-zk_evm_abstractions.workspace = true
 lazy_static = "1.4"
 
 [dev-dependencies]

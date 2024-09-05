@@ -13,7 +13,7 @@ description = "ZKsync Era circuit API for sequencer"
 [dependencies]
 
 circuit_encodings.workspace = true
-bellman = { package = "bellman_ce", version = "=0.7.0" }
+bellman.workspace = true
 
 
 derivative = "2.2"
