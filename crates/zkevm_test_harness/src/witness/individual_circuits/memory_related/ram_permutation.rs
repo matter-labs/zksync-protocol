@@ -37,7 +37,7 @@ use crate::zk_evm::zkevm_opcode_defs::BOOTLOADER_HEAP_PAGE;
 pub(crate) fn compute_ram_circuit_snapshots(
     sorted_memory_queries_indexes: Vec<usize>,
     memory_queries: &Vec<(u32, MemoryQuery)>,
-    implicit_memory_queries: &ImplicitMemoryQueries,
+    implicit_memory_queries: ImplicitMemoryQueries,
     memory_queue_states_accumulator: LastPerCircuitAccumulator<
         QueueStateWitness<Field, FULL_SPONGE_QUEUE_STATE_WIDTH>,
     >,

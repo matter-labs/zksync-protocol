@@ -1220,9 +1220,8 @@ fn process_memory_related_circuits(
 
     tracing::debug!("Running code code decommitter simulation");
 
-    let (code_decommitter_circuits_data, amount_of_memory_queries) =
+    let code_decommitter_circuits_data =
         compute_decommitter_circuit_snapshots(
-            explicit_memory_queries.len(),
             &implicit_memory_queries.decommitter_memory_queries,
             implicit_memory_states.decommitter_simulator_snapshots,
             implicit_memory_states.decommitter_memory_states,
@@ -1246,15 +1245,102 @@ fn process_memory_related_circuits(
 
     use crate::zkevm_circuits::demux_log_queue::DemuxOutput;
 
+    // sha256 precompile
+
+    use crate::witness::individual_circuits::memory_related::sha256_round_function::sha256_decompose_into_per_circuit_witness;
+
+    tracing::debug!("Running sha256 simulation");
+
+    let sha256_circuits_data =
+        sha256_decompose_into_per_circuit_witness(
+            &implicit_memory_queries.sha256_memory_queries,
+            implicit_memory_states.sha256_simulator_snapshots,
+            implicit_memory_states.sha256_memory_states,
+            precompiles_data.sha256_round_function_witnesses,
+            precompiles_data.logs_queries.sha256,
+            precompiles_data.logs_queues_states.sha256,
+            geometry.cycles_per_sha256_circuit as usize,
+            round_function,
+        );
+
+    circuits_data.sha256_circuits_data =
+    make_circuits(
+        geometry.cycles_per_sha256_circuit,
+        BaseLayerCircuitType::Sha256Precompile,
+        sha256_circuits_data,
+        *round_function,
+        |x| ZkSyncBaseLayerCircuit::Sha256RoundFunction(x),
+        artifacts_callback_sender.clone(),
+    );
+
+    snapshot_prof("Done sha256");
+
+    // ecrecover precompile
+
+    use crate::witness::individual_circuits::memory_related::ecrecover::ecrecover_decompose_into_per_circuit_witness;
+
+    tracing::debug!("Running ecrecover simulation");
+
+    let ecrecover_circuits_data =
+        ecrecover_decompose_into_per_circuit_witness(
+            &implicit_memory_queries.ecrecover_memory_queries,
+            implicit_memory_states.ecrecover_simulator_snapshots,
+            implicit_memory_states.ecrecover_memory_states,
+            precompiles_data.ecrecover_witnesses,
+            precompiles_data.logs_queries.ecrecover,
+            precompiles_data.logs_queues_states.ecrecover,
+            geometry.cycles_per_ecrecover_circuit as usize,
+            round_function,
+        );
+
+    circuits_data.ecrecover_circuits_data =
+    make_circuits(
+        geometry.cycles_per_ecrecover_circuit,
+        BaseLayerCircuitType::EcrecoverPrecompile,
+        ecrecover_circuits_data,
+        *round_function,
+        |x| ZkSyncBaseLayerCircuit::ECRecover(x),
+        artifacts_callback_sender.clone(),
+    );
+
+    snapshot_prof("Done ecrecover");
+
+    use crate::witness::individual_circuits::memory_related::secp256r1_verify::secp256r1_verify_decompose_into_per_circuit_witness;
+
+    tracing::debug!("Running secp256r1_simulation simulation");
+
+    let secp256r1_verify_circuits_data =
+        secp256r1_verify_decompose_into_per_circuit_witness(
+            &implicit_memory_queries.secp256r1_memory_queries,
+            implicit_memory_states.secp256r1_simulator_snapshots,
+            implicit_memory_states.secp256r1_memory_states,
+            precompiles_data.secp256r1_verify_witnesses,
+            precompiles_data.logs_queries.secp256r1_verify,
+            precompiles_data.logs_queues_states.secp256r1_verify,
+            geometry.cycles_per_secp256r1_verify_circuit as usize,
+            round_function,
+        );
+
+    circuits_data.secp256r1_verify_circuits_data =
+    make_circuits(
+        geometry.cycles_per_secp256r1_verify_circuit,
+        BaseLayerCircuitType::Secp256r1Verify,
+        secp256r1_verify_circuits_data,
+        *round_function,
+        |x| ZkSyncBaseLayerCircuit::Secp256r1Verify(x),
+        artifacts_callback_sender.clone(),
+    );
+
+    snapshot_prof("Done secp");
+
     // keccak precompile
 
     use crate::witness::individual_circuits::memory_related::keccak256_round_function::keccak256_decompose_into_per_circuit_witness;
 
     tracing::debug!("Running keccak simulation");
 
-    let (keccak256_circuits_data, amount_of_memory_queries) =
+    let keccak256_circuits_data =
         keccak256_decompose_into_per_circuit_witness(
-            amount_of_memory_queries,
             &implicit_memory_queries.keccak256_memory_queries,
             implicit_memory_states.keccak256_simulator_snapshots,
             implicit_memory_states.keccak256_memory_states,
@@ -1285,7 +1371,7 @@ fn process_memory_related_circuits(
         compute_ram_circuit_snapshots(
             sorted_memory_queries_indexes,
             &explicit_memory_queries,
-            &implicit_memory_queries,
+            implicit_memory_queries,
             memory_queue_states_accumulator,
             sorted_memory_queue_states_accumulator,
             memory_queue_simulator,
@@ -1299,97 +1385,6 @@ fn process_memory_related_circuits(
     use crate::witness::individual_circuits::memory_related::decommit_code::compute_decommitter_circuit_snapshots;
 
     snapshot_prof("Done ram circuits");
-
-    // sha256 precompile
-
-    use crate::witness::individual_circuits::memory_related::sha256_round_function::sha256_decompose_into_per_circuit_witness;
-
-    tracing::debug!("Running sha256 simulation");
-
-    let (sha256_circuits_data, amount_of_memory_queries) =
-        sha256_decompose_into_per_circuit_witness(
-            amount_of_memory_queries,
-            implicit_memory_queries.sha256_memory_queries,
-            implicit_memory_states.sha256_simulator_snapshots,
-            implicit_memory_states.sha256_memory_states,
-            precompiles_data.sha256_round_function_witnesses,
-            precompiles_data.logs_queries.sha256,
-            precompiles_data.logs_queues_states.sha256,
-            geometry.cycles_per_sha256_circuit as usize,
-            round_function,
-        );
-
-    circuits_data.sha256_circuits_data =
-    make_circuits(
-        geometry.cycles_per_sha256_circuit,
-        BaseLayerCircuitType::Sha256Precompile,
-        sha256_circuits_data,
-        *round_function,
-        |x| ZkSyncBaseLayerCircuit::Sha256RoundFunction(x),
-        artifacts_callback_sender.clone(),
-    );
-
-    snapshot_prof("Done sha256");
-
-    // ecrecover precompile
-
-    use crate::witness::individual_circuits::memory_related::ecrecover::ecrecover_decompose_into_per_circuit_witness;
-
-    tracing::debug!("Running ecrecover simulation");
-
-    let (ecrecover_circuits_data, amount_of_memory_queries) =
-        ecrecover_decompose_into_per_circuit_witness(
-            amount_of_memory_queries,
-            implicit_memory_queries.ecrecover_memory_queries,
-            implicit_memory_states.ecrecover_simulator_snapshots,
-            implicit_memory_states.ecrecover_memory_states,
-            precompiles_data.ecrecover_witnesses,
-            precompiles_data.logs_queries.ecrecover,
-            precompiles_data.logs_queues_states.ecrecover,
-            geometry.cycles_per_ecrecover_circuit as usize,
-            round_function,
-        );
-
-    circuits_data.ecrecover_circuits_data =
-    make_circuits(
-        geometry.cycles_per_ecrecover_circuit,
-        BaseLayerCircuitType::EcrecoverPrecompile,
-        ecrecover_circuits_data,
-        *round_function,
-        |x| ZkSyncBaseLayerCircuit::ECRecover(x),
-        artifacts_callback_sender.clone(),
-    );
-
-    snapshot_prof("Done ecrecover");
-
-    use crate::witness::individual_circuits::memory_related::secp256r1_verify::secp256r1_verify_decompose_into_per_circuit_witness;
-
-    tracing::debug!("Running secp256r1_simulation simulation");
-
-    let (secp256r1_verify_circuits_data, _amount_of_memory_queries) =
-        secp256r1_verify_decompose_into_per_circuit_witness(
-            amount_of_memory_queries,
-            implicit_memory_queries.secp256r1_memory_queries,
-            implicit_memory_states.secp256r1_simulator_snapshots,
-            implicit_memory_states.secp256r1_memory_states,
-            precompiles_data.secp256r1_verify_witnesses,
-            precompiles_data.logs_queries.secp256r1_verify,
-            precompiles_data.logs_queues_states.secp256r1_verify,
-            geometry.cycles_per_secp256r1_verify_circuit as usize,
-            round_function,
-        );
-
-    circuits_data.secp256r1_verify_circuits_data =
-    make_circuits(
-        geometry.cycles_per_secp256r1_verify_circuit,
-        BaseLayerCircuitType::Secp256r1Verify,
-        secp256r1_verify_circuits_data,
-        *round_function,
-        |x| ZkSyncBaseLayerCircuit::Secp256r1Verify(x),
-        artifacts_callback_sender.clone(),
-    );
-
-    snapshot_prof("Done secp");
 
     circuits_data
 }
