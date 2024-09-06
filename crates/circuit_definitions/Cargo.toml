@@ -11,9 +11,11 @@ categories.workspace = true
 description = "ZKsync Era circuits definitions"
 
 [dependencies]
+# "Owned" dependencies
 circuit_encodings.workspace = true
-snark_wrapper = "=0.1.2"
+snark_wrapper.workspace = true
 
+# "External" dependencies
 derivative = "2.2"
 serde = {version = "1", features = ["derive"]}
 crossbeam = "0.8"

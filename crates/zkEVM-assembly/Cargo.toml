@@ -15,6 +15,10 @@ name = "reader"
 path = "src/reader/main.rs"
 
 [dependencies]
+# "Owned" dependencies
+zkevm_opcode_defs.workspace = true
+
+# "External" dependencies
 log = "0.4"
 env_logger = "0.9"
 structopt = { version = "0.3", default-features = false }
@@ -25,5 +29,4 @@ sha3 = "0.10.8"
 num-bigint = "0.4"
 num-traits = "0.2"
 lazy_static = "1.4"
-zkevm_opcode_defs.workspace = true
 smallvec = "1.13"

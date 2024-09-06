@@ -11,9 +11,11 @@ categories.workspace = true
 description = "ZKsync Era circuits encodings"
 
 [dependencies]
+# "Owned" dependencies
 zkevm_circuits.workspace = true
 zk_evm.workspace = true
 
+# "External" dependencies
 derivative = "2.2"
 serde = {version = "1", features = ["derive"]}
 
