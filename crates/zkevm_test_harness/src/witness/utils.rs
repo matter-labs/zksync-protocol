@@ -290,50 +290,34 @@ where
         CLOSED_FORM_COMMITTMENT_LENGTH,
         R,
     >(&full_form.observable_input, round_function);
-    let observable_output_committment = commit_variable_length_encodable_witness::<
-        F,
-        OUT,
-        AW,
-        SW,
-        CW,
-        CLOSED_FORM_COMMITTMENT_LENGTH,
-        R,
-    >(&full_form.observable_output, round_function);
-
-    let hidden_fsm_input_committment = commit_variable_length_encodable_witness::<
-        F,
-        T,
-        AW,
-        SW,
-        CW,
-        CLOSED_FORM_COMMITTMENT_LENGTH,
-        R,
-    >(&full_form.hidden_fsm_input, round_function);
-    let hidden_fsm_output_committment = commit_variable_length_encodable_witness::<
-        F,
-        T,
-        AW,
-        SW,
-        CW,
-        CLOSED_FORM_COMMITTMENT_LENGTH,
-        R,
-    >(&full_form.hidden_fsm_output, round_function);
-
-    // mask FSM part. Observable part is NEVER masked
 
     let empty_committment = [F::ZERO; CLOSED_FORM_COMMITTMENT_LENGTH];
-
-    // mask FSM part. Observable part is NEVER masked
 
     let hidden_fsm_input_committment = if full_form.start_flag {
         empty_committment.clone()
     } else {
-        hidden_fsm_input_committment.clone()
+        commit_variable_length_encodable_witness::<
+            F,
+            T,
+            AW,
+            SW,
+            CW,
+            CLOSED_FORM_COMMITTMENT_LENGTH,
+            R,
+        >(&full_form.hidden_fsm_input, round_function)
     };
 
     // mask output. Observable output is zero is not the last indeed
     let observable_output_committment = if full_form.completion_flag {
-        observable_output_committment.clone()
+        commit_variable_length_encodable_witness::<
+            F,
+            OUT,
+            AW,
+            SW,
+            CW,
+            CLOSED_FORM_COMMITTMENT_LENGTH,
+            R,
+        >(&full_form.observable_output, round_function)
     } else {
         empty_committment.clone()
     };
@@ -342,7 +326,15 @@ where
     let hidden_fsm_output_committment = if full_form.completion_flag {
         empty_committment.clone()
     } else {
-        hidden_fsm_output_committment.clone()
+        commit_variable_length_encodable_witness::<
+            F,
+            T,
+            AW,
+            SW,
+            CW,
+            CLOSED_FORM_COMMITTMENT_LENGTH,
+            R,
+        >(&full_form.hidden_fsm_output, round_function)
     };
 
     let new = ClosedFormInputCompactFormWitness {
