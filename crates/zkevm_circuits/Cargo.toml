@@ -1,6 +1,6 @@
 [package]
 name = "zkevm_circuits"
-version = "0.141.1"
+version = "0.141.2"
 edition = "2021"
 authors = ["The Matter Labs Team <hello@matterlabs.dev>"]
 homepage = "https://zksync.io/"
@@ -30,8 +30,8 @@ hex = "0.4"
 seq-macro = "0.3"
 
 zkevm_opcode_defs = { version = "=0.141.0", path = "../zkevm_opcode_defs" }
-boojum = "0"
-cs_derive = "0"
+boojum = "0" # Not pinned to avoid updating without publishing a new verson
+cs_derive = { version = "0", package = "zksync_cs_derive" } # Not pinned to avoid updating without publishing a new verson
 
 [features]
 default = []
