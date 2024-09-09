@@ -43,7 +43,9 @@ pub(crate) fn secp256r1_verify_decompose_into_per_circuit_witness<
 >(
     secp256r1_memory_queries: &Vec<MemoryQuery>,
     secp256r1_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
-    secp256r1_memory_states: LastPerCircuitAccumulator<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
+    secp256r1_memory_states: LastPerCircuitAccumulator<
+        QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>,
+    >,
     secp256r1_verify_witnesses: Vec<(u32, LogQuery_, Secp256r1VerifyRoundWitness)>,
     secp256r1_verify_queries: Vec<LogQuery_>,
     mut demuxed_secp256r1_verify_queue: LogQueueStates<F>,
@@ -76,8 +78,6 @@ pub(crate) fn secp256r1_verify_decompose_into_per_circuit_witness<
     assert!(precompile_calls.len() == demuxed_secp256r1_verify_queue.states_accumulator.len());
     drop(demuxed_secp256r1_verify_queue.states_accumulator);
     assert!(precompile_calls.len() == round_function_witness.len());
-
-    
 
     if precompile_calls.len() == 0 {
         return vec![];

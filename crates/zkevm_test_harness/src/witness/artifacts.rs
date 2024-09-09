@@ -123,29 +123,29 @@ pub struct MemoryArtifacts<F: SmallField> {
 #[derive(Derivative)]
 #[derivative(Default)]
 pub(crate) struct LogCircuitsArtifacts<F: SmallField> {
-    pub storage_application_artifacts:(
+    pub storage_application_artifacts: (
         FirstAndLastCircuitWitness<StorageApplicationObservableWitness<F>>,
-        Vec<ClosedFormInputCompactFormWitness<F>>
+        Vec<ClosedFormInputCompactFormWitness<F>>,
     ),
     pub storage_deduplicator_artifacts: (
         FirstAndLastCircuitWitness<StorageDeduplicatorObservableWitness<F>>,
-        Vec<ClosedFormInputCompactFormWitness<F>>
+        Vec<ClosedFormInputCompactFormWitness<F>>,
     ),
     pub events_deduplicator_artifacts: (
         FirstAndLastCircuitWitness<EventsDeduplicatorObservableWitness<F>>,
-        Vec<ClosedFormInputCompactFormWitness<F>>
+        Vec<ClosedFormInputCompactFormWitness<F>>,
     ),
-    pub l1_messages_deduplicator_artifacts:  (
+    pub l1_messages_deduplicator_artifacts: (
         FirstAndLastCircuitWitness<EventsDeduplicatorObservableWitness<F>>,
-        Vec<ClosedFormInputCompactFormWitness<F>>
+        Vec<ClosedFormInputCompactFormWitness<F>>,
     ),
     pub transient_storage_sorter_artifacts: (
         FirstAndLastCircuitWitness<TransientStorageDeduplicatorObservableWitness<F>>,
-        Vec<ClosedFormInputCompactFormWitness<F>>
+        Vec<ClosedFormInputCompactFormWitness<F>>,
     ),
-    pub l1_messages_linear_hash_artifacts:(
+    pub l1_messages_linear_hash_artifacts: (
         FirstAndLastCircuitWitness<LinearHasherObservableWitness<F>>,
-        Vec<ClosedFormInputCompactFormWitness<F>>
+        Vec<ClosedFormInputCompactFormWitness<F>>,
     ),
 }
 
@@ -154,33 +154,40 @@ pub(crate) struct LogCircuitsArtifacts<F: SmallField> {
 pub(crate) struct MemoryCircuitsArtifacts<F: SmallField> {
     pub ram_permutation_artifacts: (
         FirstAndLastCircuitWitness<RamPermutationObservableWitness<F>>,
-        Vec<ClosedFormInputCompactFormWitness<F>>
+        Vec<ClosedFormInputCompactFormWitness<F>>,
     ),
     pub code_decommitter_artifacts: (
         FirstAndLastCircuitWitness<CodeDecommitterObservableWitness<F>>,
-        Vec<ClosedFormInputCompactFormWitness<F>>
+        Vec<ClosedFormInputCompactFormWitness<F>>,
     ),
     pub keccak256_circuits_data: (
         FirstAndLastCircuitWitness<Keccak256RoundFunctionObservableWitness<F>>,
-        Vec<ClosedFormInputCompactFormWitness<F>>
+        Vec<ClosedFormInputCompactFormWitness<F>>,
     ),
     pub sha256_circuits_data: (
         FirstAndLastCircuitWitness<Sha256RoundFunctionObservableWitness<F>>,
-        Vec<ClosedFormInputCompactFormWitness<F>>
+        Vec<ClosedFormInputCompactFormWitness<F>>,
     ),
     pub ecrecover_circuits_data: (
         FirstAndLastCircuitWitness<EcrecoverObservableWitness<F>>,
-        Vec<ClosedFormInputCompactFormWitness<F>>
+        Vec<ClosedFormInputCompactFormWitness<F>>,
     ),
     pub secp256r1_verify_circuits_data: (
         FirstAndLastCircuitWitness<Secp256r1VerifyObservableWitness<F>>,
-        Vec<ClosedFormInputCompactFormWitness<F>>
+        Vec<ClosedFormInputCompactFormWitness<F>>,
     ),
 }
 
 use crate::witness::aux_data_structs::one_per_circuit_accumulator::LastPerCircuitAccumulator;
 
-use super::postprocessing::observable_witness::{CodeDecommitterObservableWitness, EcrecoverObservableWitness, EventsDeduplicatorObservableWitness, Keccak256RoundFunctionObservableWitness, LinearHasherObservableWitness, RamPermutationObservableWitness, Secp256r1VerifyObservableWitness, Sha256RoundFunctionObservableWitness, StorageApplicationObservableWitness, StorageDeduplicatorObservableWitness, TransientStorageDeduplicatorObservableWitness};
+use super::postprocessing::observable_witness::{
+    CodeDecommitterObservableWitness, EcrecoverObservableWitness,
+    EventsDeduplicatorObservableWitness, Keccak256RoundFunctionObservableWitness,
+    LinearHasherObservableWitness, RamPermutationObservableWitness,
+    Secp256r1VerifyObservableWitness, Sha256RoundFunctionObservableWitness,
+    StorageApplicationObservableWitness, StorageDeduplicatorObservableWitness,
+    TransientStorageDeduplicatorObservableWitness,
+};
 use super::postprocessing::FirstAndLastCircuitWitness;
 
 #[derive(Derivative)]

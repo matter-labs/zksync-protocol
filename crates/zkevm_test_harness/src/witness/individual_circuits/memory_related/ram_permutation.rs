@@ -54,7 +54,8 @@ pub(crate) fn compute_ram_circuit_snapshots(
     FirstAndLastCircuitWitness<RamPermutationObservableWitness<Field>>,
     Vec<ClosedFormInputCompactFormWitness<Field>>,
 ) {
-    let total_amount_of_queries = memory_queries.len() + implicit_memory_queries.amount_of_queries();
+    let total_amount_of_queries =
+        memory_queries.len() + implicit_memory_queries.amount_of_queries();
 
     assert_eq!(
         total_amount_of_queries,
@@ -102,10 +103,10 @@ pub(crate) fn compute_ram_circuit_snapshots(
     snapshot_prof("BEFORE SORT");
 
     let all_memory_queries: Vec<&MemoryQuery> = memory_queries
-    .iter()
-    .map(|(_, query)| query)
-    .chain(implicit_memory_queries.iter())
-    .collect();
+        .iter()
+        .map(|(_, query)| query)
+        .chain(implicit_memory_queries.iter())
+        .collect();
 
     let mut all_memory_queries_sorted = Vec::with_capacity(all_memory_queries.len());
     for index in sorted_memory_queries_indexes.iter() {
@@ -124,10 +125,15 @@ pub(crate) fn compute_ram_circuit_snapshots(
     let mut rhs_grand_product_chains =
         Vec::with_capacity(DEFAULT_NUM_PERMUTATION_ARGUMENT_REPETITIONS);
     {
+        let lhs_contributions: Vec<_> = all_memory_queries
+            .par_iter()
+            .map(|x| x.encoding_witness())
+            .collect();
+        let rhs_contributions: Vec<_> = sorted_memory_queries_indexes
+            .into_par_iter()
+            .map(|x| lhs_contributions[x])
+            .collect();
 
-        let lhs_contributions: Vec<_> = all_memory_queries.par_iter().map(|x| x.encoding_witness()).collect();
-        let rhs_contributions: Vec<_> = sorted_memory_queries_indexes.into_par_iter().map(|x| lhs_contributions[x]).collect();
-        
         snapshot_prof("ENCODED CONTRIBUTIONS");
 
         let challenges = produce_fs_challenges::<
@@ -234,13 +240,13 @@ pub(crate) fn compute_ram_circuit_snapshots(
         idx,
         (
             (
-            (
-                ((unsorted_sponge_final_state, sorted_sponge_final_state), lhs_grand_product),
-                rhs_grand_product,
+                (
+                    ((unsorted_sponge_final_state, sorted_sponge_final_state), lhs_grand_product),
+                    rhs_grand_product,
+                ),
+                unsorted_queries_in_chunk,
             ),
-            unsorted_queries_in_chunk,
-        ),
-            sorted_queries_in_chunk
+            sorted_queries_in_chunk,
         ),
     ) in it.enumerate()
     {
@@ -356,8 +362,14 @@ pub(crate) fn compute_ram_circuit_snapshots(
                 },
             },
             // we will need witnesses to pop elements from the front of the queue
-            unsorted_queue_witness: unsorted_queries_in_chunk.into_par_iter().map(|x| x.reflect()).collect(),
-            sorted_queue_witness: sorted_queries_in_chunk.into_par_iter().map(|x| x.reflect()).collect(),
+            unsorted_queue_witness: unsorted_queries_in_chunk
+                .into_par_iter()
+                .map(|x| x.reflect())
+                .collect(),
+            sorted_queue_witness: sorted_queries_in_chunk
+                .into_par_iter()
+                .map(|x| x.reflect())
+                .collect(),
         };
 
         if sorted_states_len % per_circuit_capacity != 0 {
@@ -396,9 +408,13 @@ pub(crate) fn compute_ram_circuit_snapshots(
             tmp.current_sorted_queue_state.clone(),
         );
 
-        artifacts_callback_sender.send(WitnessGenerationArtifact::BaseLayerCircuit(
-            ZkSyncBaseLayerCircuit::RAMPermutation(maker.process(instance_witness, circuit_type)),
-        )).unwrap();
+        artifacts_callback_sender
+            .send(WitnessGenerationArtifact::BaseLayerCircuit(
+                ZkSyncBaseLayerCircuit::RAMPermutation(
+                    maker.process(instance_witness, circuit_type),
+                ),
+            ))
+            .unwrap();
     }
 
     snapshot_prof("AFTER CYCLE");
@@ -411,11 +427,13 @@ pub(crate) fn compute_ram_circuit_snapshots(
         queue_simulator,
         ram_permutation_circuits_compact_forms_witnesses,
     ) = maker.into_results();
-    artifacts_callback_sender.send(WitnessGenerationArtifact::RecursionQueue((
-        circuit_type as u64,
-        queue_simulator,
-        ram_permutation_circuits_compact_forms_witnesses.clone(),
-    ))).unwrap();
+    artifacts_callback_sender
+        .send(WitnessGenerationArtifact::RecursionQueue((
+            circuit_type as u64,
+            queue_simulator,
+            ram_permutation_circuits_compact_forms_witnesses.clone(),
+        )))
+        .unwrap();
 
     (
         ram_permutation_circuits,

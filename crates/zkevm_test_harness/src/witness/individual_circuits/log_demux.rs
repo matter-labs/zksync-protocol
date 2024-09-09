@@ -206,11 +206,13 @@ pub(crate) fn process_logs_demux_and_make_circuits(
     {
         let (log_demux_circuits, queue_simulator, log_demux_circuits_compact_forms_witnesses) =
             maker.into_results();
-            artifacts_callback_sender.send(WitnessGenerationArtifact::RecursionQueue((
-            circuit_type as u64,
-            queue_simulator,
-            log_demux_circuits_compact_forms_witnesses.clone(),
-        ))).unwrap();
+        artifacts_callback_sender
+            .send(WitnessGenerationArtifact::RecursionQueue((
+                circuit_type as u64,
+                queue_simulator,
+                log_demux_circuits_compact_forms_witnesses.clone(),
+            )))
+            .unwrap();
 
         let (io_queues_states, precompiles_queues_states) =
             DemuxedQueuesStatesSimulator::build_empty(*round_function);
@@ -389,18 +391,22 @@ pub(crate) fn process_logs_demux_and_make_circuits(
         }
         previous_hidden_fsm_output = Some(witness.closed_form_input.hidden_fsm_output.clone());
 
-        artifacts_callback_sender.send(WitnessGenerationArtifact::BaseLayerCircuit(
-            ZkSyncBaseLayerCircuit::LogDemuxer(maker.process(witness, circuit_type)),
-        )).unwrap();
+        artifacts_callback_sender
+            .send(WitnessGenerationArtifact::BaseLayerCircuit(
+                ZkSyncBaseLayerCircuit::LogDemuxer(maker.process(witness, circuit_type)),
+            ))
+            .unwrap();
     }
 
     let (log_demux_circuits, queue_simulator, log_demux_circuits_compact_forms_witnesses) =
         maker.into_results();
-    artifacts_callback_sender.send(WitnessGenerationArtifact::RecursionQueue((
-        circuit_type as u64,
-        queue_simulator,
-        log_demux_circuits_compact_forms_witnesses.clone(),
-    ))).unwrap();
+    artifacts_callback_sender
+        .send(WitnessGenerationArtifact::RecursionQueue((
+            circuit_type as u64,
+            queue_simulator,
+            log_demux_circuits_compact_forms_witnesses.clone(),
+        )))
+        .unwrap();
 
     for (sub_queue, mut iter) in queries_iterators {
         assert!(

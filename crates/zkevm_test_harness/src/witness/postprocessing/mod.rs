@@ -501,9 +501,11 @@ where
     let mut maker = CircuitMaker::new(geometry, round_function.clone());
 
     for circuit_input in circuits_data.into_iter() {
-        artifacts_callback_sender.send(WitnessGenerationArtifact::BaseLayerCircuit(wrap_circuit(
-            maker.process(circuit_input, circuit_type),
-        ))).unwrap();
+        artifacts_callback_sender
+            .send(WitnessGenerationArtifact::BaseLayerCircuit(wrap_circuit(
+                maker.process(circuit_input, circuit_type),
+            )))
+            .unwrap();
     }
 
     let (
@@ -511,11 +513,13 @@ where
         recursion_queue_simulator,
         circuits_compact_forms_witnesses,
     ) = maker.into_results();
-    artifacts_callback_sender.send(WitnessGenerationArtifact::RecursionQueue((
-        circuit_type as u64,
-        recursion_queue_simulator,
-        circuits_compact_forms_witnesses.clone(),
-    ))).unwrap();
+    artifacts_callback_sender
+        .send(WitnessGenerationArtifact::RecursionQueue((
+            circuit_type as u64,
+            recursion_queue_simulator,
+            circuits_compact_forms_witnesses.clone(),
+        )))
+        .unwrap();
 
     (
         first_and_last_observable_witnesses,

@@ -68,7 +68,7 @@ pub(crate) fn compute_decommitts_sorter_circuit_snapshots<
         // sponge
         // internally parallelizable by the factor of 3
         let (_, intermediate_info) = unsorted_decommittment_queue_simulator
-        .push_and_output_intermediate_data(decommittment_request, round_function);
+            .push_and_output_intermediate_data(decommittment_request, round_function);
 
         all_decommittment_queue_states.push((cycle, intermediate_info));
         unsorted_decommittment_requests_with_data.push((decommittment_request, writes));

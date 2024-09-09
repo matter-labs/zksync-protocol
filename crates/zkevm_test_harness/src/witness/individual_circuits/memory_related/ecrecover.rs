@@ -43,7 +43,9 @@ pub(crate) fn ecrecover_decompose_into_per_circuit_witness<
 >(
     ecrecover_memory_queries: &Vec<MemoryQuery>,
     ecrecover_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
-    ecrecover_memory_states: LastPerCircuitAccumulator<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
+    ecrecover_memory_states: LastPerCircuitAccumulator<
+        QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>,
+    >,
     ecrecover_witnesses: Vec<(u32, LogQuery_, ECRecoverRoundWitness)>,
     ecrecover_queries: Vec<LogQuery_>,
     mut demuxed_ecrecover_queue: LogQueueStates<F>,

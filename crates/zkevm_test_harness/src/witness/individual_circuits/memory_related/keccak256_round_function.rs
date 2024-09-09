@@ -82,7 +82,9 @@ pub(crate) fn keccak256_decompose_into_per_circuit_witness<
 >(
     keccak256_memory_queries: &Vec<MemoryQuery>,
     keccak256_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
-    keccak256_memory_states: LastPerCircuitAccumulator<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
+    keccak256_memory_states: LastPerCircuitAccumulator<
+        QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>,
+    >,
     keccak_round_function_witnesses: Vec<(u32, LogQuery_, Vec<Keccak256RoundWitness>)>,
     keccak_precompile_queries: Vec<LogQuery_>,
     mut demuxed_keccak_precompile_queue: LogQueueStates<F>,
@@ -134,9 +136,10 @@ pub(crate) fn keccak256_decompose_into_per_circuit_witness<
             let mapped = log_query_into_circuit_log_query_witness::<F>(&el.2);
 
             (mapped, el.1)
-        }).collect();
+        })
+        .collect();
     let mut keccak_requests_queue_witness_iter = keccak_requests_queue_witness_copy.into_iter();
-    
+
     // convension
     let mut log_queue_input_state =
         take_queue_state_from_simulator(&demuxed_keccak_precompile_queue.simulator);
@@ -399,7 +402,9 @@ pub(crate) fn keccak256_decompose_into_per_circuit_witness<
                     hidden_fsm_output_state
                 );
 
-                let wit: VecDeque<_> = (&mut keccak_requests_queue_witness_iter).take(request_idx + 1 - starting_request_idx_for_circuit).collect();
+                let wit: VecDeque<_> = (&mut keccak_requests_queue_witness_iter)
+                    .take(request_idx + 1 - starting_request_idx_for_circuit)
+                    .collect();
 
                 starting_request_idx_for_circuit = request_idx + 1;
 

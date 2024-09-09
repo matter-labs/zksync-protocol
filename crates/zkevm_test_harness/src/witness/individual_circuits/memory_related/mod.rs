@@ -140,13 +140,17 @@ pub(crate) struct ImplicitMemoryStates<F: SmallField> {
     pub decommitter_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     pub decommitter_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     pub ecrecover_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
-    pub ecrecover_memory_states: LastPerCircuitAccumulator<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
+    pub ecrecover_memory_states:
+        LastPerCircuitAccumulator<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     pub keccak256_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
-    pub keccak256_memory_states: LastPerCircuitAccumulator<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
+    pub keccak256_memory_states:
+        LastPerCircuitAccumulator<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     pub secp256r1_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
-    pub secp256r1_memory_states: LastPerCircuitAccumulator<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
+    pub secp256r1_memory_states:
+        LastPerCircuitAccumulator<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     pub sha256_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
-    pub sha256_memory_states: LastPerCircuitAccumulator<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
+    pub sha256_memory_states:
+        LastPerCircuitAccumulator<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
 }
 
 impl<F: SmallField> ImplicitMemoryStates<F> {
@@ -182,18 +186,24 @@ pub(crate) fn simulate_implicit_memory_queues<
     >,
     implicit_memory_queries: &ImplicitMemoryQueries,
     round_function: R,
-    geometry: GeometryConfig
+    geometry: GeometryConfig,
 ) -> ImplicitMemoryStates<F> {
     let mut implicit_memory_states = ImplicitMemoryStates::default();
 
-    implicit_memory_states.keccak256_memory_states = LastPerCircuitAccumulator::new(geometry.cycles_per_keccak256_circuit as usize);
-    implicit_memory_states.secp256r1_memory_states = LastPerCircuitAccumulator::new(geometry.cycles_per_secp256r1_verify_circuit as usize);
-    implicit_memory_states.sha256_memory_states = LastPerCircuitAccumulator::new(geometry.cycles_per_sha256_circuit as usize);
-    implicit_memory_states.ecrecover_memory_states = LastPerCircuitAccumulator::new(geometry.cycles_per_ecrecover_circuit as usize);
+    implicit_memory_states.keccak256_memory_states =
+        LastPerCircuitAccumulator::new(geometry.cycles_per_keccak256_circuit as usize);
+    implicit_memory_states.secp256r1_memory_states =
+        LastPerCircuitAccumulator::new(geometry.cycles_per_secp256r1_verify_circuit as usize);
+    implicit_memory_states.sha256_memory_states =
+        LastPerCircuitAccumulator::new(geometry.cycles_per_sha256_circuit as usize);
+    implicit_memory_states.ecrecover_memory_states =
+        LastPerCircuitAccumulator::new(geometry.cycles_per_ecrecover_circuit as usize);
 
     let simulate_rounds_queue =
         |memory_queries: &Vec<MemoryQuery>,
-         memory_states: &mut LastPerCircuitAccumulator<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
+         memory_states: &mut LastPerCircuitAccumulator<
+            QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>,
+        >,
          memory_queue_simulator: &mut MemoryQueuePerCircuitSimulator<F>,
          memory_queue_states_accumulator: &mut LastPerCircuitAccumulator<
             QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>,
@@ -212,43 +222,51 @@ pub(crate) fn simulate_implicit_memory_queues<
             snapshots
         };
 
-    implicit_memory_states.decommitter_memory_states.reserve_exact(implicit_memory_queries.decommitter_memory_queries.len());
-    implicit_memory_states.decommitter_simulator_snapshots.push(get_simulator_snapshot(memory_queue_simulator)); // before
+    implicit_memory_states
+        .decommitter_memory_states
+        .reserve_exact(implicit_memory_queries.decommitter_memory_queries.len());
+    implicit_memory_states
+        .decommitter_simulator_snapshots
+        .push(get_simulator_snapshot(memory_queue_simulator)); // before
     for query in implicit_memory_queries.decommitter_memory_queries.iter() {
-        let (_old_tail, state_witness) = memory_queue_simulator
-            .push_and_output_queue_state_witness(*query, &round_function);
+        let (_old_tail, state_witness) =
+            memory_queue_simulator.push_and_output_queue_state_witness(*query, &round_function);
 
-            implicit_memory_states.decommitter_memory_states.push(state_witness.clone());
+        implicit_memory_states
+            .decommitter_memory_states
+            .push(state_witness.clone());
         memory_queue_states_accumulator.push(state_witness);
     }
-    implicit_memory_states.decommitter_simulator_snapshots.push(get_simulator_snapshot(memory_queue_simulator)); // after
+    implicit_memory_states
+        .decommitter_simulator_snapshots
+        .push(get_simulator_snapshot(memory_queue_simulator)); // after
 
     implicit_memory_states.keccak256_simulator_snapshots = simulate_rounds_queue(
         &implicit_memory_queries.keccak256_memory_queries,
         &mut implicit_memory_states.keccak256_memory_states,
         memory_queue_simulator,
-        memory_queue_states_accumulator
+        memory_queue_states_accumulator,
     );
 
     implicit_memory_states.sha256_simulator_snapshots = simulate_rounds_queue(
         &implicit_memory_queries.sha256_memory_queries,
         &mut implicit_memory_states.sha256_memory_states,
         memory_queue_simulator,
-        memory_queue_states_accumulator
+        memory_queue_states_accumulator,
     );
 
     implicit_memory_states.ecrecover_simulator_snapshots = simulate_rounds_queue(
         &implicit_memory_queries.ecrecover_memory_queries,
         &mut implicit_memory_states.ecrecover_memory_states,
         memory_queue_simulator,
-        memory_queue_states_accumulator
+        memory_queue_states_accumulator,
     );
 
     implicit_memory_states.secp256r1_simulator_snapshots = simulate_rounds_queue(
         &implicit_memory_queries.secp256r1_memory_queries,
         &mut implicit_memory_states.secp256r1_memory_states,
         memory_queue_simulator,
-        memory_queue_states_accumulator
+        memory_queue_states_accumulator,
     );
 
     implicit_memory_states
