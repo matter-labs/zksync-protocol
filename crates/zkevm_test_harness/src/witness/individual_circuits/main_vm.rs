@@ -362,17 +362,12 @@ pub(crate) fn process_main_vm(
     vm_snapshots.push(vm_snapshots.last().unwrap().clone());
     let circuits_len = vm_snapshots.windows(2).len();
 
-    let amount_of_circuits = vm_snapshots.windows(2).enumerate().len();
-
     tracing::debug!("Processing MainVM circuits");
 
     // parallelizable
     for ((circuit_idx, pair), main_vm_input) in
         vm_snapshots.windows(2).enumerate().zip(main_vm_inputs)
     {
-        if amount_of_circuits / 100 != 0 && circuit_idx % (amount_of_circuits / 100) == 0 {
-            tracing::debug!("{} / {}", circuit_idx, amount_of_circuits);
-        }
 
         let is_last = circuit_idx == circuits_len - 1;
 
