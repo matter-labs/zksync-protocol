@@ -1,6 +1,6 @@
 [package]
 name = "circuit_sequencer_api"
-version = "0.133.0"
+version = "0.133.1"
 edition = "2021"
 authors = ["The Matter Labs Team <hello@matterlabs.dev>"]
 homepage = "https://zksync.io/"
@@ -15,7 +15,7 @@ description = "ZKsync Era circuits for EraVM"
 [dependencies]
 
 zk_evm = { version = "=0.133.0", path = "../zk_evm" }
-bellman = { package = "bellman_ce", version = "=0.7.0" }
+bellman = { package = "zksync_bellman", version = "0" } # Not pinned to be able to update version without releasing new versions.
 
 derivative = "2.2"
 serde = {version = "1", features = ["derive"]}
