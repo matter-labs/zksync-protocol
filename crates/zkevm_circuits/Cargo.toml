@@ -1,6 +1,6 @@
 [package]
 name = "zkevm_circuits"
-version = "0.140.2"
+version = "0.140.3"
 edition = "2021"
 authors = ["The Matter Labs Team <hello@matterlabs.dev>"]
 homepage = "https://zksync.io/"
@@ -30,7 +30,7 @@ hex = "0.4"
 seq-macro = "0.3"
 
 zkevm_opcode_defs = { version = "=0.132.0", path = "../zkevm_opcode_defs" }
-cs_derive = "0" # Version is not pinned, since it's an old dependency for MultiVM only.
+cs_derive = { version = "0", package = "zksync_cs_derive" } # Version is not pinned, since it's an old dependency for MultiVM only.
 boojum = "0" # Version is not pinned, since it's an old dependency for MultiVM only.
 
 [features]
