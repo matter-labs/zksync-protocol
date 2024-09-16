@@ -22,13 +22,16 @@ pub enum LogAction {
     ForwardNoRollback(usize),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct LogQueryWithAuxData {
+    pub marker: QueryMarker,
+    pub cycle: u32,
+    pub query: LogQuery,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ExtendedLogQuery {
-    Query {
-        marker: QueryMarker,
-        cycle: u32,
-        query: LogQuery,
-    },
+    Query(Box<LogQueryWithAuxData>),
     FrameForwardHeadMarker(usize),
     FrameForwardTailMarker(usize),
     FrameRollbackHeadMarker(usize),
@@ -265,7 +268,7 @@ impl CallstackWithAuxData {
 
             let adjusted_rollbacks = rollback_queue.into_iter().rev().map(|mut el| {
                 match &mut el {
-                    ExtendedLogQuery::Query { mut marker, .. } => match &mut marker {
+                    ExtendedLogQuery::Query(inner) => match &mut inner.marker {
                         QueryMarker::Rollback {
                             cycle_of_applied_rollback,
                             ..
@@ -366,11 +369,11 @@ impl CallstackWithAuxData {
                 index: query_index,
                 cycle: monotonic_cycle_counter,
             };
-            let full_query = ExtendedLogQuery::Query {
+            let full_query = ExtendedLogQuery::Query(Box::new(LogQueryWithAuxData {
                 marker,
                 cycle: monotonic_cycle_counter,
                 query: log_query,
-            };
+            }));
 
             self.current_entry.forward_queue.push(full_query);
 
@@ -390,11 +393,11 @@ impl CallstackWithAuxData {
                 cycle_of_declaration: monotonic_cycle_counter,
                 cycle_of_applied_rollback: None,
             };
-            let full_query = ExtendedLogQuery::Query {
+            let full_query = ExtendedLogQuery::Query(Box::new(LogQueryWithAuxData {
                 marker,
                 cycle: monotonic_cycle_counter,
                 query: rollback_query,
-            };
+            }));
 
             self.current_entry.rollback_queue.push(full_query);
 
@@ -447,11 +450,11 @@ impl CallstackWithAuxData {
                 index: query_index,
                 cycle: monotonic_cycle_counter,
             };
-            let full_query = ExtendedLogQuery::Query {
+            let full_query = ExtendedLogQuery::Query(Box::new(LogQueryWithAuxData {
                 marker,
                 cycle: monotonic_cycle_counter,
                 query: log_query,
-            };
+            }));
 
             self.current_entry.forward_queue.push(full_query);
 
