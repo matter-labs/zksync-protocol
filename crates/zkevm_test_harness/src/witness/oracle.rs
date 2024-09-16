@@ -235,11 +235,7 @@ fn process_multiplexed_log_queue(
         }
 
         let (query_marker, cycle, query) = match extended_query {
-            ExtendedLogQuery::Query {
-                marker,
-                cycle,
-                query,
-            } => (marker, cycle, query),
+            ExtendedLogQuery::Query(inner) => (inner.marker, inner.cycle, inner.query),
             ExtendedLogQuery::FrameForwardHeadMarker(..) => {
                 continue; // not used
             }
