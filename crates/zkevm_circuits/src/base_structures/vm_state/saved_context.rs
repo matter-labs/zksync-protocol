@@ -70,6 +70,8 @@ pub struct ExecutionContextRecord<F: SmallField> {
     pub total_pubdata_spent: UInt32<F>, // actually signed two-complement
 
     pub stipend: UInt32<F>,
+
+    pub is_evm_mode: Boolean<F>,
 }
 
 impl<F: SmallField> ExecutionContextRecord<F> {
@@ -113,6 +115,8 @@ impl<F: SmallField> ExecutionContextRecord<F> {
             total_pubdata_spent: zero_u32,
 
             stipend: zero_u32,
+
+            is_evm_mode: boolean_false
         }
     }
 }
@@ -226,6 +230,10 @@ impl<F: SmallField> CircuitEncodable<F, EXECUTION_CONTEXT_RECORD_ENCODING_WIDTH>
                     self.is_local_call.get_variable(),
                     F::from_u64_unchecked(1u64 << 16),
                 ),
+                (
+                    self.is_evm_mode.get_variable(),
+                    F::from_u64_unchecked(1u64 << 24),
+                ),
             ],
         )
         .get_variable();
@@ -243,7 +251,7 @@ impl<F: SmallField> CircuitEncodable<F, EXECUTION_CONTEXT_RECORD_ENCODING_WIDTH>
 // we also need allocate extended
 
 impl<F: SmallField> CSAllocatableExt<F> for ExecutionContextRecord<F> {
-    const INTERNAL_STRUCT_LEN: usize = 44;
+    const INTERNAL_STRUCT_LEN: usize = 45;
 
     fn create_without_value<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self {
         // TODO: use more optimal allocation for bytes
@@ -296,6 +304,7 @@ impl<F: SmallField> CSAllocatableExt<F> for ExecutionContextRecord<F> {
             self.is_local_call.get_variable(),
             self.total_pubdata_spent.get_variable(),
             self.stipend.get_variable(),
+            self.is_evm_mode.get_variable(),
         ]
     }
 
@@ -362,6 +371,8 @@ impl<F: SmallField> CSAllocatableExt<F> for ExecutionContextRecord<F> {
                 total_pubdata_spent: UInt32::from_variable_unchecked(variables[42]),
 
                 stipend: UInt32::from_variable_unchecked(variables[43]),
+
+                is_evm_mode: Boolean::from_variable_unchecked(variables[44]),
             }
         }
     }
@@ -415,6 +426,8 @@ impl<F: SmallField> CSAllocatableExt<F> for ExecutionContextRecord<F> {
         ));
 
         dst.push(WitnessCastable::cast_into_source(witness.stipend));
+
+        dst.push(WitnessCastable::cast_into_source(witness.is_evm_mode));
     }
 
     fn witness_from_set_of_values(values: [F; Self::INTERNAL_STRUCT_LEN]) -> Self::Witness {
@@ -464,6 +477,8 @@ impl<F: SmallField> CSAllocatableExt<F> for ExecutionContextRecord<F> {
 
         let stipend = WitnessCastable::cast_from_source(values[43]);
 
+        let is_evm_mode = WitnessCastable::cast_from_source(values[44]);
+
         Self::Witness {
             this,
             caller,
@@ -498,6 +513,8 @@ impl<F: SmallField> CSAllocatableExt<F> for ExecutionContextRecord<F> {
             total_pubdata_spent,
 
             stipend,
+
+            is_evm_mode,
         }
     }
 }

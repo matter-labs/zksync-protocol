@@ -35,6 +35,7 @@ pub fn initial_out_of_circuit_context(
         aux_heap_bound: u32::MAX, // so bootloader doesn't pay for resizes
         total_pubdata_spent: PubdataCost(0i32),
         stipend: 0,
+        is_evm_mode: false
     }
 }
 

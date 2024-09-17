@@ -1170,6 +1170,8 @@ where
     let boolean_false = Boolean::allocated_constant(cs, false);
     new_callstack_entry.is_local_call = boolean_false;
 
+    new_callstack_entry.is_evm_mode = versioned_byte_is_evm_bytecode; // TODO recheck if it is correct flag
+
     let oracle = witness_oracle.clone();
     // we should assemble all the dependencies here, and we will use AllocateExt here
     let mut dependencies = Vec::with_capacity(
@@ -1214,6 +1216,7 @@ where
     // - constructor call
     // - system call
     // - if EVM simulator - if original code was static
+    // - if caller is EVM contract
 
     let original_call_was_static = next_is_static.mask(cs, versioned_byte_is_evm_bytecode);
     let r2_low = Num::linear_combination(
@@ -1230,6 +1233,10 @@ where
             (
                 original_call_was_static.get_variable(),
                 F::from_u64_unchecked(1u64 << 2),
+            ),
+            (
+                current_callstack_entry.is_evm_mode.get_variable(),
+                F::from_u64_unchecked(1u64 << 3),
             ),
         ],
     );

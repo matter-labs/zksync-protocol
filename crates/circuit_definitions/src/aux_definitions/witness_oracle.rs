@@ -471,6 +471,7 @@ impl<F: SmallField> WitnessOracle<F> for VmWitnessOracle<F> {
                 is_local_call: entry.is_local_frame,
                 stipend: entry.stipend,
                 total_pubdata_spent: entry.total_pubdata_spent.0 as u32, // two-complement
+                is_evm_mode: entry.is_evm_mode
             };
 
             (witness, new_state)
