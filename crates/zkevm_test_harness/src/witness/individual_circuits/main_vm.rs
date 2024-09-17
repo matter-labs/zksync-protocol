@@ -346,6 +346,7 @@ pub(crate) fn process_main_vm<CB: FnMut(WitnessGenerationArtifact)>(
     let mut observable_input = None;
     let mut process_vm_witness = |vm_instance, is_last| {
         let is_first = observable_input.is_none();
+
         let mut circuit_input = vm_instance_witness_to_circuit_formal_input(
             vm_instance,
             is_first,

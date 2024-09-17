@@ -401,6 +401,7 @@ pub fn vm_instance_witness_to_vm_formal_state<F: SmallField>(
     ctx.saved_context.is_static_execution = out_of_circuit_context.is_static;
     ctx.saved_context.is_local_call = out_of_circuit_context.is_local_frame;
     ctx.saved_context.is_kernel_mode = out_of_circuit_context.is_kernel_mode();
+    ctx.saved_context.is_evm_mode = out_of_circuit_context.is_evm_mode;
 
     drop(ctx);
 

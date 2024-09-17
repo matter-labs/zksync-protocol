@@ -1170,6 +1170,8 @@ where
     let boolean_false = Boolean::allocated_constant(cs, false);
     new_callstack_entry.is_local_call = boolean_false;
 
+    new_callstack_entry.stipend = callee_stipend;
+
     new_callstack_entry.is_evm_mode = versioned_byte_is_evm_bytecode; // TODO recheck if it is correct flag
 
     let oracle = witness_oracle.clone();

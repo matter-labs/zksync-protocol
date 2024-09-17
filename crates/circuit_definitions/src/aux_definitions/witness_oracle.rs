@@ -405,6 +405,7 @@ impl<F: SmallField> WitnessOracle<F> for VmWitnessOracle<F> {
             );
 
             assert_eq!(entry.is_local_frame, witness.is_local_call);
+            assert_eq!(entry.is_evm_mode, witness.is_evm_mode);
         }
     }
     fn get_callstack_witness(

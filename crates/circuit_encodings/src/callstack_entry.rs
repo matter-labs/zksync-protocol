@@ -135,6 +135,10 @@ impl<F: SmallField> OutOfCircuitFixedLengthEncodable<F, EXECUTION_CONTEXT_RECORD
                 self.callstack_entry.is_local_frame.into_field(),
                 F::from_u64_unchecked(1u64 << 16),
             ),
+            (
+                self.callstack_entry.is_evm_mode.into_field(),
+                F::from_u64_unchecked(1u64 << 24),
+            ),
         ]);
 
         let encoding = [

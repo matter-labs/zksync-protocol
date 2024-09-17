@@ -564,6 +564,8 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
 
         let current_stack = vm_state.local_state.callstack.get_current_stack();
 
+        let current_frame_is_evm = current_stack.is_evm_mode;
+
         // compute if call is static either by modifier or
         let new_context_is_static = current_stack.is_static | is_static_call;
 
@@ -671,6 +673,8 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
         if call_to_evm_simulator {
             r2_value.0[0] |= (new_context_is_static as u64) << 2;
         }
+
+        r2_value.0[0] |= (current_frame_is_evm as u64) << 3;
 
         vm_state.local_state.registers[CALL_IMPLICIT_CONSTRUCTOR_MARKER_REGISTER as usize] =
             PrimitiveValue {
