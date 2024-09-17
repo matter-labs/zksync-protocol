@@ -23,7 +23,7 @@ pub struct CallStackEntry<const N: usize = 8, E: VmEncodingMode<N> = EncodingMod
     pub aux_heap_bound: u32,
     pub total_pubdata_spent: PubdataCost,
     pub stipend: u32,
-    pub is_evm_mode: bool
+    pub is_evm_mode: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -56,7 +56,7 @@ impl<const N: usize, E: VmEncodingMode<N>> CallStackEntry<N, E> {
             aux_heap_bound: 0u32,
             total_pubdata_spent: PubdataCost(0i32),
             stipend: 0u32,
-            is_evm_mode: false
+            is_evm_mode: false,
         }
     }
     pub fn is_kernel_mode(&self) -> bool {

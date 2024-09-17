@@ -638,7 +638,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
             aux_heap_bound: memory_stipend,
             total_pubdata_spent: PubdataCost(0i32),
             stipend: callee_stipend,
-            is_evm_mode: call_to_evm_simulator
+            is_evm_mode: call_to_evm_simulator,
         };
 
         // zero out the temporary register if it was not trivial

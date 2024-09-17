@@ -116,7 +116,7 @@ impl<F: SmallField> ExecutionContextRecord<F> {
 
             stipend: zero_u32,
 
-            is_evm_mode: boolean_false
+            is_evm_mode: boolean_false,
         }
     }
 }
