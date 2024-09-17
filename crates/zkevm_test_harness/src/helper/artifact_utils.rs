@@ -2,6 +2,7 @@ use crate::zk_evm::aux_structures::LogQuery;
 use crate::zk_evm::ethereum_types::Address;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use zkevm_assembly::zkevm_opcode_defs::{BlobSha256, VersionedHashGeneric};
 
 use crate::blake2::Blake2s256;
 use crate::ethereum_types::{H160, U256};
@@ -34,7 +35,6 @@ pub fn save_predeployed_contracts(
     }
 
     let storage_logs: Vec<(u8, Address, U256, U256)> = sorted_contracts
-        .clone()
         .into_iter()
         .map(|(address, bytecode)| {
             let hash = bytecode_to_code_hash(&bytecode).unwrap();
@@ -63,6 +63,62 @@ pub fn save_predeployed_contracts(
         .flatten()
         .collect();
 
+    populate_storage(storage, tree, storage_logs);
+}
+
+pub fn save_predeployed_evm_contract_stubs(
+    storage: &mut InMemoryStorage,
+    tree: &mut impl BinarySparseStorageTree<256, 32, 32, 8, 32, Blake2s256, ZkSyncStorageLeaf>,
+    contracts: &Vec<Address>,
+) {
+    let mut sorted_contracts = contracts.clone();
+    sorted_contracts.sort();
+
+    let empty_code_hash = U256::from_big_endian(&bytecode_to_code_hash(&[[0; 32]]).unwrap());
+    let versioned_hash = VersionedHashGeneric::<BlobSha256>::from_digest_and_preimage_length(
+        empty_code_hash.into(),
+        0,
+    );
+
+    let evm_stub_hash = U256::from_big_endian(&versioned_hash.serialize().unwrap());
+
+    let storage_logs: Vec<(u8, Address, U256, U256)> = sorted_contracts
+        .into_iter()
+        .map(|address| {
+            let hash = evm_stub_hash.clone();
+
+            println!(
+                "Have address {:?} in EVM mode with code hash {:x}",
+                address,
+                U256::from(hash)
+            );
+
+            vec![
+                (
+                    0,
+                    ACCOUNT_CODE_STORAGE_ADDRESS,
+                    U256::from_big_endian(address.as_bytes()),
+                    U256::from(hash),
+                ),
+                (
+                    0,
+                    KNOWN_CODE_HASHES_ADDRESS,
+                    U256::from(hash),
+                    U256::from(1u64),
+                ),
+            ]
+        })
+        .flatten()
+        .collect();
+
+    populate_storage(storage, tree, storage_logs);
+}
+
+fn populate_storage(
+    storage: &mut InMemoryStorage,
+    tree: &mut impl BinarySparseStorageTree<256, 32, 32, 8, 32, Blake2s256, ZkSyncStorageLeaf>,
+    storage_logs: Vec<(u8, Address, U256, U256)>,
+) {
     storage.populate(storage_logs.clone());
 
     for (shard_id, address, key, value) in storage_logs.into_iter() {
