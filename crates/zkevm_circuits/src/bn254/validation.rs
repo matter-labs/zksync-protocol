@@ -29,7 +29,7 @@ pub(crate) fn validate_in_field<
     const N: usize,
 >(
     cs: &mut CS,
-    values: &mut [&mut UInt256<F>; N],
+    values: &mut ArrayVec<UInt256<F>, N>,
     params: &Arc<NonNativeFieldOverU16Params<T, 17>>,
 ) -> ArrayVec<Boolean<F>, N> {
     let p_u256 = U256([
@@ -40,16 +40,15 @@ pub(crate) fn validate_in_field<
     ]);
     let p_u256 = UInt256::allocated_constant(cs, p_u256);
 
-    let mut exceptions = ArrayVec::<_, N>::new();
+    let mut values_in_range = ArrayVec::<_, N>::new();
 
     for value in values.iter_mut() {
         let (_, is_in_range) = value.overflowing_sub(cs, &p_u256);
-        **value = value.mask(cs, is_in_range);
-        let is_not_in_range = is_in_range.negated(cs);
-        exceptions.push(is_not_in_range);
+        *value = value.mask(cs, is_in_range);
+        values_in_range.push(is_in_range);
     }
 
-    exceptions
+    values_in_range
 }
 
 /// Checks that the passed point is on `BN256` curve.

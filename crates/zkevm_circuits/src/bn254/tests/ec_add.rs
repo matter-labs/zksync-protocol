@@ -1,4 +1,12 @@
 pub mod test {
+    use crate::bn254::ec_add::implementation::projective_add;
+    use crate::bn254::fixed_base_mul_table::{create_fixed_base_mul_table, FixedBaseMulTable};
+    use crate::bn254::tests::json::EC_ADD_TEST_CASES;
+    use crate::bn254::tests::utils::assert::assert_equal_g1_points;
+    use crate::bn254::tests::utils::debug_success;
+    use crate::bn254::{
+        bn254_base_field_params, BN256BaseNNField, BN256Fq, BN256SWProjectivePoint,
+    };
     use boojum::config::DevCSConfig;
     use boojum::cs::cs_builder::{new_builder, CsBuilder, CsBuilderImpl};
     use boojum::cs::cs_builder_reference::CsReferenceImplementationBuilder;
@@ -17,12 +25,8 @@ pub mod test {
         create_and8_table, create_byte_split_table, create_xor8_table, And8Table, ByteSplitTable,
         Xor8Table,
     };
-
-    use crate::bn254::ec_add::implementation::projective_add;
-    use crate::bn254::fixed_base_mul_table::{create_fixed_base_mul_table, FixedBaseMulTable};
-    use crate::bn254::tests::json::EC_ADD_TEST_CASES;
-    use crate::bn254::tests::utils::assert::assert_equal_g1_points;
-    use crate::bn254::tests::utils::debug_success;
+    use boojum::pairing::ff::PrimeField;
+    use std::sync::Arc;
 
     type F = GoldilocksField;
     type P = GoldilocksField;
@@ -172,6 +176,88 @@ pub mod test {
 
             debug_success("ec_add", i, DEBUG_FREQUENCY);
         }
+    }
+
+    #[test]
+    fn test_addition_zero_point1() {
+        // Preparing the constraint system and parameters
+        let mut owned_cs = create_ecadd_cs(1 << 21);
+        let cs = &mut owned_cs;
+        let params = Arc::new(bn254_base_field_params());
+
+        let mut point_1 = BN256SWProjectivePoint::zero(cs, &params);
+
+        let x = BN256Fq::from_str(
+            "15324690470956288071822265009489746856525231072327229544771730391650334979669",
+        )
+        .unwrap();
+        let y = BN256Fq::from_str(
+            "5354502408214113957125233684303474179339683916278920565794911529411960533676",
+        )
+        .unwrap();
+
+        let x = BN256BaseNNField::allocate_checked(cs, x, &params);
+        let y = BN256BaseNNField::allocate_checked(cs, y, &params);
+
+        let mut expected_sum = BN256SWProjectivePoint::from_xy_unchecked(cs, x.clone(), y.clone());
+
+        let mut sum = projective_add(cs, &mut point_1, (x, y));
+
+        assert_equal_g1_points(cs, &mut sum, &mut expected_sum);
+    }
+
+    #[test]
+    fn test_addition_zero_point2() {
+        // Preparing the constraint system and parameters
+        let mut owned_cs = create_ecadd_cs(1 << 21);
+        let cs = &mut owned_cs;
+        let params = Arc::new(bn254_base_field_params());
+
+        let x = BN256Fq::from_str(
+            "15324690470956288071822265009489746856525231072327229544771730391650334979669",
+        )
+        .unwrap();
+        let y = BN256Fq::from_str(
+            "5354502408214113957125233684303474179339683916278920565794911529411960533676",
+        )
+        .unwrap();
+
+        let x = BN256BaseNNField::allocate_checked(cs, x, &params);
+        let y = BN256BaseNNField::allocate_checked(cs, y, &params);
+
+        let mut point_1 = BN256SWProjectivePoint::from_xy_unchecked(cs, x, y);
+        let mut expected_sum = point_1.clone();
+
+        let x = BN256Fq::from_str("0").unwrap();
+        let y = BN256Fq::from_str("0").unwrap();
+
+        let x = BN256BaseNNField::allocate_checked(cs, x, &params);
+        let y = BN256BaseNNField::allocate_checked(cs, y, &params);
+
+        let mut sum = projective_add(cs, &mut point_1, (x, y));
+
+        assert_equal_g1_points(cs, &mut sum, &mut expected_sum);
+    }
+
+    #[test]
+    fn test_addition_zero_points_both() {
+        // Preparing the constraint system and parameters
+        let mut owned_cs = create_ecadd_cs(1 << 21);
+        let cs = &mut owned_cs;
+        let params = Arc::new(bn254_base_field_params());
+
+        let mut point_1 = BN256SWProjectivePoint::zero(cs, &params);
+        let mut expected_sum = point_1.clone();
+
+        let x = BN256Fq::from_str("0").unwrap();
+        let y = BN256Fq::from_str("0").unwrap();
+
+        let x = BN256BaseNNField::allocate_checked(cs, x, &params);
+        let y = BN256BaseNNField::allocate_checked(cs, y, &params);
+
+        let mut sum = projective_add(cs, &mut point_1, (x, y));
+
+        assert_equal_g1_points(cs, &mut sum, &mut expected_sum);
     }
 
     #[test]
