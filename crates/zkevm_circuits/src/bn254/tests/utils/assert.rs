@@ -19,14 +19,9 @@ pub(in super::super) fn assert_equal_g1_points<CS>(
     CS: ConstraintSystem<F>,
 {
     // Converting to affine representation
-    let default_point = BN256Affine::one();
-    let ((x1, y1), is_infty1) = point.convert_to_affine_or_default(cs, default_point);
-    let ((x2, y2), is_infty2) = expected.convert_to_affine_or_default(cs, default_point);
-
-    // Enforcing point not to be at infinity
-    let boolean_false = Boolean::allocated_constant(cs, false);
-    Boolean::enforce_equal(cs, &is_infty1, &boolean_false);
-    Boolean::enforce_equal(cs, &is_infty2, &boolean_false);
+    let default_point = BN256Affine::zero();
+    let ((x1, y1), _) = point.convert_to_affine_or_default(cs, default_point);
+    let ((x2, y2), _) = expected.convert_to_affine_or_default(cs, default_point);
 
     // Enforcing x coordinates to be equal
     let x1 = x1.witness_hook(cs)().unwrap().get();

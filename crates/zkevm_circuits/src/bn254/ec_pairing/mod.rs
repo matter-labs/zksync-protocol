@@ -108,12 +108,12 @@ impl<F: SmallField> EcPairingPrecompileCallParams<F> {
 
 fn pair<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
-    p_x: &mut UInt256<F>,
-    p_y: &mut UInt256<F>,
-    q_x_c0: &mut UInt256<F>,
-    q_x_c1: &mut UInt256<F>,
-    q_y_c0: &mut UInt256<F>,
-    q_y_c1: &mut UInt256<F>,
+    p_x: &UInt256<F>,
+    p_y: &UInt256<F>,
+    q_x_c0: &UInt256<F>,
+    q_x_c1: &UInt256<F>,
+    q_y_c0: &UInt256<F>,
+    q_y_c1: &UInt256<F>,
 ) -> (Boolean<F>, BN256Fq12NNField<F>) {
     let base_field_params = &Arc::new(bn254_base_field_params());
 
@@ -121,11 +121,9 @@ fn pair<F: SmallField, CS: ConstraintSystem<F>>(
     let p_is_infinity = is_affine_infinity(cs, (&p_x, &p_y));
     let q_is_infinity = is_twist_affine_infinity(cs, (&q_x_c0, &q_x_c1, &q_y_c0, &q_y_c1));
 
-    let coordinates_are_in_field = validate_in_field(
-        cs,
-        &mut [p_x, p_y, q_x_c0, q_x_c1, q_y_c0, q_y_c1],
-        base_field_params,
-    );
+    let mut coordinates = ArrayVec::from([*p_x, *p_y, *q_x_c0, *q_x_c1, *q_y_c0, *q_y_c1]);
+    let coordinates_are_in_field = validate_in_field(cs, &mut coordinates, base_field_params);
+    let [p_x, p_y, q_x_c0, q_x_c1, q_y_c0, q_y_c1] = coordinates.into_inner().unwrap();
 
     let p_x = convert_uint256_to_field_element(cs, &p_x, base_field_params);
     let p_y = convert_uint256_to_field_element(cs, &p_y, base_field_params);
@@ -162,14 +160,13 @@ fn pair<F: SmallField, CS: ConstraintSystem<F>>(
 
     let result = ec_pairing(cs, &mut p, &mut q);
 
-    let mut exception_flags = ArrayVec::<_, EXCEPTION_FLAGS_ARR_LEN>::new();
-    exception_flags.extend(coordinates_are_in_field);
-    exception_flags.push(p_is_valid);
-    exception_flags.push(q_is_valid);
+    let mut are_valid_inputs = ArrayVec::<_, EXCEPTION_FLAGS_ARR_LEN>::new();
+    are_valid_inputs.extend(coordinates_are_in_field);
+    are_valid_inputs.push(p_is_valid);
+    are_valid_inputs.push(q_is_valid);
 
-    let any_exception = Boolean::multi_or(cs, &exception_flags[..]);
-    let result = result.mask_negated(cs, any_exception);
-    let success = any_exception.negated(cs);
+    let success = Boolean::multi_and(cs, &are_valid_inputs[..]);
+    let result = result.mask(cs, success);
 
     (success, result)
 }
@@ -349,17 +346,9 @@ where
             &state.precompile_call_params.num_pairs,
         );
 
-        let [mut p_x, mut p_y, mut q_x_c1, mut q_x_c0, mut q_y_c1, mut q_y_c0] = read_values;
+        let [p_x, p_y, q_x_c1, q_x_c0, q_y_c1, q_y_c0] = read_values;
 
-        let (success, mut result) = pair(
-            cs,
-            &mut p_x,
-            &mut p_y,
-            &mut q_x_c0,
-            &mut q_x_c1,
-            &mut q_y_c0,
-            &mut q_y_c1,
-        );
+        let (success, mut result) = pair(cs, &p_x, &p_y, &q_x_c0, &q_x_c1, &q_y_c0, &q_y_c1);
 
         let mut acc = result.mul(cs, &mut state.pairing_inner_state.clone());
         state.pairing_inner_state = <Fq12<

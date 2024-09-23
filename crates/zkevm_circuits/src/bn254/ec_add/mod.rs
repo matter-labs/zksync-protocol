@@ -80,19 +80,21 @@ impl<F: SmallField> EcAddPrecompileCallParams<F> {
 
 fn ecadd_precompile_inner<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
-    x1: &mut UInt256<F>,
-    y1: &mut UInt256<F>,
-    x2: &mut UInt256<F>,
-    y2: &mut UInt256<F>,
+    x1: &UInt256<F>,
+    y1: &UInt256<F>,
+    x2: &UInt256<F>,
+    y2: &UInt256<F>,
 ) -> (Boolean<F>, (UInt256<F>, UInt256<F>)) {
     let base_field_params = &Arc::new(bn254_base_field_params());
 
     // We need to check for infinity prior to potential masking coordinates.
-    let point1_is_infinity = is_affine_infinity(cs, (&x1, &y1));
-    let point2_is_infinity = is_affine_infinity(cs, (&x2, &y2));
+    let point1_is_infinity = is_affine_infinity(cs, (x1, y1));
+    let point2_is_infinity = is_affine_infinity(cs, (x2, y2));
 
     // Coordinates are masked with zero in-place if they are not in field.
-    let coordinates_are_in_field = validate_in_field(cs, &mut [x1, y1, x2, y2], base_field_params);
+    let mut coordinates = ArrayVec::from([*x1, *y1, *x2, *y2]);
+    let coordinates_are_in_field = validate_in_field(cs, &mut coordinates, base_field_params);
+    let [x1, y1, x2, y2] = coordinates.into_inner().unwrap();
 
     let x1 = convert_uint256_to_field_element(cs, &x1, base_field_params);
     let y1 = convert_uint256_to_field_element(cs, &y1, base_field_params);
@@ -118,15 +120,14 @@ fn ecadd_precompile_inner<F: SmallField, CS: ConstraintSystem<F>>(
     let x = convert_field_element_to_uint256(cs, x);
     let y = convert_field_element_to_uint256(cs, y);
 
-    let mut exception_flags = ArrayVec::<_, EXCEPTION_FLAGS_ARR_LEN>::new();
-    exception_flags.extend(coordinates_are_in_field);
-    exception_flags.push(point1_is_valid);
-    exception_flags.push(point2_is_valid);
+    let mut are_valid_inputs = ArrayVec::<_, EXCEPTION_FLAGS_ARR_LEN>::new();
+    are_valid_inputs.extend(coordinates_are_in_field);
+    are_valid_inputs.push(point1_is_valid);
+    are_valid_inputs.push(point2_is_valid);
 
-    let any_exception = Boolean::multi_or(cs, &exception_flags[..]);
-    let x = x.mask_negated(cs, any_exception);
-    let y = y.mask_negated(cs, any_exception);
-    let success = any_exception.negated(cs);
+    let success = Boolean::multi_and(cs, &are_valid_inputs[..]);
+    let x = x.mask(cs, success);
+    let y = y.mask(cs, success);
 
     (success, (x, y))
 }
@@ -261,7 +262,7 @@ where
                 .add_no_overflow(cs, one_u32);
         }
 
-        let [mut x1, mut y1, mut x2, mut y2] = read_values;
+        let [x1, y1, x2, y2] = read_values;
 
         if crate::config::CIRCUIT_VERSOBE {
             if should_process.witness_hook(cs)().unwrap() == true {
@@ -272,7 +273,7 @@ where
             }
         }
 
-        let (success, (x, y)) = ecadd_precompile_inner(cs, &mut x1, &mut y1, &mut x2, &mut y2);
+        let (success, (x, y)) = ecadd_precompile_inner(cs, &x1, &y1, &x2, &y2);
 
         let success_as_u32 = unsafe { UInt32::from_variable_unchecked(success.get_variable()) };
         let mut success = zero_u256;
