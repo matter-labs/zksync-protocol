@@ -831,24 +831,13 @@ where
     let ergs_left_after_growth = ergs_left_after_growth.mask_negated(cs, uf); // if not enough - set to 0
     exceptions.push(uf);
 
-    let panic = Boolean::multi_and(cs, &[common_abi_parts.ptr_validation_data.generally_invalid, uf]);
+    let panic = Boolean::multi_and(
+        cs,
+        &[common_abi_parts.ptr_validation_data.generally_invalid, uf],
+    );
     let no_panic = panic.negated(cs);
-    let grow_heap = Boolean::multi_and(
-        cs,
-        &[
-            forwarding_data.use_heap,
-            execute,
-            no_panic
-        ],
-    );
-    let grow_aux_heap = Boolean::multi_and(
-        cs,
-        &[
-            forwarding_data.use_aux_heap,
-            execute,
-            no_panic
-        ],
-    );
+    let grow_heap = Boolean::multi_and(cs, &[forwarding_data.use_heap, execute, no_panic]);
+    let grow_aux_heap = Boolean::multi_and(cs, &[forwarding_data.use_aux_heap, execute, no_panic]);
 
     if crate::config::CIRCUIT_VERSOBE {
         if execute.witness_hook(&*cs)().unwrap() {
