@@ -144,7 +144,6 @@ pub(crate) fn apply_uma<
     let new_heap_upper_bound =
         UInt32::conditionally_select(cs, uf, &heap_bound, &heap_max_accessed);
 
-
     let aux_heap_max_accessed = max_accessed.mask(cs, access_aux_heap);
     let aux_heap_bound = draft_vm_state
         .callstack
@@ -980,7 +979,7 @@ pub(crate) fn apply_uma<
 
     let grow_heap = Boolean::multi_and(cs, &[access_heap, should_apply, no_panic]);
     let grow_aux_heap = Boolean::multi_and(cs, &[access_aux_heap, should_apply, no_panic]);
-    
+
     let can_write_into_memory =
         UMA_HEAP_READ_OPCODE.can_write_dst0_into_memory(SUPPORTED_ISA_VERSION);
 

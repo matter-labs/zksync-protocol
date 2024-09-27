@@ -812,9 +812,14 @@ where
     let new_aux_heap_upper_bound =
         UInt32::conditionally_select(cs, uf, &aux_heap_bound, &aux_heap_max_accessed);
 
-
     let mut growth_cost = heap_growth.mask(cs, forwarding_data.use_heap);
-    growth_cost = UInt32::conditionally_select(cs, forwarding_data.use_aux_heap, &aux_heap_growth, &growth_cost);
+    growth_cost = UInt32::conditionally_select(
+        cs,
+        forwarding_data.use_aux_heap,
+        &aux_heap_growth,
+        &growth_cost,
+    );
+    growth_cost = growth_cost.mask(cs, execute);
 
     let (ergs_left_after_growth, uf) = opcode_carry_parts
         .preliminary_ergs_left
@@ -825,9 +830,25 @@ where
 
     let ergs_left_after_growth = ergs_left_after_growth.mask_negated(cs, uf); // if not enough - set to 0
     exceptions.push(uf);
-    
-    let grow_heap = Boolean::multi_and(cs, &[forwarding_data.use_heap, execute, common_abi_parts.ptr_validation_data.generally_invalid, uf]);
-    let grow_aux_heap = Boolean::multi_and(cs, &[forwarding_data.use_aux_heap, execute, common_abi_parts.ptr_validation_data.generally_invalid, uf]);
+
+    let grow_heap = Boolean::multi_and(
+        cs,
+        &[
+            forwarding_data.use_heap,
+            execute,
+            common_abi_parts.ptr_validation_data.generally_invalid,
+            uf,
+        ],
+    );
+    let grow_aux_heap = Boolean::multi_and(
+        cs,
+        &[
+            forwarding_data.use_aux_heap,
+            execute,
+            common_abi_parts.ptr_validation_data.generally_invalid,
+            uf,
+        ],
+    );
 
     if crate::config::CIRCUIT_VERSOBE {
         if execute.witness_hook(&*cs)().unwrap() {
