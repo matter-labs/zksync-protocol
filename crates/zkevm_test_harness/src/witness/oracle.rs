@@ -1395,8 +1395,7 @@ pub enum WitnessGenerationArtifact {
             RecursionQueueSimulator<GoldilocksField>,
             Vec<ClosedFormInputCompactFormWitness<GoldilocksField>>,
         ),
-    ),
-    MemoryQueueWitness((Vec<MemoryQueryWitness<GoldilocksField>>, bool)), // sorted/unsorted
+    )
 }
 
 /// Make basic circuits instances and witnesses,
