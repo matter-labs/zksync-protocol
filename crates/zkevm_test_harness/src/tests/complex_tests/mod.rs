@@ -298,37 +298,6 @@ pub(crate) fn generate_base_layer(
         artifacts_callback,
     );
 
-    let mut unsorted_memory_queue_witnesses_it = unsorted_memory_queue_witnesses.into_iter();
-    let mut sorted_memory_queue_witnesses = sorted_memory_queue_witnesses.into_iter();
-    for el in basic_block_circuits.iter_mut() {
-        use circuit_definitions::boojum::field::Field;
-        match &el {
-            ZkSyncBaseLayerCircuit::RAMPermutation(inner) => {
-                let mut witness = inner.witness.take().unwrap();
-                let zero_state = [GoldilocksField::ZERO; FULL_SPONGE_QUEUE_STATE_WIDTH];
-                witness.sorted_queue_witness = FullStateCircuitQueueRawWitness {
-                    elements: sorted_memory_queue_witnesses
-                        .next()
-                        .unwrap()
-                        .into_iter()
-                        .map(|x| (x, zero_state))
-                        .collect(),
-                };
-                witness.unsorted_queue_witness = FullStateCircuitQueueRawWitness {
-                    elements: unsorted_memory_queue_witnesses_it
-                        .next()
-                        .unwrap()
-                        .into_iter()
-                        .map(|x| (x, zero_state))
-                        .collect(),
-                };
-
-                inner.witness.store(Some(witness));
-            }
-            _ => {}
-        }
-    }
-
     (
         basic_block_circuits,
         recursion_queues,
