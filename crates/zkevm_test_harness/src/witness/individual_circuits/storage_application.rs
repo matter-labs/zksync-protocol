@@ -255,9 +255,11 @@ pub(crate) fn decompose_into_storage_application_witnesses(
 
         initial_fsm_state = final_fsm_state.clone();
 
-        artifacts_callback_sender.send(WitnessGenerationArtifact::BaseLayerCircuit(
-            ZkSyncBaseLayerCircuit::StorageApplication(maker.process(input, circuit_type)),
-        )).unwrap();
+        artifacts_callback_sender
+            .send(WitnessGenerationArtifact::BaseLayerCircuit(
+                ZkSyncBaseLayerCircuit::StorageApplication(maker.process(input, circuit_type)),
+            ))
+            .unwrap();
     }
 
     let (
@@ -265,11 +267,13 @@ pub(crate) fn decompose_into_storage_application_witnesses(
         queue_simulator,
         storage_application_circuits_compact_forms_witnesses,
     ) = maker.into_results();
-    artifacts_callback_sender.send(WitnessGenerationArtifact::RecursionQueue((
-        circuit_type as u64,
-        queue_simulator,
-        storage_application_circuits_compact_forms_witnesses.clone(),
-    ))).unwrap();
+    artifacts_callback_sender
+        .send(WitnessGenerationArtifact::RecursionQueue((
+            circuit_type as u64,
+            queue_simulator,
+            storage_application_circuits_compact_forms_witnesses.clone(),
+        )))
+        .unwrap();
 
     tracing::debug!(
         "Final enumeration index = {}",

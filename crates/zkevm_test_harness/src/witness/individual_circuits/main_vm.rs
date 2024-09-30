@@ -341,7 +341,9 @@ pub(crate) fn process_main_vm(
     FirstAndLastCircuitWitness<VmObservableWitness<GoldilocksField>>,
     Vec<ClosedFormInputCompactFormWitness<GoldilocksField>>,
 ) {
-    let mut instances_witnesses: Vec<VmInstanceWitness<GoldilocksField, VmWitnessOracle<GoldilocksField>>> = vec![];
+    let mut instances_witnesses: Vec<
+        VmInstanceWitness<GoldilocksField, VmWitnessOracle<GoldilocksField>>,
+    > = vec![];
 
     let main_vm_inputs = repack_input_for_main_vm(
         geometry,
@@ -368,7 +370,6 @@ pub(crate) fn process_main_vm(
     for ((circuit_idx, pair), main_vm_input) in
         vm_snapshots.windows(2).enumerate().zip(main_vm_inputs)
     {
-
         let is_last = circuit_idx == circuits_len - 1;
 
         let initial_state = &pair[0];
@@ -463,13 +464,15 @@ pub(crate) fn process_main_vm(
     let mut main_vm_circuits = FirstAndLastCircuitWitness::default();
     let mut main_vm_circuits_compact_forms_witnesses = vec![];
     let mut queue_simulator = RecursionQueueSimulator::empty();
-    
+
     let observable_input = vm_instance_witness_to_circuit_formal_input(
         instances_witnesses.first().unwrap().clone(),
         true,
         instances_witnesses.len() == 1,
         in_circuit_global_context.clone(),
-    ).closed_form_input.observable_input;
+    )
+    .closed_form_input
+    .observable_input;
 
     let instances_len = instances_witnesses.len();
     for (index, vm_instance) in instances_witnesses.into_iter().enumerate() {
@@ -523,17 +526,21 @@ pub(crate) fn process_main_vm(
             ),
             public_input: proof_system_input,
         };
-        
+
         queue_simulator.push(recursive_request, &round_function);
-        artifacts_callback_sender.send(WitnessGenerationArtifact::BaseLayerCircuit(instance)).unwrap();
+        artifacts_callback_sender
+            .send(WitnessGenerationArtifact::BaseLayerCircuit(instance))
+            .unwrap();
         main_vm_circuits_compact_forms_witnesses.push(compact_form_witness);
     }
 
-    artifacts_callback_sender.send(WitnessGenerationArtifact::RecursionQueue((
-        BaseLayerCircuitType::VM as u64,
-        queue_simulator,
-        main_vm_circuits_compact_forms_witnesses.clone(),
-    ))).unwrap();
+    artifacts_callback_sender
+        .send(WitnessGenerationArtifact::RecursionQueue((
+            BaseLayerCircuitType::VM as u64,
+            queue_simulator,
+            main_vm_circuits_compact_forms_witnesses.clone(),
+        )))
+        .unwrap();
 
     (main_vm_circuits, main_vm_circuits_compact_forms_witnesses)
 }
