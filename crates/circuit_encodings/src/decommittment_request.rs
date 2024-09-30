@@ -92,7 +92,7 @@ pub type DecommittmentQueueSimulator<F> = FullWidthQueueSimulator<
     1,
 >;
 pub type DecommittmentQueueState<F> =
-    FullWidthQueueIntermediateStates<F, FULL_SPONGE_QUEUE_STATE_WIDTH, 1>;
+    FullWidthQueueIntermediateStates<F, FULL_SPONGE_QUEUE_STATE_WIDTH>;
 
 impl<F: SmallField> CircuitEquivalentReflection<F> for DecommittmentQuery {
     type Destination = zkevm_circuits::base_structures::decommit_query::DecommitQuery<F>;

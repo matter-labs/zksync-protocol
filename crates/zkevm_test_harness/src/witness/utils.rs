@@ -56,8 +56,8 @@ pub fn log_queries_into_states<
     result
 }
 
-pub fn transform_queue_state<F: SmallField, const N: usize, const M: usize>(
-    witness_state: QueueIntermediateStates<F, QUEUE_STATE_WIDTH, N, M>,
+pub fn transform_queue_state<F: SmallField, const N: usize>(
+    witness_state: QueueIntermediateStates<F, QUEUE_STATE_WIDTH, N>,
 ) -> QueueStateWitness<F, QUEUE_STATE_WIDTH> {
     let result = QueueStateWitness {
         head: witness_state.head,
@@ -70,8 +70,8 @@ pub fn transform_queue_state<F: SmallField, const N: usize, const M: usize>(
     result
 }
 
-pub fn transform_sponge_like_queue_state<F: SmallField, const M: usize>(
-    witness_state: FullWidthQueueIntermediateStates<F, FULL_SPONGE_QUEUE_STATE_WIDTH, M>,
+pub fn transform_sponge_like_queue_state<F: SmallField>(
+    witness_state: FullWidthQueueIntermediateStates<F, FULL_SPONGE_QUEUE_STATE_WIDTH>,
 ) -> QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH> {
     let result = QueueStateWitness {
         head: witness_state.head,

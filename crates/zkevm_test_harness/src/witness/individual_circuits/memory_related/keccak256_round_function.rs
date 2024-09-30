@@ -10,7 +10,6 @@ use crate::zkevm_circuits::keccak256_round_function::{
     input::*, Keccak256PrecompileCallParamsWitness,
 };
 use circuit_definitions::encodings::memory_query::MemoryQueueSimulator;
-use circuit_definitions::encodings::memory_query::MemoryQueueState;
 use circuit_definitions::encodings::*;
 use derivative::*;
 
@@ -84,7 +83,7 @@ pub(crate) fn keccak256_decompose_into_per_circuit_witness<
     amount_of_memory_queries_before: usize,
     keccak256_memory_queries: Vec<MemoryQuery>,
     keccak256_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
-    keccak256_memory_states: Vec<MemoryQueueState<F>>,
+    keccak256_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     keccak_round_function_witnesses: Vec<(u32, LogQuery_, Vec<Keccak256RoundWitness>)>,
     keccak_precompile_queries: Vec<LogQuery_>,
     mut demuxed_keccak_precompile_queue: LogQueueStates<F>,
@@ -260,8 +259,7 @@ pub(crate) fn keccak256_decompose_into_per_circuit_witness<
                 assert_eq!(read, *read_query);
                 memory_reads_per_circuit.push_back(read_query.value);
 
-                current_memory_queue_state =
-                    transform_sponge_like_queue_state(*memory_queue_states_it.next().unwrap());
+                current_memory_queue_state = memory_queue_states_it.next().unwrap().clone();
 
                 input_buffer.fill_with_bytes(
                     &bytes32_buffer,
@@ -311,8 +309,7 @@ pub(crate) fn keccak256_decompose_into_per_circuit_witness<
                 let write_query = memory_queries_it.next().unwrap();
                 assert_eq!(write, *write_query);
 
-                current_memory_queue_state =
-                    transform_sponge_like_queue_state(*memory_queue_states_it.next().unwrap());
+                current_memory_queue_state = memory_queue_states_it.next().unwrap().clone();
 
                 if is_last_request {
                     precompile_state = Keccak256PrecompileState::Finished;

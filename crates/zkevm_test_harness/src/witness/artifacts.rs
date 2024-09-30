@@ -11,7 +11,6 @@ use crate::zkevm_circuits::sha256_round_function::input::Sha256RoundFunctionCirc
 use crate::zkevm_circuits::sort_decommittment_requests::input::CodeDecommittmentsDeduplicatorInstanceWitness;
 use crate::zkevm_circuits::storage_validity_by_grand_product::input::StorageDeduplicatorInstanceWitness;
 use circuit_definitions::encodings::decommittment_request::DecommittmentQueueState;
-use circuit_definitions::encodings::memory_query::MemoryQueueState;
 use circuit_definitions::encodings::*;
 use circuit_definitions::zkevm_circuits::secp256r1_verify::Secp256r1VerifyCircuitInstanceWitness;
 use circuit_definitions::zkevm_circuits::transient_storage_validity_by_grand_product::input::TransientStorageDeduplicatorInstanceWitness;

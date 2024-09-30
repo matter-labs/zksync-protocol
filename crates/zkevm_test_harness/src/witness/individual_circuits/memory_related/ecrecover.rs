@@ -8,7 +8,6 @@ use crate::zk_evm::zk_evm_abstractions::precompiles::ecrecover::ECRecoverRoundWi
 use crate::zkevm_circuits::base_structures::log_query::*;
 use crate::zkevm_circuits::ecrecover::*;
 use circuit_definitions::encodings::memory_query::MemoryQueueSimulator;
-use circuit_definitions::encodings::memory_query::MemoryQueueState;
 use circuit_definitions::encodings::*;
 
 pub(crate) fn ecrecover_memory_queries(
@@ -45,7 +44,7 @@ pub(crate) fn ecrecover_decompose_into_per_circuit_witness<
     amount_of_memory_queries_before: usize,
     ecrecover_memory_queries: Vec<MemoryQuery>,
     ecrecover_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
-    ecrecover_memory_states: Vec<MemoryQueueState<F>>,
+    ecrecover_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     ecrecover_witnesses: Vec<(u32, LogQuery_, ECRecoverRoundWitness)>,
     ecrecover_queries: Vec<LogQuery_>,
     mut demuxed_ecrecover_queue: LogQueueStates<F>,
@@ -121,8 +120,7 @@ pub(crate) fn ecrecover_decompose_into_per_circuit_witness<
             assert!(read_query.rw_flag == false);
             memory_reads_per_request.push(read_query.value);
 
-            current_memory_queue_state =
-                transform_sponge_like_queue_state(*memory_queue_states_it.next().unwrap());
+            current_memory_queue_state = memory_queue_states_it.next().unwrap().clone();
 
             precompile_request.input_memory_offset += 1;
             amount_of_queries += 1;
@@ -134,8 +132,7 @@ pub(crate) fn ecrecover_decompose_into_per_circuit_witness<
             assert!(write == write_query);
             assert!(write_query.rw_flag == true);
 
-            current_memory_queue_state =
-                transform_sponge_like_queue_state(*memory_queue_states_it.next().unwrap());
+            current_memory_queue_state = memory_queue_states_it.next().unwrap().clone();
 
             precompile_request.output_memory_offset += 1;
             amount_of_queries += 1;

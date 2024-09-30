@@ -266,7 +266,7 @@ fn process_multiplexed_log_queue(
         };
 
         // actually simulate new queue state
-        let (_, simulator_state) =
+        let (round_states, simulator_state) =
             log_queue_simulator.push_and_output_intermediate_data(query, &round_function);
 
         let pointer_to_chain_of_states = states_data.chain_of_states.len();
@@ -280,10 +280,13 @@ fn process_multiplexed_log_queue(
         }
 
         let timestamp = query.timestamp.0; // special "timestamp-like" value
+        let round_function_execution_pairs =
+            LogQueueSimulator::make_round_function_pairs(round_states, &round_function);
+
         if !query.rollback {
             let sponge_data = sponges_data.entry(timestamp).or_default();
-            sponge_data.rf_0 = simulator_state.round_function_execution_pairs[0];
-            sponge_data.rf_1 = simulator_state.round_function_execution_pairs[1];
+            sponge_data.rf_0 = round_function_execution_pairs[0];
+            sponge_data.rf_1 = round_function_execution_pairs[1];
             // forward case
             states_data
                 .forward_and_rollback_pointers
@@ -294,14 +297,8 @@ fn process_multiplexed_log_queue(
             let sponge_data = sponges_data
                 .get_mut(&timestamp)
                 .expect("rollbacks always happen after forward case");
-            assert_eq!(
-                &sponge_data.rf_0,
-                &simulator_state.round_function_execution_pairs[0]
-            );
-            assert_eq!(
-                &sponge_data.rf_1,
-                &simulator_state.round_function_execution_pairs[1]
-            );
+            assert_eq!(&sponge_data.rf_0, &round_function_execution_pairs[0]);
+            assert_eq!(&sponge_data.rf_1, &round_function_execution_pairs[1]);
             // rollback case
             states_data
                 .forward_and_rollback_pointers
@@ -819,7 +816,7 @@ use crate::witness::artifacts::DecommitmentArtifactsForMainVM;
 use crate::witness::artifacts::LogQueueStates;
 use crate::zkevm_circuits::demux_log_queue::NUM_DEMUX_OUTPUTS;
 
-use circuit_definitions::encodings::memory_query::{MemoryQueueState, MemoryQueueStateWitnesses};
+use circuit_definitions::encodings::memory_query::MemoryQueueStateWitnesses;
 
 fn simulate_memory_queue(
     geometry: GeometryConfig,
@@ -832,8 +829,8 @@ fn simulate_memory_queue(
         u32,
         QueueStateWitness<GoldilocksField, FULL_SPONGE_QUEUE_STATE_WIDTH>,
     )>,
-    MemoryQueueState<GoldilocksField>,
-    LastPerCircuitAccumulator<MemoryQueueState<GoldilocksField>>,
+    QueueStateWitness<GoldilocksField, FULL_SPONGE_QUEUE_STATE_WIDTH>,
+    LastPerCircuitAccumulator<QueueStateWitness<GoldilocksField, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     MemoryQueuePerCircuitSimulator<GoldilocksField>,
     ImplicitMemoryStates<GoldilocksField>,
     Vec<[GoldilocksField; MEMORY_QUERY_PACKED_WIDTH]>,
@@ -845,11 +842,12 @@ fn simulate_memory_queue(
     );
 
     // for RAM permutation circuits, only last per circuit
-    let mut memory_queue_states_accumulator =
-        LastPerCircuitAccumulator::<MemoryQueueState<GoldilocksField>>::with_flat_capacity(
-            geometry.cycles_per_ram_permutation as usize,
-            memory_queries.len(),
-        );
+    let mut memory_queue_states_accumulator = LastPerCircuitAccumulator::<
+        QueueStateWitness<GoldilocksField, FULL_SPONGE_QUEUE_STATE_WIDTH>,
+    >::with_flat_capacity(
+        geometry.cycles_per_ram_permutation as usize,
+        memory_queries.len(),
+    );
 
     use crate::witness::aux_data_structs::per_circuit_accumulator::PerCircuitAccumulator;
     // simulator states are very RAM-heavy
@@ -880,9 +878,9 @@ fn simulate_memory_queue(
                     Vec::with_capacity(full_witnesses_for_circuit.len());
 
                 // split full witnesses
-                for witness in full_witnesses_for_circuit.into_iter() {
-                    encodings_witnesses_for_fs.push(witness.0);
-                    unsorted_witnesses_for_circuit.push((witness.2.reflect(), witness.1));
+                for (encoding, query) in full_witnesses_for_circuit.into_iter() {
+                    encodings_witnesses_for_fs.push(encoding);
+                    unsorted_witnesses_for_circuit.push(query.reflect());
                 }
 
                 // send to storage
@@ -901,12 +899,11 @@ fn simulate_memory_queue(
     // for this reason it is one of the slowest parts
     // we are simulating explicit part of queue (direct memory queries)
     for (cycle, query) in memory_queries.iter() {
-        let (_, intermediate_info) =
-            memory_queue_simulator.push_and_output_intermediate_data(*query, &round_function);
+        let (_, state_witness) =
+            memory_queue_simulator.push_and_output_queue_state_witness(*query, &round_function);
 
-        memory_queue_states_accumulator.push(intermediate_info);
-        memory_queue_entry_states
-            .push((*cycle, transform_sponge_like_queue_state(intermediate_info)));
+        memory_queue_states_accumulator.push(state_witness.clone());
+        memory_queue_entry_states.push((*cycle, state_witness));
 
         // if we have collected witnesses for the circuit, we process and send part of them to the storage to free up RAM
         if memory_queue_simulator.witness.len() == geometry.cycles_per_ram_permutation as usize {
@@ -956,7 +953,7 @@ fn simulate_sorted_memory_queue(
     round_function: Poseidon2Goldilocks,
     channel_sender: Sender<WitnessGenerationArtifact>,
 ) -> (
-    LastPerCircuitAccumulator<MemoryQueueState<GoldilocksField>>,
+    LastPerCircuitAccumulator<QueueStateWitness<GoldilocksField, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     MemoryQueuePerCircuitSimulator<GoldilocksField>,
     Vec<[GoldilocksField; MEMORY_QUERY_PACKED_WIDTH]>,
     Vec<(u32, MemoryQuery, usize)>,
@@ -991,11 +988,12 @@ fn simulate_sorted_memory_queue(
         ));
 
     // for RAM permutation circuits
-    let mut sorted_memory_queue_states_accumulator =
-        LastPerCircuitAccumulator::<MemoryQueueState<GoldilocksField>>::with_flat_capacity(
-            geometry.cycles_per_ram_permutation as usize,
-            amount_of_queries,
-        );
+    let mut sorted_memory_queue_states_accumulator = LastPerCircuitAccumulator::<
+        QueueStateWitness<GoldilocksField, FULL_SPONGE_QUEUE_STATE_WIDTH>,
+    >::with_flat_capacity(
+        geometry.cycles_per_ram_permutation as usize,
+        amount_of_queries,
+    );
 
     // for fs challenges in RAM permutation circuits
     let mut encodings_witnesses_for_fs = Vec::with_capacity(amount_of_queries);
@@ -1010,9 +1008,9 @@ fn simulate_sorted_memory_queue(
     // the simulation is mostly a sequential computation of hashes
     // for this reason it is one of the slowest parts
     for (idx, query) in all_memory_queries_sorted.into_iter().enumerate() {
-        let (_, intermediate_info) = sorted_memory_queries_simulator
-            .push_and_output_intermediate_data(*query, &round_function);
-        sorted_memory_queue_states_accumulator.push(intermediate_info);
+        let (_, state_witness) = sorted_memory_queries_simulator
+            .push_and_output_queue_state_witness(*query, &round_function);
+        sorted_memory_queue_states_accumulator.push(state_witness);
 
         // if we have collected witnesses for the circuit, we process and send part of them to the storage to free up RAM
         if sorted_memory_queries_simulator.witness.len()
@@ -1033,14 +1031,13 @@ fn simulate_sorted_memory_queue(
                 let sorted_states_len = full_witnesses_for_circuit.len();
                 let num_nondet_writes_in_chunk = full_witnesses_for_circuit
                     .iter()
-                    .filter(|el| {
-                        let query = &el.2;
+                    .filter(|(_encoding, query)| {
                         query.rw_flag == true
                             && query.timestamp.0 == 0
                             && query.location.page.0 == BOOTLOADER_HEAP_PAGE
                     })
                     .count();
-                let last_sorted_query = full_witnesses_for_circuit.last().unwrap().2;
+                let last_sorted_query = full_witnesses_for_circuit.last().unwrap().1;
 
                 sorted_queries_aux_data_for_chunks.push((
                     num_nondet_writes_in_chunk as u32,
@@ -1052,9 +1049,9 @@ fn simulate_sorted_memory_queue(
                     Vec::with_capacity(full_witnesses_for_circuit.len());
 
                 // split full witnesses
-                for witness in full_witnesses_for_circuit.into_iter() {
-                    encodings_witnesses_for_fs.push(witness.0);
-                    sorted_witnesses_for_circuit.push((witness.2.reflect(), witness.1));
+                for (encoding, query) in full_witnesses_for_circuit.into_iter() {
+                    encodings_witnesses_for_fs.push(encoding);
+                    sorted_witnesses_for_circuit.push(query.reflect());
                 }
 
                 // send to storage
@@ -1387,7 +1384,7 @@ pub enum WitnessGenerationArtifact {
             Vec<ClosedFormInputCompactFormWitness<GoldilocksField>>,
         ),
     ),
-    MemoryQueueWitness((MemoryQueueStateWitnesses<GoldilocksField>, bool)), // sorted/unsorted
+    MemoryQueueWitness((Vec<MemoryQueryWitness<GoldilocksField>>, bool)), // sorted/unsorted
 }
 
 /// Make basic circuits instances and witnesses,

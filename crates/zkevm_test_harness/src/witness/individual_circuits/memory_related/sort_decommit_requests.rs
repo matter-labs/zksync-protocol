@@ -14,7 +14,6 @@ use crate::zkevm_circuits::DEFAULT_NUM_PERMUTATION_ARGUMENT_REPETITIONS;
 use artifacts::MemoryArtifacts;
 use circuit_definitions::encodings::decommittment_request::*;
 use circuit_definitions::encodings::memory_query::MemoryQueueSimulator;
-use circuit_definitions::encodings::memory_query::MemoryQueueState;
 use circuit_definitions::encodings::CircuitEquivalentReflection;
 use circuit_definitions::zk_evm::aux_structures::DecommittmentQuery;
 use rayon::prelude::*;

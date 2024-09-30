@@ -27,7 +27,6 @@ use circuit_definitions::encodings::callstack_entry::{
     CallstackSimulatorState, ExtendedCallstackEntry,
 };
 use circuit_definitions::encodings::decommittment_request::DecommittmentQueueState;
-use circuit_definitions::encodings::memory_query::MemoryQueueState;
 use circuit_definitions::encodings::recursion_request::{
     RecursionQueueSimulator, RecursionRequest,
 };
