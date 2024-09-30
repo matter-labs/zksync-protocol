@@ -52,7 +52,8 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
     FirstAndLastCircuitWitness<RamPermutationObservableWitness<Field>>,
     Vec<ClosedFormInputCompactFormWitness<Field>>,
 ) {
-    let total_amount_of_queries = memory_queries.len() + implicit_memory_queries.amount_of_queries();
+    let total_amount_of_queries =
+        memory_queries.len() + implicit_memory_queries.amount_of_queries();
 
     assert_eq!(
         total_amount_of_queries,
@@ -97,13 +98,11 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
     // since encodings of the elements provide all the information necessary to perform sorting argument,
     // we use them naively
 
-    snapshot_prof("BEFORE SORT");
-
     let all_memory_queries: Vec<&MemoryQuery> = memory_queries
-    .iter()
-    .map(|(_, query)| query)
-    .chain(implicit_memory_queries.iter())
-    .collect();
+        .iter()
+        .map(|(_, query)| query)
+        .chain(implicit_memory_queries.iter())
+        .collect();
 
     use crate::witness::aux_data_structs::per_circuit_accumulator::PerCircuitAccumulator;
     use rayon::prelude::*;
@@ -114,8 +113,6 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
         Ordering::Equal => a.timestamp.cmp(&b.timestamp),
         a @ _ => a,
     });
-
-    snapshot_prof("AFTER SORT");
 
     assert_eq!(
         memory_queue_simulator.num_items as usize,
@@ -141,8 +138,14 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
             round_function,
         );
 
-        let lhs_contributions: Vec<_> = all_memory_queries.iter().map(|x| x.encoding_witness()).collect();
-        let rhs_contributions: Vec<_> = all_memory_queries_sorted.iter().map(|x| x.encoding_witness()).collect();
+        let lhs_contributions: Vec<_> = all_memory_queries
+            .iter()
+            .map(|x| x.encoding_witness())
+            .collect();
+        let rhs_contributions: Vec<_> = all_memory_queries_sorted
+            .iter()
+            .map(|x| x.encoding_witness())
+            .collect();
 
         for idx in 0..DEFAULT_NUM_PERMUTATION_ARGUMENT_REPETITIONS {
             let (lhs_grand_product_chain, rhs_grand_product_chain) = compute_grand_product_chains(
@@ -230,13 +233,13 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
         idx,
         (
             (
-            (
-                ((unsorted_sponge_final_state, sorted_sponge_final_state), lhs_grand_product),
-                rhs_grand_product,
+                (
+                    ((unsorted_sponge_final_state, sorted_sponge_final_state), lhs_grand_product),
+                    rhs_grand_product,
+                ),
+                unsorted_queries_in_chunk,
             ),
-            unsorted_queries_in_chunk,
-        ),
-            sorted_queries_in_chunk
+            sorted_queries_in_chunk,
         ),
     ) in it.enumerate()
     {
@@ -353,10 +356,16 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
             },
             // we will need witnesses to pop elements from the front of the queue
             unsorted_queue_witness: FullStateCircuitQueueRawWitness {
-                elements: unsorted_queries_in_chunk.into_iter().map(|x| (x.reflect(), [Field::ZERO; FULL_SPONGE_QUEUE_STATE_WIDTH])).collect(),
+                elements: unsorted_queries_in_chunk
+                    .into_iter()
+                    .map(|x| (x.reflect(), [Field::ZERO; FULL_SPONGE_QUEUE_STATE_WIDTH]))
+                    .collect(),
             },
             sorted_queue_witness: FullStateCircuitQueueRawWitness {
-                elements: sorted_queries_in_chunk.into_iter().map(|x| (x.reflect(), [Field::ZERO; FULL_SPONGE_QUEUE_STATE_WIDTH])).collect(),
+                elements: sorted_queries_in_chunk
+                    .into_iter()
+                    .map(|x| (x.reflect(), [Field::ZERO; FULL_SPONGE_QUEUE_STATE_WIDTH]))
+                    .collect(),
             },
         };
 
