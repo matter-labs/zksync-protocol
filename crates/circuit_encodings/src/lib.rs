@@ -53,22 +53,15 @@ pub(crate) fn make_round_function_pairs<F: SmallField, const N: usize, const ROU
 
 #[derive(Derivative)]
 #[derivative(Debug, Clone(bound = ""), Copy(bound = ""))]
-pub struct QueueIntermediateStates<
-    F: SmallField,
-    const T: usize,
-    const SW: usize,
-> {
+pub struct QueueIntermediateStates<F: SmallField, const T: usize, const SW: usize> {
     pub head: [F; T],
     pub tail: [F; T],
     pub previous_head: [F; T],
     pub previous_tail: [F; T],
     pub num_items: u32,
-    //pub round_function_execution_pairs: [([F; SW], [F; SW]); ROUNDS],
 }
 
-impl<F: SmallField, const T: usize, const SW: usize>
-    QueueIntermediateStates<F, T, SW>
-{
+impl<F: SmallField, const T: usize, const SW: usize> QueueIntermediateStates<F, T, SW> {
     pub fn empty() -> Self {
         Self {
             head: [F::ZERO; T],
@@ -193,10 +186,10 @@ impl<
         prev_commitment: [F; T],
         _round_function: &R,
     ) -> (
-        [F; T], // new commitment
-        [[F; SW]; ROUNDS] // intermediate states
+        [F; T],            // new commitment
+        [[F; SW]; ROUNDS], // intermediate states
     ) {
-        let mut to_hash = Vec::with_capacity(N + T); // TODO CHECK
+        let mut to_hash = Vec::with_capacity(N + T);
         to_hash.extend_from_slice(&element_encoding);
         to_hash.extend(prev_commitment);
 
@@ -216,7 +209,10 @@ impl<
         const AW: usize,
         const SW: usize,
         const CW: usize,
-    >(round_states: [[F; SW]; ROUNDS], _round_function: &R) -> [([F; SW], [F; SW]); ROUNDS] {
+    >(
+        round_states: [[F; SW]; ROUNDS],
+        _round_function: &R,
+    ) -> [([F; SW], [F; SW]); ROUNDS] {
         make_round_function_pairs(R::initial_state(), round_states)
     }
 
@@ -234,7 +230,7 @@ impl<
         QueueIntermediateStates<F, T, SW>, // new head/tail
     ) {
         let old_tail = self.tail;
-        let encoding = element.encoding_witness(); 
+        let encoding = element.encoding_witness();
 
         self.witness.push_back((encoding, old_tail, element));
 
