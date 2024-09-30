@@ -14,7 +14,6 @@ use crate::boojum::field::SmallField;
 use crate::boojum::gadgets::queue::QueueState;
 use crate::boojum::gadgets::traits::allocatable::CSAllocatable;
 use crate::ethereum_types::U256;
-use crate::snapshot_prof;
 use crate::toolset::GeometryConfig;
 use crate::witness::artifacts::{DemuxedLogQueries, MemoryArtifacts, MemoryCircuitsArtifacts};
 use crate::witness::aux_data_structs::one_per_circuit_accumulator::{
@@ -1412,7 +1411,6 @@ pub(crate) fn create_artifacts_from_tracer<CB: FnMut(WitnessGenerationArtifact)>
     Vec<ClosedFormInputCompactFormWitness<GoldilocksField>>,
     Vec<EIP4844CircuitInstanceWitness<GoldilocksField>>,
 ) {
-    snapshot_prof("START");
     // Our goals are:
     // - make instances of basic layer circuits and pass them via circuit_callback (inputs for the base layer proving)
     // - prepare inputs for recursion layer circuits and pass them via recursion_queue_callback (for the recursion layer proving)
@@ -1542,8 +1540,6 @@ pub(crate) fn create_artifacts_from_tracer<CB: FnMut(WitnessGenerationArtifact)>
         logs_queries: demuxed_log_queries.precompiles,
     };
 
-    snapshot_prof("BEFORE MEMORY");
-
     // Prepare inputs for processing of all circuits related to memory
     // (decommitts sorter, decommiter, precompiles, ram permutation).
     // Prepare decommitment an memory inputs for MainVM circuits processing.
@@ -1566,8 +1562,6 @@ pub(crate) fn create_artifacts_from_tracer<CB: FnMut(WitnessGenerationArtifact)>
         round_function,
         &mut artifacts_callback,
     );
-
-    snapshot_prof("AFTER MEMORY");
 
     tracing::debug!("Waiting for callstack sumulation");
 
@@ -1784,8 +1778,6 @@ pub(crate) fn create_artifacts_from_tracer<CB: FnMut(WitnessGenerationArtifact)>
             transient_storage_sorter_circuits,
             secp256r1_verify_circuits,
         };
-
-    snapshot_prof("FINAL");
 
     // NOTE: this should follow in a sequence same as scheduler's work and `SEQUENCE_OF_CIRCUIT_TYPES`
 
