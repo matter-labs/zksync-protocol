@@ -82,7 +82,10 @@ where
 
     unsorted_queue.witness = Arc::new(FullStateCircuitQueueWitness::from_inner_witness(
         FullStateCircuitQueueRawWitness {
-            elements: unsorted_queue_witness.into_iter().map(|x| (x, [Field::ZERO; FULL_SPONGE_QUEUE_STATE_WIDTH])).collect()
+            elements: unsorted_queue_witness
+                .into_iter()
+                .map(|x| (x, [Field::ZERO; FULL_SPONGE_QUEUE_STATE_WIDTH]))
+                .collect(),
         },
     ));
 
@@ -110,7 +113,10 @@ where
 
     sorted_queue.witness = Arc::new(FullStateCircuitQueueWitness::from_inner_witness(
         FullStateCircuitQueueRawWitness {
-            elements: sorted_queue_witness.into_iter().map(|x| (x, [Field::ZERO; FULL_SPONGE_QUEUE_STATE_WIDTH])).collect()
+            elements: sorted_queue_witness
+                .into_iter()
+                .map(|x| (x, [Field::ZERO; FULL_SPONGE_QUEUE_STATE_WIDTH]))
+                .collect(),
         },
     ));
 
