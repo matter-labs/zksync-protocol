@@ -387,7 +387,6 @@ fn to_width_4_window_form<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     mut limited_width_scalar: BN256ScalarNNField<F>,
 ) -> Vec<Num<F>> {
-    limited_width_scalar.enforce_reduced(cs);
     // we know that width is 128 bits, so just do BE decomposition and put into resulting array
     let zero_num = Num::zero(cs);
     for word in limited_width_scalar.limbs[9..].iter() {
@@ -398,7 +397,7 @@ fn to_width_4_window_form<F: SmallField, CS: ConstraintSystem<F>>(
     let byte_split_id = cs
         .get_table_id_for_marker::<ByteSplitTable<4>>()
         .expect("table should exist");
-    let mut result = Vec::with_capacity(32);
+    let mut result = Vec::with_capacity(33);
     // special case
     {
         let highest_word = limited_width_scalar.limbs[8];
