@@ -2,10 +2,7 @@ use std::sync::Arc;
 
 use boojum::{
     gadgets::non_native_field::traits::NonNativeField,
-    pairing::{
-        bn256::{Fq2, FROBENIUS_COEFF_FQ6_C1, XI_TO_Q_MINUS_1_OVER_2},
-        ff::Field,
-    },
+    pairing::bn256::{Fq2, FROBENIUS_COEFF_FQ6_C1, XI_TO_Q_MINUS_1_OVER_2},
 };
 use final_exp::{CompressionMethod, FinalExpEvaluation, HardExpMethod};
 

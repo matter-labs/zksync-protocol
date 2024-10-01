@@ -385,7 +385,7 @@ where
 
 fn to_width_4_window_form<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
-    mut limited_width_scalar: BN256ScalarNNField<F>,
+    limited_width_scalar: BN256ScalarNNField<F>,
 ) -> Vec<Num<F>> {
     // we know that width is 128 bits, so just do BE decomposition and put into resulting array
     let zero_num = Num::zero(cs);
