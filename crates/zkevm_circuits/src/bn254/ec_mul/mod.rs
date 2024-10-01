@@ -116,8 +116,11 @@ fn ecmul_precompile_inner<F: SmallField, CS: ConstraintSystem<F>>(
     let mut result =
         width_4_windowed_multiplication(cs, point, scalar, base_field_params, scalar_field_params);
 
-    let ((x, y), _) = result.convert_to_affine_or_default(cs, BN256Affine::one());
+    let ((mut x, mut y), _) = result.convert_to_affine_or_default(cs, BN256Affine::one());
+
+    x.normalize(cs);
     let x = convert_field_element_to_uint256(cs, x);
+    y.normalize(cs);
     let y = convert_field_element_to_uint256(cs, y);
 
     let mut are_valid_inputs = ArrayVec::<_, EXCEPTION_FLAGS_ARR_LEN>::new();
