@@ -52,6 +52,7 @@ indicatif = "0.16"
 
 [features]
 verbose_circuits = ["circuit_definitions/verbose_circuits", "circuit_sequencer_api/verbose_circuits"]
-log_tracing = ["circuit_definitions/log_tracing"]
+#log_tracing = ["circuit_definitions/log_tracing"]
+log_tracing = []
 
 default = ["log_tracing"]
