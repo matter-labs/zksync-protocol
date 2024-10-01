@@ -831,7 +831,7 @@ where
     let ergs_left_after_growth = ergs_left_after_growth.mask_negated(cs, uf); // if not enough - set to 0
     exceptions.push(uf);
 
-    let panic = Boolean::multi_and(
+    let panic = Boolean::multi_or(
         cs,
         &[common_abi_parts.ptr_validation_data.generally_invalid, uf],
     );
