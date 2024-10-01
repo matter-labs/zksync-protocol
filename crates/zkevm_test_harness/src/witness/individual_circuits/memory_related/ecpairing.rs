@@ -45,7 +45,7 @@ pub(crate) fn ecpairing_decompose_into_per_circuit_witness<
     amount_of_memory_queries_before: usize,
     ecpairing_memory_queries: Vec<MemoryQuery>,
     ecpairing_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
-    ecpairing_memory_states: Vec<MemoryQueueState<F>>,
+    ecpairing_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     ecpairing_witnesses: Vec<(u32, LogQuery_, ECPairingRoundWitness)>,
     ecpairing_queries: Vec<LogQuery_>,
     mut demuxed_ecpairing_queue: LogQueueStates<F>,
