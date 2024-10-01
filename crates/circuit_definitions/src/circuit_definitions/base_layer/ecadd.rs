@@ -49,13 +49,8 @@ where
     >(
         builder: CsBuilder<T, F, GC, TB>,
     ) -> CsBuilder<T, F, impl GateConfigurationHolder<F>, impl StaticToolboxHolder> {
-        // TODO: Maybe some gates are not actually needed since it was copy-pasting from the previous secp256k1 ecmul implementation.
         let builder = builder.allow_lookup(<Self as CircuitBuilder<F>>::lookup_parameters());
 
-        let builder = U8x4FMAGate::configure_builder(
-            builder,
-            GatePlacementStrategy::UseGeneralPurposeColumns,
-        );
         let builder = ConstantsAllocatorGate::configure_builder(
             builder,
             GatePlacementStrategy::UseGeneralPurposeColumns,
@@ -68,7 +63,6 @@ where
             builder,
             GatePlacementStrategy::UseGeneralPurposeColumns,
         );
-        // let owned_cs = ReductionGate::<F, 4>::configure_for_cs(owned_cs, GatePlacementStrategy::UseSpecializedColumns { num_repetitions: 8, share_constants: true });
         let builder = BooleanConstraintGate::configure_builder(
             builder,
             GatePlacementStrategy::UseGeneralPurposeColumns,
@@ -95,6 +89,10 @@ where
             false,
         );
         let builder = DotProductGate::<4>::configure_builder(
+            builder,
+            GatePlacementStrategy::UseGeneralPurposeColumns,
+        );
+        let builder = PublicInputGate::configure_builder(
             builder,
             GatePlacementStrategy::UseGeneralPurposeColumns,
         );
@@ -126,45 +124,8 @@ where
     }
 
     fn add_tables<CS: ConstraintSystem<F>>(cs: &mut CS) {
-        // let table = create_range_check_table::<F, 8>();
-        // cs.add_lookup_table::<RangeCheckTable<8>, 1>(table);
-
-        // let table = create_range_check_16_bits_table::<F>();
-        // cs.add_lookup_table::<RangeCheck16BitsTable, 1>(table);
-
         let table = create_xor8_table();
         cs.add_lookup_table::<Xor8Table, 3>(table);
-
-        let table = create_and8_table();
-        cs.add_lookup_table::<And8Table, 3>(table);
-
-        seq_macro::seq!(C in 0..32 {
-            let table = create_fixed_base_mul_table::<F, 0, C>();
-            cs.add_lookup_table::<FixedBaseMulTable<0, C>, 3>(table);
-            let table = create_fixed_base_mul_table::<F, 1, C>();
-            cs.add_lookup_table::<FixedBaseMulTable<1, C>, 3>(table);
-            let table = create_fixed_base_mul_table::<F, 2, C>();
-            cs.add_lookup_table::<FixedBaseMulTable<2, C>, 3>(table);
-            let table = create_fixed_base_mul_table::<F, 3, C>();
-            cs.add_lookup_table::<FixedBaseMulTable<3, C>, 3>(table);
-            let table = create_fixed_base_mul_table::<F, 4, C>();
-            cs.add_lookup_table::<FixedBaseMulTable<4, C>, 3>(table);
-            let table = create_fixed_base_mul_table::<F, 5, C>();
-            cs.add_lookup_table::<FixedBaseMulTable<5, C>, 3>(table);
-            let table = create_fixed_base_mul_table::<F, 6, C>();
-            cs.add_lookup_table::<FixedBaseMulTable<6, C>, 3>(table);
-            let table = create_fixed_base_mul_table::<F, 7, C>();
-            cs.add_lookup_table::<FixedBaseMulTable<7, C>, 3>(table);
-        });
-
-        let table = create_byte_split_table::<F, 1>();
-        cs.add_lookup_table::<ByteSplitTable<1>, 3>(table);
-        let table = create_byte_split_table::<F, 2>();
-        cs.add_lookup_table::<ByteSplitTable<2>, 3>(table);
-        let table = create_byte_split_table::<F, 3>();
-        cs.add_lookup_table::<ByteSplitTable<3>, 3>(table);
-        let table = create_byte_split_table::<F, 4>();
-        cs.add_lookup_table::<ByteSplitTable<4>, 3>(table);
     }
 
     fn synthesize_into_cs_inner<CS: ConstraintSystem<F>>(
