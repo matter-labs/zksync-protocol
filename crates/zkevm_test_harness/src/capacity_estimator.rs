@@ -221,7 +221,7 @@ pub fn secp256r1_verify_capacity() -> usize {
 pub fn modexp_capacity() -> usize {
     type SF = ModexpFunctionInstanceSynthesisFunction;
 
-    compute_size_inner::<SF, _>(SF::geometry(), 20, Some(2), |x: usize| x)
+    compute_size_inner::<SF, _>(SF::geometry(), 24, Some(2), |x: usize| x)
 }
 
 pub fn ecadd_capacity() -> usize {
