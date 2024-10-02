@@ -1,9 +1,12 @@
 use super::*;
 
+use base_structures::vm_state::FULL_SPONGE_QUEUE_STATE_WIDTH;
 use boojum::cs::traits::cs::ConstraintSystem;
+use boojum::field::Field;
 use boojum::field::SmallField;
 use boojum::gadgets::boolean::Boolean;
 use boojum::gadgets::num::Num;
+use boojum::gadgets::queue::full_state_queue::FullStateCircuitQueueRawWitness;
 use boojum::gadgets::traits::selectable::Selectable;
 use boojum::gadgets::u256::UInt256;
 use boojum::gadgets::u32::UInt32;
@@ -78,7 +81,12 @@ where
     > = MemoryQueriesQueue::from_state(cs, unsorted_queue_state);
 
     unsorted_queue.witness = Arc::new(FullStateCircuitQueueWitness::from_inner_witness(
-        unsorted_queue_witness,
+        FullStateCircuitQueueRawWitness {
+            elements: unsorted_queue_witness
+                .into_iter()
+                .map(|x| (x, [Field::ZERO; FULL_SPONGE_QUEUE_STATE_WIDTH]))
+                .collect(),
+        },
     ));
 
     // passthrought must be trivial
@@ -104,7 +112,12 @@ where
     > = MemoryQueriesQueue::from_state(cs, sorted_queue_state);
 
     sorted_queue.witness = Arc::new(FullStateCircuitQueueWitness::from_inner_witness(
-        sorted_queue_witness,
+        FullStateCircuitQueueRawWitness {
+            elements: sorted_queue_witness
+                .into_iter()
+                .map(|x| (x, [Field::ZERO; FULL_SPONGE_QUEUE_STATE_WIDTH]))
+                .collect(),
+        },
     ));
 
     // get challenges for permutation argument
