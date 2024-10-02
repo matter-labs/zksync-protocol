@@ -124,9 +124,14 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
     let mut rhs_grand_product_chains =
         Vec::with_capacity(DEFAULT_NUM_PERMUTATION_ARGUMENT_REPETITIONS);
     {
-
-        let lhs_contributions: Vec<_> = all_memory_queries.par_iter().map(|x| x.encoding_witness()).collect();
-        let rhs_contributions: Vec<_> = all_memory_queries_sorted.par_iter().map(|x| x.encoding_witness()).collect();
+        let lhs_contributions: Vec<_> = all_memory_queries
+            .par_iter()
+            .map(|x| x.encoding_witness())
+            .collect();
+        let rhs_contributions: Vec<_> = all_memory_queries_sorted
+            .par_iter()
+            .map(|x| x.encoding_witness())
+            .collect();
 
         let challenges = produce_fs_challenges::<
             Field,
@@ -350,8 +355,14 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
                 },
             },
             // we will need witnesses to pop elements from the front of the queue
-            unsorted_queue_witness: unsorted_queries_in_chunk.into_par_iter().map(|x| x.reflect()).collect(),
-            sorted_queue_witness: sorted_queries_in_chunk.into_par_iter().map(|x| x.reflect()).collect(),
+            unsorted_queue_witness: unsorted_queries_in_chunk
+                .into_par_iter()
+                .map(|x| x.reflect())
+                .collect(),
+            sorted_queue_witness: sorted_queries_in_chunk
+                .into_par_iter()
+                .map(|x| x.reflect())
+                .collect(),
         };
 
         if sorted_states_len % per_circuit_capacity != 0 {
