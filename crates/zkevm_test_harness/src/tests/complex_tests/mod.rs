@@ -266,7 +266,9 @@ pub(crate) fn generate_base_layer(
     let artifacts_receiver_handle = thread::spawn(move || {
         while let Ok(artifact) = receiver.recv() {
             match artifact {
-                WitnessGenerationArtifact::BaseLayerCircuit(circuit) => basic_block_circuits.push(circuit),
+                WitnessGenerationArtifact::BaseLayerCircuit(circuit) => {
+                    basic_block_circuits.push(circuit)
+                }
                 WitnessGenerationArtifact::RecursionQueue((a, b, c)) => recursion_queues.push((
                     a,
                     b,

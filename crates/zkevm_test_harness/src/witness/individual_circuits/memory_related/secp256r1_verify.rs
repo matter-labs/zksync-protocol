@@ -77,8 +77,6 @@ pub(crate) fn secp256r1_verify_decompose_into_per_circuit_witness<
     drop(demuxed_secp256r1_verify_queue.states_accumulator);
     assert!(precompile_calls.len() == round_function_witness.len());
 
-    
-
     if precompile_calls.len() == 0 {
         return vec![];
     }

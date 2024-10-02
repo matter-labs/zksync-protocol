@@ -44,7 +44,9 @@ pub fn run<S: Storage>(
     cycle_limit: usize,
     geometry: GeometryConfig,
     storage: S,
-    tree: impl BinarySparseStorageTree<256, 32, 32, 8, 32, Blake2s256, ZkSyncStorageLeaf> + 'static + std::marker::Send,
+    tree: impl BinarySparseStorageTree<256, 32, 32, 8, 32, Blake2s256, ZkSyncStorageLeaf>
+        + 'static
+        + std::marker::Send,
     trusted_setup_path: String,
     eip_4844_repack_inputs: [Option<Vec<u8>>; MAX_4844_BLOBS_PER_BLOCK],
     artifacts_callback_sender: SyncSender<WitnessGenerationArtifact>,

@@ -121,9 +121,15 @@ pub(crate) fn compute_ram_circuit_snapshots(
     let mut rhs_grand_product_chains =
         Vec::with_capacity(DEFAULT_NUM_PERMUTATION_ARGUMENT_REPETITIONS);
     {
-        let lhs_contributions: Vec<_> = all_memory_queries.par_iter().map(|x| x.encoding_witness()).collect();
-        let rhs_contributions: Vec<_> = sorted_memory_queries_indexes.into_par_iter().map(|x| lhs_contributions[x]).collect();
-        
+        let lhs_contributions: Vec<_> = all_memory_queries
+            .par_iter()
+            .map(|x| x.encoding_witness())
+            .collect();
+        let rhs_contributions: Vec<_> = sorted_memory_queries_indexes
+            .into_par_iter()
+            .map(|x| lhs_contributions[x])
+            .collect();
+
         let challenges = produce_fs_challenges::<
             Field,
             RoundFunction,
@@ -396,9 +402,13 @@ pub(crate) fn compute_ram_circuit_snapshots(
             tmp.current_sorted_queue_state.clone(),
         );
 
-        artifacts_callback_sender.send(WitnessGenerationArtifact::BaseLayerCircuit(
-            ZkSyncBaseLayerCircuit::RAMPermutation(maker.process(instance_witness, circuit_type)),
-        )).unwrap();
+        artifacts_callback_sender
+            .send(WitnessGenerationArtifact::BaseLayerCircuit(
+                ZkSyncBaseLayerCircuit::RAMPermutation(
+                    maker.process(instance_witness, circuit_type),
+                ),
+            ))
+            .unwrap();
     }
 
     drop(lhs_grand_product_chains);
@@ -409,11 +419,13 @@ pub(crate) fn compute_ram_circuit_snapshots(
         queue_simulator,
         ram_permutation_circuits_compact_forms_witnesses,
     ) = maker.into_results();
-    artifacts_callback_sender.send(WitnessGenerationArtifact::RecursionQueue((
-        circuit_type as u64,
-        queue_simulator,
-        ram_permutation_circuits_compact_forms_witnesses.clone(),
-    ))).unwrap();
+    artifacts_callback_sender
+        .send(WitnessGenerationArtifact::RecursionQueue((
+            circuit_type as u64,
+            queue_simulator,
+            ram_permutation_circuits_compact_forms_witnesses.clone(),
+        )))
+        .unwrap();
 
     (
         ram_permutation_circuits,
