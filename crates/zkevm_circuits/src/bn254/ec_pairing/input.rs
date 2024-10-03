@@ -45,12 +45,13 @@ impl<F: SmallField> CSPlaceholder<F> for EcPairingFunctionFSM<F> {
     fn placeholder<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self {
         let boolean_false = Boolean::allocated_constant(cs, false);
         let zero_u32 = UInt32::zero(cs);
+        let params = &Arc::new(bn254_base_field_params());
 
         Self {
             read_precompile_call: boolean_false,
             read_words_for_round: boolean_false,
             completed: boolean_false,
-            pairing_inner_state: BN256Fq12NNField::placeholder(cs),
+            pairing_inner_state: BN256Fq12NNField::zero(cs, params),
             timestamp_to_use_for_read: zero_u32,
             timestamp_to_use_for_write: zero_u32,
             precompile_call_params: EcPairingPrecompileCallParams::<F>::placeholder(cs),
