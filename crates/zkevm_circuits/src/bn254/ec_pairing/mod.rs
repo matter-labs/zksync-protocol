@@ -24,6 +24,7 @@ use cs_derive::*;
 use derivative::Derivative;
 use zkevm_opcode_defs::system_params::PRECOMPILE_AUX_BYTE;
 
+use super::*;
 use crate::base_structures::log_query::*;
 use crate::base_structures::memory_query::*;
 use crate::base_structures::precompile_input_outputs::PrecompileFunctionOutputData;
@@ -42,8 +43,6 @@ use boojum::gadgets::tower_extension::fq12::Fq12;
 use boojum::gadgets::traits::allocatable::CSAllocatable;
 use boojum::gadgets::traits::encodable::CircuitVarLengthEncodable;
 use boojum::gadgets::traits::encodable::WitnessVarLengthEncodable;
-
-use super::*;
 
 use self::ec_mul::implementation::convert_uint256_to_field_element;
 use self::implementation::ec_pairing;
@@ -349,6 +348,7 @@ where
         let [p_x, p_y, q_x_c1, q_x_c0, q_y_c1, q_y_c0] = read_values;
 
         let (success, mut result) = pair(cs, &p_x, &p_y, &q_x_c0, &q_x_c1, &q_y_c0, &q_y_c1);
+        NonNativeField::normalize(&mut result, cs);
 
         let mut acc = result.mul(cs, &mut state.pairing_inner_state.clone());
         state.pairing_inner_state = <Fq12<
