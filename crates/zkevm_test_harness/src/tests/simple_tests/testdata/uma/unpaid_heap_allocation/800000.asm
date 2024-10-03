@@ -1,5 +1,5 @@
         .text
-        .file   "heap_growth_exploit"
+        .file   "no_growth_on_overflow"
         .rodata.cst32
         .p2align	5
     HUGE_NUMBER:
