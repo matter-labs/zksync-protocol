@@ -1,8 +1,5 @@
 use crate::zkevm_circuits::bn254::ec_add::input::EcAddCircuitInstanceWitness;
-use circuit_encodings::zkevm_circuits::bn254::{
-    ec_add::ecadd_function_entry_point,
-    fixed_base_mul_table::{create_fixed_base_mul_table, FixedBaseMulTable},
-};
+use circuit_encodings::zkevm_circuits::bn254::ec_add::ecadd_function_entry_point;
 use derivative::*;
 
 use super::*;

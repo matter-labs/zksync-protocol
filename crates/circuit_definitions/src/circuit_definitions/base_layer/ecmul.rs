@@ -1,6 +1,5 @@
-use circuit_encodings::zkevm_circuits::bn254::{
-    ec_mul::{ecmul_function_entry_point, input::EcMulCircuitInstanceWitness},
-    fixed_base_mul_table::{create_fixed_base_mul_table, FixedBaseMulTable},
+use circuit_encodings::zkevm_circuits::bn254::ec_mul::{
+    ecmul_function_entry_point, input::EcMulCircuitInstanceWitness,
 };
 use derivative::*;
 

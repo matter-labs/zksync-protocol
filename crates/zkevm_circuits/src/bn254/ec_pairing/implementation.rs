@@ -346,7 +346,7 @@ where
         line_fn: &mut LineFunctionEvaluation<F, CS>,
     ) -> BN256Fq12NNField<F> {
         let mut f = f.mul_by_c0c3c4(cs, &mut line_fn.c0, &mut line_fn.c3, &mut line_fn.c4);
-        f.normalize(cs);
+        NonNativeField::normalize(&mut f, cs);
         f
     }
 
