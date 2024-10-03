@@ -1,6 +1,3 @@
-use circuit_encodings::zkevm_circuits::bn254::fixed_base_mul_table::{
-    create_fixed_base_mul_table, FixedBaseMulTable,
-};
 use derivative::*;
 
 use super::*;

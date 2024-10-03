@@ -239,7 +239,7 @@ pub fn ecmul_capacity() -> usize {
 pub fn ecpairing_capacity() -> usize {
     type SF = ECPairingFunctionInstanceSynthesisFunction;
 
-    compute_size_inner::<SF, _>(SF::geometry(), 20, Some(2), |x: usize| x)
+    compute_size_inner::<SF, _>(SF::geometry(), 21, Some(2), |x: usize| x)
 }
 
 #[cfg(test)]
