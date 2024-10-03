@@ -53,6 +53,15 @@ fn test_far_call_pay_for_memory_growth_panic() {
 }
 
 #[test_log::test]
+fn test_fat_pointer_heap_growth() {
+    run_asm_based_test(
+        "src/tests/simple_tests/testdata/far_call/memory_growth_edge_case",
+        &[65536, 65537],
+        Default::default(),
+    );
+}
+
+#[test_log::test]
 fn test_far_call_with_decommit() {
     // In this test, we have a very large bytecode that we try to call.
     // But we don't have enough gas to actually decommit it.
