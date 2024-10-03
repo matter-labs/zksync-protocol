@@ -37,12 +37,10 @@ impl<const B: bool> Precompile for ECPairingPrecompile<B> {
         usize,
         Option<(Vec<MemoryQuery>, Vec<MemoryQuery>, Vec<Self::CycleWitness>)>,
     ) {
-        // EC pairing might take arbitrary number of inputs, so we just set 16 as a default
-        const NUM_ROUNDS: usize = 16;
-
         // read the parameters
         let precompile_call_params = query;
         let params = precompile_abi_in_log(precompile_call_params);
+        let num_rounds = params.precompile_interpreted_data as usize;
         let timestamp_to_read = precompile_call_params.timestamp;
         let timestamp_to_write = Timestamp(timestamp_to_read.0 + 1); // our default timestamping agreement
 
@@ -52,14 +50,14 @@ impl<const B: bool> Precompile for ECPairingPrecompile<B> {
             index: MemoryIndex(params.input_memory_offset),
         };
 
-        // we do 8*NUM_ROUNDS queries per precompile
+        // we do 8*num_rounds queries per precompile
         let mut read_history = if B {
-            Vec::with_capacity(NUM_ROUNDS * MEMORY_READS_PER_CYCLE)
+            Vec::with_capacity(num_rounds * MEMORY_READS_PER_CYCLE)
         } else {
             vec![]
         };
         let mut write_history = if B {
-            Vec::with_capacity(NUM_ROUNDS * MEMORY_WRITES_PER_CYCLE)
+            Vec::with_capacity(num_rounds * MEMORY_WRITES_PER_CYCLE)
         } else {
             vec![]
         };
@@ -71,10 +69,10 @@ impl<const B: bool> Precompile for ECPairingPrecompile<B> {
         };
         let mut read_idx = 0;
 
-        let mut check_tuples: [EcPairingInputTuple; NUM_ROUNDS] = [[U256::zero(); 6]; NUM_ROUNDS];
+        let mut check_tuples = Vec::<EcPairingInputTuple>::with_capacity(num_rounds);
 
         // Doing NUM_ROUNDS
-        for i in 0..NUM_ROUNDS {
+        for _ in 0..num_rounds {
             // we assume that we have
             // - x1 as U256 as a first coordinate of the first point (32 bytes)
             // - y1 as U256 as a second coordinate of the first point (32 bytes)
@@ -179,7 +177,7 @@ impl<const B: bool> Precompile for ECPairingPrecompile<B> {
             current_read_location.index.0 += 1;
 
             // Setting check tuples
-            check_tuples[i] = [x1_value, y1_value, x2_value, y2_value, x3_value, y3_value];
+            check_tuples.push([x1_value, y1_value, x2_value, y2_value, x3_value, y3_value]);
         }
 
         // Performing ecpairing check
@@ -269,7 +267,7 @@ impl<const B: bool> Precompile for ECPairingPrecompile<B> {
             None
         };
 
-        (NUM_ROUNDS, witness)
+        (num_rounds, witness)
     }
 }
 
