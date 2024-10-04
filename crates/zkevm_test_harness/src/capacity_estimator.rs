@@ -40,7 +40,7 @@ where
             std::any::type_name::<SF>()
         );
 
-        if size == next_size {
+        if (size == next_size) & !(size == 1) {
             break;
         }
 
@@ -239,13 +239,12 @@ pub fn ecmul_capacity() -> usize {
 pub fn ecpairing_capacity() -> usize {
     type SF = ECPairingFunctionInstanceSynthesisFunction;
 
-    compute_size_inner::<SF, _>(SF::geometry(), 21, Some(2), |x: usize| x)
+    compute_size_inner::<SF, _>(SF::geometry(), 20, Some(1), |x: usize| x)
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::zkevm_circuits::modexp::implementation::u256::modexp_32_32_32;
 
     #[ignore = "too slow"]
     #[test_log::test]
