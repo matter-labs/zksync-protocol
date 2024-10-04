@@ -86,7 +86,7 @@ pub struct WitnessTracer {
     pub modexp_witnesses: Vec<(u32, LogQuery, ModexpRoundWitness)>,
     pub ecadd_witnesses: Vec<(u32, LogQuery, ECAddRoundWitness)>,
     pub ecmul_witnesses: Vec<(u32, LogQuery, ECMulRoundWitness)>,
-    pub ecpairing_witnesses: Vec<(u32, LogQuery, ECPairingRoundWitness)>,
+    pub ecpairing_witnesses: Vec<(u32, LogQuery, Vec<ECPairingRoundWitness>)>,
 
     pub monotonic_query_counter: usize,
     // pub log_frames_stack: Vec<ApplicationData<((usize, usize), (QueryMarker, u32, LogQuery))>>, // keep the unique frame index
@@ -410,13 +410,10 @@ impl VmWitnessTracer<8, EncodingModeProduction> for WitnessTracer {
                     wit.drain(..).next().unwrap(),
                 ));
             }
-            PrecompileCyclesWitness::ECPairing(mut wit) => {
+            PrecompileCyclesWitness::ECPairing(wit) => {
                 assert_eq!(wit.len(), 1);
-                self.ecpairing_witnesses.push((
-                    monotonic_cycle_counter,
-                    call_params,
-                    wit.drain(..).next().unwrap(),
-                ));
+                self.ecpairing_witnesses
+                    .push((monotonic_cycle_counter, call_params, wit));
             }
         }
     }
