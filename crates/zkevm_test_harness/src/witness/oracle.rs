@@ -996,7 +996,7 @@ pub(crate) struct PrecompilesInputData {
     pub modexp_witnesses: Vec<(Cycle, LogQuery, ModexpRoundWitness)>,
     pub ecadd_witnesses: Vec<(Cycle, LogQuery, ECAddRoundWitness)>,
     pub ecmul_witnesses: Vec<(Cycle, LogQuery, ECMulRoundWitness)>,
-    pub ecpairing_witnesses: Vec<(Cycle, LogQuery, ECPairingRoundWitness)>,
+    pub ecpairing_witnesses: Vec<(Cycle, LogQuery, Vec<ECPairingRoundWitness>)>,
     pub logs_queues_states: PrecompilesQueuesStates,
     pub logs_queries: DemuxedPrecompilesLogQueries,
 }

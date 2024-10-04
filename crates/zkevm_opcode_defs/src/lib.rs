@@ -21,9 +21,9 @@ pub use blake2;
 pub use ethereum_types;
 pub use k256;
 pub use p256;
-pub use pairing_ce as bn254;
 pub use sha2;
 pub use sha3;
+pub use zksync_pairing as bn254;
 
 pub use self::definitions::*;
 pub use self::imm_mem_modifiers::*;
