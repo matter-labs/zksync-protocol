@@ -25,4 +25,5 @@ blake2 = "0.10.*"
 k256 = { version = "0.13.*", features = ["arithmetic", "ecdsa"] }
 p256 = { version = "0.13.*", features = ["arithmetic", "ecdsa"] }
 serde = { version = "1", features = ["derive"] }
-pairing_ce = "0.28.6"
+zksync_pairing = { git = "https://github.com/distributed-lab/zksync-crypto.git", branch = "dl-precompiles", package = "zksync_pairing" }
+# zksync_pairing = { path = "./../../../zksync-crypto/crates/pairing"}

@@ -32,3 +32,6 @@ snark_wrapper = { git = "https://github.com/distributed-lab/zksync-crypto.git", 
 bellman = { package = "zksync_bellman", version = "=0.30.6" }
 boojum = { git = "https://github.com/distributed-lab/zksync-crypto.git", branch = "dl-precompiles", package = "boojum" }
 cs_derive = { package = "zksync_cs_derive", version = "=0.30.6" }
+
+# snark_wrapper = { path = "./../zksync-crypto/crates/snark-wrapper" }
+# boojum = { path = "./../zksync-crypto/crates/boojum" }
