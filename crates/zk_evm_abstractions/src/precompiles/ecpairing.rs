@@ -284,41 +284,46 @@ pub fn ecpairing_inner(inputs: Vec<EcPairingInputTuple>) -> Result<bool> {
 
     let mut total_pairing = Fq12::one();
     for input in inputs {
-        // Setting variables for the coordinates of the points
-        let (x1, y1, x2, y2, x3, y3) = (input[0], input[1], input[2], input[3], input[4], input[5]);
-
-        // Converting coordinates to the finite field format
-        // and validating that the conversion is successful
-        let x1_field = Fq::from_str(x1.to_string().as_str()).ok_or(Error::msg("invalid x1"))?;
-        let y1_field = Fq::from_str(y1.to_string().as_str()).ok_or(Error::msg("invalid y1"))?;
-        let x2_field = Fq::from_str(x2.to_string().as_str()).ok_or(Error::msg("invalid x2"))?;
-        let y2_field = Fq::from_str(y2.to_string().as_str()).ok_or(Error::msg("invalid y2"))?;
-        let x3_field = Fq::from_str(x3.to_string().as_str()).ok_or(Error::msg("invalid x3"))?;
-        let y3_field = Fq::from_str(y3.to_string().as_str()).ok_or(Error::msg("invalid y3"))?;
-
-        // Setting both points.
-        // NOTE: If one of the points is zero, then both coordinates are zero,
-        // which aligns with the from_xy_checked method implementation.
-        let point_1 = G1Affine::from_xy_checked(x1_field, y1_field)?;
-
-        // NOTE: In EIP-192 spec, 3rd and 5th positions correspond to imaginary part, while 4th and 6th to real ones.
-        // Thus, it might be confusing why we switch the order below.
-        let point_2_x = Fq2 {
-            c0: y2_field,
-            c1: x2_field,
-        };
-        let point_2_y = Fq2 {
-            c0: y3_field,
-            c1: x3_field,
-        };
-        let point_2 = G2Affine::from_xy_checked(point_2_x, point_2_y)?;
-
-        // Calculating the pairing operation and returning
-        let pairing = point_1.pairing_with(&point_2);
+        let pairing = pair(&input)?;
         total_pairing.mul_assign(&pairing);
     }
 
     Ok(total_pairing.eq(&Fq12::one()))
+}
+
+pub fn pair(input: &EcPairingInputTuple) -> Result<Fq12> {
+    // Setting variables for the coordinates of the points
+    let (x1, y1, x2, y2, x3, y3) = (input[0], input[1], input[2], input[3], input[4], input[5]);
+
+    // Converting coordinates to the finite field format
+    // and validating that the conversion is successful
+    let x1_field = Fq::from_str(x1.to_string().as_str()).ok_or(Error::msg("invalid x1"))?;
+    let y1_field = Fq::from_str(y1.to_string().as_str()).ok_or(Error::msg("invalid y1"))?;
+    let x2_field = Fq::from_str(x2.to_string().as_str()).ok_or(Error::msg("invalid x2"))?;
+    let y2_field = Fq::from_str(y2.to_string().as_str()).ok_or(Error::msg("invalid y2"))?;
+    let x3_field = Fq::from_str(x3.to_string().as_str()).ok_or(Error::msg("invalid x3"))?;
+    let y3_field = Fq::from_str(y3.to_string().as_str()).ok_or(Error::msg("invalid y3"))?;
+
+    // Setting both points.
+    // NOTE: If one of the points is zero, then both coordinates are zero,
+    // which aligns with the from_xy_checked method implementation.
+    let point_1 = G1Affine::from_xy_checked(x1_field, y1_field)?;
+
+    // NOTE: In EIP-192 spec, 3rd and 5th positions correspond to imaginary part, while 4th and 6th to real ones.
+    // Thus, it might be confusing why we switch the order below.
+    let point_2_x = Fq2 {
+        c0: y2_field,
+        c1: x2_field,
+    };
+    let point_2_y = Fq2 {
+        c0: y3_field,
+        c1: x3_field,
+    };
+    let point_2 = G2Affine::from_xy_checked(point_2_x, point_2_y)?;
+
+    // Calculating the pairing operation and returning
+    let pairing = point_1.pairing_with(&point_2);
+    Ok(pairing)
 }
 
 pub fn ecpairing_function<M: Memory, const B: bool>(
