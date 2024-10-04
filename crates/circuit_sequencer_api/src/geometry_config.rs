@@ -6,7 +6,7 @@ pub const fn get_geometry_config() -> GeometryConfig {
     GeometryConfig {
         cycles_per_vm_snapshot: 5390,
         cycles_code_decommitter_sorter: 117500,
-        cycles_per_log_demuxer: 58750,
+        cycles_per_log_demuxer: 58125,
         cycles_per_storage_sorter: 46921,
         cycles_per_events_or_l1_messages_sorter: 31287,
         cycles_per_ram_permutation: 136714,
@@ -18,9 +18,9 @@ pub const fn get_geometry_config() -> GeometryConfig {
         limit_for_l1_messages_pudata_hasher: 774,
         cycles_per_transient_storage_sorter: 50875,
         cycles_per_secp256r1_verify_circuit: 4,
-        cycles_per_modexp_circuit: 1, // this was added manually to ensure code compiles
-        cycles_per_ecadd_circuit: 1,  // this was added manually to ensure code compiles
-        cycles_per_ecmul_circuit: 1,  // this was added manually to ensure code compiles
-        cycles_per_ecpairing_circuit: 1, // this was added manually to ensure code compiles
+        cycles_per_modexp_circuit: 13,
+        cycles_per_ecadd_circuit: 1424,
+        cycles_per_ecmul_circuit: 22,
+        cycles_per_ecpairing_circuit: 1,
     }
 }
