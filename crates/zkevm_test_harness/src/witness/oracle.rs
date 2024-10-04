@@ -471,11 +471,10 @@ fn callstack_simulation(
          callstack_entry: ExtendedCallstackEntry<GoldilocksField>,
          callstack_simulator_state: CallstackSimulatorState<GoldilocksField>| {
             if let Some((prev_cycle, _)) = callstack_witnesses_for_main_vm.last() {
-                assert!(
-                    cycle_to_use != *prev_cycle,
+                assert_ne!(
+                    cycle_to_use, *prev_cycle,
                     "trying to add callstack witness for cycle {}, but previous one is on cycle {}",
-                    cycle_to_use,
-                    prev_cycle
+                    cycle_to_use, prev_cycle
                 );
             }
             callstack_witnesses_for_main_vm
@@ -955,12 +954,20 @@ fn simulate_sorted_memory_queue(
 
 use crate::witness::artifacts::DemuxedPrecompilesLogQueries;
 use crate::witness::individual_circuits::log_demux::PrecompilesQueuesStates;
+use crate::zk_evm::zk_evm_abstractions::precompiles::ecadd::ECAddRoundWitness;
+use crate::zk_evm::zk_evm_abstractions::precompiles::ecmul::ECMulRoundWitness;
+use crate::zk_evm::zk_evm_abstractions::precompiles::ecpairing::ECPairingRoundWitness;
+use crate::zk_evm::zk_evm_abstractions::precompiles::modexp::ModexpRoundWitness;
 
 pub(crate) struct PrecompilesInputData {
     pub keccak_round_function_witnesses: Vec<(Cycle, LogQuery, Vec<Keccak256RoundWitness>)>,
     pub sha256_round_function_witnesses: Vec<(Cycle, LogQuery, Vec<Sha256RoundWitness>)>,
     pub ecrecover_witnesses: Vec<(Cycle, LogQuery, ECRecoverRoundWitness)>,
     pub secp256r1_verify_witnesses: Vec<(Cycle, LogQuery, Secp256r1VerifyRoundWitness)>,
+    pub modexp_witnesses: Vec<(Cycle, LogQuery, ModexpRoundWitness)>,
+    pub ecadd_witnesses: Vec<(Cycle, LogQuery, ECAddRoundWitness)>,
+    pub ecmul_witnesses: Vec<(Cycle, LogQuery, ECMulRoundWitness)>,
+    pub ecpairing_witnesses: Vec<(Cycle, LogQuery, Vec<ECPairingRoundWitness>)>,
     pub logs_queues_states: PrecompilesQueuesStates,
     pub logs_queries: DemuxedPrecompilesLogQueries,
 }
@@ -1102,9 +1109,9 @@ fn process_memory_related_circuits<CB: FnMut(WitnessGenerationArtifact)>(
         implicit_memory_states.amount_of_states()
     );
 
-    use crate::witness::individual_circuits::memory_related::ram_permutation::compute_ram_circuit_snapshots;
-
     tracing::debug!("Running RAM permutation simulation");
+
+    use crate::witness::individual_circuits::memory_related::ram_permutation::compute_ram_circuit_snapshots;
 
     let (ram_permutation_circuits, ram_permutation_circuits_compact_forms_witnesses) =
         compute_ram_circuit_snapshots(
@@ -1218,6 +1225,84 @@ fn process_memory_related_circuits<CB: FnMut(WitnessGenerationArtifact)>(
         );
     circuits_data.secp256r1_verify_circuits_data = secp256r1_verify_circuits_data;
 
+    // modexp precompile
+
+    use crate::witness::individual_circuits::memory_related::modexp::modexp_decompose_into_per_circuit_witness;
+
+    tracing::debug!("Running modexp simulation");
+
+    let (modexp_circuits_data, amount_of_memory_queries) =
+        modexp_decompose_into_per_circuit_witness(
+            amount_of_memory_queries,
+            implicit_memory_queries.modexp_memory_queries,
+            implicit_memory_states.modexp_simulator_snapshots,
+            implicit_memory_states.modexp_memory_states,
+            precompiles_data.modexp_witnesses,
+            precompiles_data.logs_queries.modexp,
+            precompiles_data.logs_queues_states.modexp,
+            geometry.cycles_per_modexp_circuit as usize,
+            round_function,
+        );
+    circuits_data.modexp_circuits_data = modexp_circuits_data;
+
+    // ecadd precompile
+
+    use crate::witness::individual_circuits::memory_related::ecadd::ecadd_decompose_into_per_circuit_witness;
+
+    tracing::debug!("Running ecadd simulation");
+
+    let (ecadd_circuits_data, amount_of_memory_queries) = ecadd_decompose_into_per_circuit_witness(
+        amount_of_memory_queries,
+        implicit_memory_queries.ecadd_memory_queries,
+        implicit_memory_states.ecadd_simulator_snapshots,
+        implicit_memory_states.ecadd_memory_states,
+        precompiles_data.ecadd_witnesses,
+        precompiles_data.logs_queries.ecadd,
+        precompiles_data.logs_queues_states.ecadd,
+        geometry.cycles_per_ecadd_circuit as usize,
+        round_function,
+    );
+    circuits_data.ecadd_circuits_data = ecadd_circuits_data;
+
+    // ecmul precompile
+
+    use crate::witness::individual_circuits::memory_related::ecmul::ecmul_decompose_into_per_circuit_witness;
+
+    tracing::debug!("Running ecmul simulation");
+
+    let (ecmul_circuits_data, amount_of_memory_queries) = ecmul_decompose_into_per_circuit_witness(
+        amount_of_memory_queries,
+        implicit_memory_queries.ecmul_memory_queries,
+        implicit_memory_states.ecmul_simulator_snapshots,
+        implicit_memory_states.ecmul_memory_states,
+        precompiles_data.ecmul_witnesses,
+        precompiles_data.logs_queries.ecmul,
+        precompiles_data.logs_queues_states.ecmul,
+        geometry.cycles_per_ecmul_circuit as usize,
+        round_function,
+    );
+    circuits_data.ecmul_circuits_data = ecmul_circuits_data;
+
+    // ecpairing precompile
+
+    use crate::witness::individual_circuits::memory_related::ecpairing::ecpairing_decompose_into_per_circuit_witness;
+
+    tracing::debug!("Running ecpairing simulation");
+
+    let (ecpairing_circuits_data, _amount_of_memory_queries) =
+        ecpairing_decompose_into_per_circuit_witness(
+            amount_of_memory_queries,
+            implicit_memory_queries.ecpairing_memory_queries,
+            implicit_memory_states.ecpairing_simulator_snapshots,
+            implicit_memory_states.ecpairing_memory_states,
+            precompiles_data.ecpairing_witnesses,
+            precompiles_data.logs_queries.ecpairing,
+            precompiles_data.logs_queues_states.ecpairing,
+            geometry.cycles_per_ecpairing_circuit as usize,
+            round_function,
+        );
+    circuits_data.ecpairing_circuits_data = ecpairing_circuits_data;
+
     (
         circuits_data,
         memory_artifacts_for_main_vm,
@@ -1276,6 +1361,10 @@ pub(crate) fn create_artifacts_from_tracer<CB: FnMut(WitnessGenerationArtifact)>
         sha256_round_function_witnesses,
         ecrecover_witnesses,
         secp256r1_verify_witnesses,
+        modexp_witnesses,
+        ecadd_witnesses,
+        ecmul_witnesses,
+        ecpairing_witnesses,
         mut callstack_with_aux_data,
         vm_snapshots,
         ..
@@ -1292,10 +1381,7 @@ pub(crate) fn create_artifacts_from_tracer<CB: FnMut(WitnessGenerationArtifact)>
 
     assert!(vm_snapshots.len() >= 2); // we need at least entry point and the last save (after exit)
 
-    assert!(
-        callstack_with_aux_data.depth == 0,
-        "parent frame didn't exit"
-    );
+    assert_eq!(callstack_with_aux_data.depth, 0, "parent frame didn't exit");
 
     let full_callstack_history = std::mem::take(&mut callstack_with_aux_data.full_history);
     // Since we finished the VM execution, current callstack entry now should be a root (outermost) frame
@@ -1384,6 +1470,10 @@ pub(crate) fn create_artifacts_from_tracer<CB: FnMut(WitnessGenerationArtifact)>
         sha256_round_function_witnesses,
         ecrecover_witnesses,
         secp256r1_verify_witnesses,
+        modexp_witnesses,
+        ecadd_witnesses,
+        ecmul_witnesses,
+        ecpairing_witnesses,
         logs_queues_states: precompiles_logs_queues_states,
         logs_queries: demuxed_log_queries.precompiles,
     };
@@ -1467,6 +1557,10 @@ pub(crate) fn create_artifacts_from_tracer<CB: FnMut(WitnessGenerationArtifact)>
         sha256_circuits_data,
         ecrecover_circuits_data,
         secp256r1_verify_circuits_data,
+        modexp_circuits_data,
+        ecadd_circuits_data,
+        ecmul_circuits_data,
+        ecpairing_circuits_data,
     } = memory_circuits_data;
 
     // Code decommitter sorter
@@ -1536,6 +1630,46 @@ pub(crate) fn create_artifacts_from_tracer<CB: FnMut(WitnessGenerationArtifact)>
             |x| ZkSyncBaseLayerCircuit::Secp256r1Verify(x),
             &mut artifacts_callback,
         );
+
+    // modexp
+    let (modexp_precompile_circuits, modexp_circuits_compact_forms_witnesses) = make_circuits(
+        geometry.cycles_per_modexp_circuit,
+        BaseLayerCircuitType::ModexpPrecompile,
+        modexp_circuits_data,
+        *round_function,
+        |x| ZkSyncBaseLayerCircuit::Modexp(x),
+        &mut artifacts_callback,
+    );
+
+    // ecadd
+    let (ecadd_precompile_circuits, ecadd_circuits_compact_forms_witnesses) = make_circuits(
+        geometry.cycles_per_ecadd_circuit,
+        BaseLayerCircuitType::ECAddPrecompile,
+        ecadd_circuits_data,
+        *round_function,
+        |x| ZkSyncBaseLayerCircuit::ECAdd(x),
+        &mut artifacts_callback,
+    );
+
+    // ecmul
+    let (ecmul_precompile_circuits, ecmul_circuits_compact_forms_witnesses) = make_circuits(
+        geometry.cycles_per_ecmul_circuit,
+        BaseLayerCircuitType::ECMulPrecompile,
+        ecmul_circuits_data,
+        *round_function,
+        |x| ZkSyncBaseLayerCircuit::ECMul(x),
+        &mut artifacts_callback,
+    );
+
+    // ecpairing
+    let (ecpairing_precompile_circuits, ecpairing_circuits_compact_forms_witnesses) = make_circuits(
+        geometry.cycles_per_ecmul_circuit,
+        BaseLayerCircuitType::ECPairingPrecompile,
+        ecpairing_circuits_data,
+        *round_function,
+        |x| ZkSyncBaseLayerCircuit::ECPairing(x),
+        &mut artifacts_callback,
+    );
 
     // storage sorter
     let (storage_sorter_circuits, storage_sorter_circuit_compact_form_witnesses) = make_circuits(
@@ -1625,6 +1759,10 @@ pub(crate) fn create_artifacts_from_tracer<CB: FnMut(WitnessGenerationArtifact)>
             l1_messages_hasher_circuits,
             transient_storage_sorter_circuits,
             secp256r1_verify_circuits,
+            modexp_precompile_circuits,
+            ecadd_precompile_circuits,
+            ecmul_precompile_circuits,
+            ecpairing_precompile_circuits,
         };
 
     // NOTE: this should follow in a sequence same as scheduler's work and `SEQUENCE_OF_CIRCUIT_TYPES`
@@ -1645,6 +1783,10 @@ pub(crate) fn create_artifacts_from_tracer<CB: FnMut(WitnessGenerationArtifact)>
         .chain(l1_messages_hasher_circuits_compact_forms_witnesses)
         .chain(transient_storage_sorter_circuits_compact_forms_witnesses)
         .chain(secp256r1_verify_circuits_compact_forms_witnesses)
+        .chain(modexp_circuits_compact_forms_witnesses)
+        .chain(ecadd_circuits_compact_forms_witnesses)
+        .chain(ecmul_circuits_compact_forms_witnesses)
+        .chain(ecpairing_circuits_compact_forms_witnesses)
         .collect();
 
     (

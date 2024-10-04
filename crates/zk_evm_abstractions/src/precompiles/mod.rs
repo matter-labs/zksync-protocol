@@ -2,8 +2,12 @@ use crate::aux::*;
 use crate::queries::*;
 use crate::vm::*;
 
+pub mod ecadd;
+pub mod ecmul;
+pub mod ecpairing;
 pub mod ecrecover;
 pub mod keccak256;
+pub mod modexp;
 pub mod secp256r1_verify;
 pub mod sha256;
 
@@ -14,7 +18,10 @@ use zkevm_opcode_defs::system_params::{
     SECP256R1_VERIFY_PRECOMPILE_ADDRESS, SHA256_ROUND_FUNCTION_PRECOMPILE_ADDRESS,
 };
 
-use zkevm_opcode_defs::PrecompileCallABI;
+use zkevm_opcode_defs::{
+    PrecompileCallABI, ECADD_PRECOMPILE_ADDRESS, ECMUL_PRECOMPILE_ADDRESS,
+    ECPAIRING_PRECOMPILE_ADDRESS, MODEXP_PRECOMPILE_ADDRESS,
+};
 
 #[repr(u16)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, TryFromPrimitive)]
@@ -23,6 +30,10 @@ pub enum PrecompileAddress {
     SHA256 = SHA256_ROUND_FUNCTION_PRECOMPILE_ADDRESS,
     Keccak256 = KECCAK256_ROUND_FUNCTION_PRECOMPILE_ADDRESS,
     Secp256r1Verify = SECP256R1_VERIFY_PRECOMPILE_ADDRESS,
+    Modexp = MODEXP_PRECOMPILE_ADDRESS,
+    ECAdd = ECADD_PRECOMPILE_ADDRESS,
+    ECMul = ECMUL_PRECOMPILE_ADDRESS,
+    ECPairing = ECPAIRING_PRECOMPILE_ADDRESS,
 }
 
 pub const fn precompile_abi_in_log(query: LogQuery) -> PrecompileCallABI {
@@ -147,6 +158,81 @@ impl<const B: bool> PrecompilesProcessor for DefaultPrecompilesProcessor<B> {
                     ))
                 } else {
                     let _ = secp256r1_verify::secp256r1_verify_function::<M, B>(
+                        monotonic_cycle_counter,
+                        query,
+                        memory,
+                    );
+
+                    None
+                }
+            }
+            PrecompileAddress::Modexp => {
+                // pure function call, non-revertable
+                if B {
+                    let (reads, writes, round_witness) =
+                        modexp::modexp_function::<M, B>(monotonic_cycle_counter, query, memory)
+                            .1
+                            .expect("must generate intermediate witness");
+
+                    Some((
+                        reads,
+                        writes,
+                        PrecompileCyclesWitness::Modexp(round_witness),
+                    ))
+                } else {
+                    let _ = modexp::modexp_function::<M, B>(monotonic_cycle_counter, query, memory);
+
+                    None
+                }
+            }
+            PrecompileAddress::ECAdd => {
+                // pure function call, non-revertable
+                if B {
+                    let (reads, writes, round_witness) =
+                        ecadd::ecadd_function::<M, B>(monotonic_cycle_counter, query, memory)
+                            .1
+                            .expect("must generate intermediate witness");
+
+                    Some((reads, writes, PrecompileCyclesWitness::ECAdd(round_witness)))
+                } else {
+                    let _ = ecadd::ecadd_function::<M, B>(monotonic_cycle_counter, query, memory);
+
+                    None
+                }
+            }
+            PrecompileAddress::ECMul => {
+                // pure function call, non-revertable
+                if B {
+                    let (reads, writes, round_witness) =
+                        ecmul::ecmul_function::<M, B>(monotonic_cycle_counter, query, memory)
+                            .1
+                            .expect("must generate intermediate witness");
+
+                    Some((reads, writes, PrecompileCyclesWitness::ECMul(round_witness)))
+                } else {
+                    let _ = ecmul::ecmul_function::<M, B>(monotonic_cycle_counter, query, memory);
+
+                    None
+                }
+            }
+            PrecompileAddress::ECPairing => {
+                // pure function call, non-revertable
+                if B {
+                    let (reads, writes, round_witness) = ecpairing::ecpairing_function::<M, B>(
+                        monotonic_cycle_counter,
+                        query,
+                        memory,
+                    )
+                    .1
+                    .expect("must generate intermediate witness");
+
+                    Some((
+                        reads,
+                        writes,
+                        PrecompileCyclesWitness::ECPairing(round_witness),
+                    ))
+                } else {
+                    let _ = ecpairing::ecpairing_function::<M, B>(
                         monotonic_cycle_counter,
                         query,
                         memory,

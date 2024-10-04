@@ -251,6 +251,38 @@ pub(crate) fn base_test_circuit(circuit: ZkSyncBaseLayerCircuit) {
             let _ = cs.pad_and_shrink();
             cs.into_assembly::<std::alloc::Global>()
         }
+        ZkSyncBaseLayerCircuit::Modexp(inner) => {
+            let builder = inner.configure_builder_proxy(builder);
+            let mut cs = builder.build(num_vars.unwrap());
+            inner.add_tables_proxy(&mut cs);
+            inner.synthesize_proxy(&mut cs);
+            let _ = cs.pad_and_shrink();
+            cs.into_assembly::<std::alloc::Global>()
+        }
+        ZkSyncBaseLayerCircuit::ECAdd(inner) => {
+            let builder = inner.configure_builder_proxy(builder);
+            let mut cs = builder.build(num_vars.unwrap());
+            inner.add_tables_proxy(&mut cs);
+            inner.synthesize_proxy(&mut cs);
+            let _ = cs.pad_and_shrink();
+            cs.into_assembly::<std::alloc::Global>()
+        }
+        ZkSyncBaseLayerCircuit::ECMul(inner) => {
+            let builder = inner.configure_builder_proxy(builder);
+            let mut cs = builder.build(num_vars.unwrap());
+            inner.add_tables_proxy(&mut cs);
+            inner.synthesize_proxy(&mut cs);
+            let _ = cs.pad_and_shrink();
+            cs.into_assembly::<std::alloc::Global>()
+        }
+        ZkSyncBaseLayerCircuit::ECPairing(inner) => {
+            let builder = inner.configure_builder_proxy(builder);
+            let mut cs = builder.build(num_vars.unwrap());
+            inner.add_tables_proxy(&mut cs);
+            inner.synthesize_proxy(&mut cs);
+            let _ = cs.pad_and_shrink();
+            cs.into_assembly::<std::alloc::Global>()
+        }
     };
 
     let is_satisfied = cs.check_if_satisfied(&worker);
@@ -315,7 +347,11 @@ pub(crate) fn test_recursive_circuit(circuit: ZkSyncRecursiveLayerCircuit) {
         | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForL1MessagesHasher(inner)
         | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForTransientStorageSorter(inner)
         | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForSecp256r1Verify(inner)
-        | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForEIP4844Repack(inner) => {
+        | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForEIP4844Repack(inner)
+        | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForModexp(inner)
+        | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForECAdd(inner)
+        | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForECMul(inner)
+        | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForECPairing(inner) => {
             let builder = inner.configure_builder_proxy(builder);
             let mut cs = builder.build(num_vars.unwrap());
             inner.add_tables(&mut cs);

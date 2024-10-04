@@ -417,6 +417,26 @@ pub fn run_vms<S: Storage, CB: FnMut(WitnessGenerationArtifact)>(
                 .last
                 .as_ref()
                 .map(|wit| wit.observable_output.clone()),
+            basic_circuits
+                .modexp_precompile_circuits
+                .last
+                .as_ref()
+                .map(|wit| wit.observable_output.clone()),
+            basic_circuits
+                .ecadd_precompile_circuits
+                .last
+                .as_ref()
+                .map(|wit| wit.observable_output.clone()),
+            basic_circuits
+                .ecmul_precompile_circuits
+                .last
+                .as_ref()
+                .map(|wit| wit.observable_output.clone()),
+            basic_circuits
+                .ecpairing_precompile_circuits
+                .last
+                .as_ref()
+                .map(|wit| wit.observable_output.clone()),
         ];
 
         for (dst, src) in outputs.iter_mut().zip(testsing_locations.into_iter()) {
@@ -430,7 +450,7 @@ pub fn run_vms<S: Storage, CB: FnMut(WitnessGenerationArtifact)>(
             previous_memory_state = dst.final_memory_state.clone();
         }
 
-        let [keccak256_observable_output, sha256_observable_output, ecrecover_observable_output, secp256r1_verify_observable_output] =
+        let [keccak256_observable_output, sha256_observable_output, ecrecover_observable_output, secp256r1_verify_observable_output, modexp_observable_output, ecadd_observable_output, ecmul_observable_output, ecpairing_observable_output] =
             outputs;
 
         // storage sorter must produce empty output
@@ -594,6 +614,10 @@ pub fn run_vms<S: Storage, CB: FnMut(WitnessGenerationArtifact)>(
             sha256_observable_output,
             ecrecover_observable_output,
             secp256r1_verify_observable_output,
+            modexp_observable_output,
+            ecadd_observable_output,
+            ecmul_observable_output,
+            ecpairing_observable_output,
             storage_sorter_observable_output,
             storage_application_observable_output,
             events_sorter_observable_output,
