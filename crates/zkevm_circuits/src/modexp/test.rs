@@ -177,7 +177,7 @@ pub mod test {
     #[ignore = "too-large circuit, should be run manually"]
     fn test_modexp_32_32_32() {
         // Preparing the constraint system and parameters
-        let mut owned_cs = create_test_cs(1 << 22);
+        let mut owned_cs = create_test_cs(1 << 20);
         let cs = &mut owned_cs;
 
         // Running tests from file
@@ -205,7 +205,7 @@ pub mod test {
     #[ignore = "too-large circuit, should be run manually"]
     fn test_modexp_32_4_32() {
         // Preparing the constraint system and parameters
-        let mut owned_cs = create_test_cs(1 << 24);
+        let mut owned_cs = create_test_cs(1 << 20);
         let cs = &mut owned_cs;
 
         // Running tests from file
@@ -261,7 +261,7 @@ pub mod test {
     #[ignore = "debugs the performance, should be run manually"]
     fn debug_modmul_32_32_performance() {
         // Preparing the constraint system and parameters
-        let mut owned_cs = create_test_cs(1 << 21);
+        let mut owned_cs = create_test_cs(1 << 20);
         let cs = &mut owned_cs;
 
         // Running tests from file
