@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.150.6](https://github.com/matter-labs/zksync-protocol/compare/v0.150.5...v0.150.6) (2024-10-07)
+
+
+### Features
+
+* Remove unneeded data and calculations from simulators in witgen ([#18](https://github.com/matter-labs/zksync-protocol/issues/18)) ([7316caf](https://github.com/matter-labs/zksync-protocol/commit/7316caf3428414c9cf8a1b9c4a7846bd813e4050))
+* Reorganize witgen ([#49](https://github.com/matter-labs/zksync-protocol/issues/49)) ([9bf5cf8](https://github.com/matter-labs/zksync-protocol/commit/9bf5cf839f76a19f7c21981d8c56a7f8bbe03d7e))
+* Use zeroes instead of simulator states as unused part of RAM permutation witness ([#47](https://github.com/matter-labs/zksync-protocol/issues/47)) ([a336980](https://github.com/matter-labs/zksync-protocol/commit/a3369809a760c448542d6e6877b95bbabac25d14))
+
+
+### Bug Fixes
+
+* Simplify closed_form_witness_from_full_form ([#38](https://github.com/matter-labs/zksync-protocol/issues/38)) ([af3d4c4](https://github.com/matter-labs/zksync-protocol/commit/af3d4c4995abf843c79813115716556b4216df53))
+* **zkevm_test_harness:** Reduce ExtendedLogQuery RAM usage ([#44](https://github.com/matter-labs/zksync-protocol/issues/44)) ([eecf79a](https://github.com/matter-labs/zksync-protocol/commit/eecf79acebb15db168cf66534f7e1bb644526e72))
+
 ## [0.150.5](https://github.com/matter-labs/zksync-protocol/compare/v0.150.4...v0.150.5) (2024-09-06)
 
 
