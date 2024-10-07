@@ -71,6 +71,7 @@ use zkevm_circuits::base_structures::memory_query::{MemoryQuery, MEMORY_QUERY_PA
 use zkevm_circuits::base_structures::vm_state::FULL_SPONGE_QUEUE_STATE_WIDTH;
 use zkevm_circuits::ram_permutation::input::RamPermutationCycleInputOutputWitness;
 
+use std::sync::mpsc::SyncSender;
 use std::sync::Arc;
 
 use crate::zkevm_circuits::base_structures::vm_state::VmLocalState;
@@ -472,14 +473,13 @@ pub(crate) fn make_circuits<
     T: ClosedFormInputField<GoldilocksField>,
     S: ZkSyncUniformSynthesisFunction<GoldilocksField>,
     WCB: Fn(ZkSyncUniformCircuitInstance<GoldilocksField, S>) -> ZkSyncBaseLayerCircuit,
-    CB: FnMut(WitnessGenerationArtifact),
 >(
     geometry: u32,
     circuit_type: BaseLayerCircuitType,
     circuits_data: Vec<T>,
     round_function: Poseidon2Goldilocks,
     wrap_circuit: WCB,
-    artifacts_callback: &mut CB,
+    artifacts_callback_sender: SyncSender<WitnessGenerationArtifact>,
 ) -> (
     FirstAndLastCircuitWitness<ObservableWitness<GoldilocksField, T>>,
     Vec<ClosedFormInputCompactFormWitness<GoldilocksField>>,
@@ -501,9 +501,11 @@ where
     let mut maker = CircuitMaker::new(geometry, round_function.clone());
 
     for circuit_input in circuits_data.into_iter() {
-        artifacts_callback(WitnessGenerationArtifact::BaseLayerCircuit(wrap_circuit(
-            maker.process(circuit_input, circuit_type),
-        )));
+        artifacts_callback_sender
+            .send(WitnessGenerationArtifact::BaseLayerCircuit(wrap_circuit(
+                maker.process(circuit_input, circuit_type),
+            )))
+            .unwrap();
     }
 
     let (
@@ -511,11 +513,13 @@ where
         recursion_queue_simulator,
         circuits_compact_forms_witnesses,
     ) = maker.into_results();
-    artifacts_callback(WitnessGenerationArtifact::RecursionQueue((
-        circuit_type as u64,
-        recursion_queue_simulator,
-        circuits_compact_forms_witnesses.clone(),
-    )));
+    artifacts_callback_sender
+        .send(WitnessGenerationArtifact::RecursionQueue((
+            circuit_type as u64,
+            recursion_queue_simulator,
+            circuits_compact_forms_witnesses.clone(),
+        )))
+        .unwrap();
 
     (
         first_and_last_observable_witnesses,

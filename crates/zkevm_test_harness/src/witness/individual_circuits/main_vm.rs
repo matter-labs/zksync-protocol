@@ -1,3 +1,4 @@
+use std::sync::mpsc::SyncSender;
 use std::sync::Arc;
 
 use crate::witness::artifacts::{DecommitmentArtifactsForMainVM, MemoryArtifacts};
@@ -126,6 +127,7 @@ struct MainVmSimulationInput {
 fn repack_input_for_main_vm(
     geometry: &GeometryConfig,
     vm_snapshots: &Vec<VmSnapshot>,
+    explicit_memory_queries: &Vec<(u32, MemoryQuery)>,
     memory_artifacts_for_main_vm: MemoryArtifacts<GoldilocksField>,
     decommitment_artifacts_for_main_vm: DecommitmentArtifactsForMainVM<GoldilocksField>,
     callstack_simulation_result: CallstackSimulationResult<GoldilocksField>,
@@ -143,7 +145,6 @@ fn repack_input_for_main_vm(
 
     let MemoryArtifacts {
         memory_queue_entry_states,
-        memory_queries,
     } = memory_artifacts_for_main_vm;
 
     let DecommitmentArtifactsForMainVM {
@@ -163,7 +164,7 @@ fn repack_input_for_main_vm(
     // split the oracle witness
     let memory_write_witnesses = PerCircuitAccumulatorSparse::from_iter(
         geometry.cycles_per_vm_snapshot as usize,
-        memory_queries
+        explicit_memory_queries
             .iter()
             .filter(|(_, query)| query.rw_flag)
             .copied(),
@@ -171,12 +172,12 @@ fn repack_input_for_main_vm(
 
     let memory_read_witnesses = PerCircuitAccumulatorSparse::from_iter(
         geometry.cycles_per_vm_snapshot as usize,
-        memory_queries
+        explicit_memory_queries
             .iter()
             .filter(|(_, query)| !query.rw_flag)
             .copied(),
     );
-    drop(memory_queries);
+    drop(explicit_memory_queries);
 
     // prepare some inputs for MainVM circuits
 
@@ -317,9 +318,10 @@ use crate::zkevm_circuits::fsm_input_output::circuit_inputs::main_vm::VmCircuitW
 use super::oracle::WitnessGenerationArtifact;
 use super::vm_instance_witness_to_circuit_formal_input;
 
-pub(crate) fn process_main_vm<CB: FnMut(WitnessGenerationArtifact)>(
+pub(crate) fn process_main_vm(
     geometry: &GeometryConfig,
     in_circuit_global_context: GlobalContextWitness<GoldilocksField>,
+    explicit_memory_queries: &Vec<(u32, MemoryQuery)>,
     memory_artifacts_for_main_vm: MemoryArtifacts<GoldilocksField>,
     decommitment_artifacts_for_main_vm: DecommitmentArtifactsForMainVM<GoldilocksField>,
     storage_queries: PerCircuitAccumulatorSparse<(Cycle, LogQuery)>,
@@ -334,83 +336,19 @@ pub(crate) fn process_main_vm<CB: FnMut(WitnessGenerationArtifact)>(
     flat_new_frames_history: Vec<(Cycle, CallStackEntry)>,
     mut vm_snapshots: Vec<VmSnapshot>,
     round_function: Poseidon2Goldilocks,
-    artifacts_callback: &mut CB,
+    artifacts_callback_sender: SyncSender<WitnessGenerationArtifact>,
 ) -> (
     FirstAndLastCircuitWitness<VmObservableWitness<GoldilocksField>>,
     Vec<ClosedFormInputCompactFormWitness<GoldilocksField>>,
 ) {
-    let mut main_vm_circuits = FirstAndLastCircuitWitness::default();
-    let mut main_vm_circuits_compact_forms_witnesses = vec![];
-    let mut queue_simulator = RecursionQueueSimulator::empty();
-    let mut observable_input = None;
-    let mut process_vm_witness = |vm_instance, is_last| {
-        let is_first = observable_input.is_none();
-        let mut circuit_input = vm_instance_witness_to_circuit_formal_input(
-            vm_instance,
-            is_first,
-            is_last,
-            in_circuit_global_context.clone(),
-        );
-
-        if observable_input.is_none() {
-            assert!(is_first);
-            observable_input = Some(circuit_input.closed_form_input.observable_input.clone());
-        } else {
-            circuit_input.closed_form_input.observable_input =
-                observable_input.as_ref().unwrap().clone();
-        }
-
-        let (proof_system_input, compact_form_witness) =
-            simulate_public_input_value_from_encodable_witness(
-                circuit_input.closed_form_input.clone(),
-                &round_function,
-            );
-
-        let instance = VMMainCircuit {
-            witness: AtomicCell::new(Some(circuit_input)),
-            config: Arc::new(geometry.cycles_per_vm_snapshot as usize),
-            round_function: Arc::new(round_function),
-            expected_public_input: Some(proof_system_input),
-        };
-
-        if is_first {
-            let mut wit = instance.clone_witness().unwrap();
-            let wit = wit.closed_form_input();
-            main_vm_circuits.first = Some(VmObservableWitness {
-                observable_input: wit.observable_input.clone(),
-                observable_output: wit.observable_output.clone(),
-            });
-        }
-        if is_last {
-            let mut wit = instance.clone_witness().unwrap();
-            let wit = wit.closed_form_input();
-            main_vm_circuits.last = Some(VmObservableWitness {
-                observable_input: wit.observable_input.clone(),
-                observable_output: wit.observable_output.clone(),
-            });
-        }
-
-        let instance = ZkSyncBaseLayerCircuit::MainVM(instance);
-
-        let recursive_request = RecursionRequest {
-            circuit_type: GoldilocksField::from_u64_unchecked(
-                instance.numeric_circuit_type() as u64
-            ),
-            public_input: proof_system_input,
-        };
-        queue_simulator.push(recursive_request, &round_function);
-
-        artifacts_callback(WitnessGenerationArtifact::BaseLayerCircuit(instance));
-        main_vm_circuits_compact_forms_witnesses.push(compact_form_witness);
-    };
-
-    let mut previous_instance_witness: Option<
+    let mut instances_witnesses: Vec<
         VmInstanceWitness<GoldilocksField, VmWitnessOracle<GoldilocksField>>,
-    > = None;
+    > = vec![];
 
     let main_vm_inputs = repack_input_for_main_vm(
         geometry,
         &vm_snapshots,
+        explicit_memory_queries,
         memory_artifacts_for_main_vm,
         decommitment_artifacts_for_main_vm,
         callstack_simulation_result,
@@ -426,18 +364,12 @@ pub(crate) fn process_main_vm<CB: FnMut(WitnessGenerationArtifact)>(
     vm_snapshots.push(vm_snapshots.last().unwrap().clone());
     let circuits_len = vm_snapshots.windows(2).len();
 
-    let amount_of_circuits = vm_snapshots.windows(2).enumerate().len();
-
     tracing::debug!("Processing MainVM circuits");
 
     // parallelizable
     for ((circuit_idx, pair), main_vm_input) in
         vm_snapshots.windows(2).enumerate().zip(main_vm_inputs)
     {
-        if amount_of_circuits / 100 != 0 && circuit_idx % (amount_of_circuits / 100) == 0 {
-            tracing::debug!("{} / {}", circuit_idx, amount_of_circuits);
-        }
-
         let is_last = circuit_idx == circuits_len - 1;
 
         let initial_state = &pair[0];
@@ -473,9 +405,8 @@ pub(crate) fn process_main_vm<CB: FnMut(WitnessGenerationArtifact)>(
                 .rollback_length,
         };
 
-        if let Some(mut prev) = previous_instance_witness {
+        if let Some(prev) = instances_witnesses.last_mut() {
             prev.auxilary_final_parameters = auxilary_initial_parameters.clone();
-            process_vm_witness(prev, is_last);
         }
 
         if !is_last {
@@ -526,17 +457,90 @@ pub(crate) fn process_main_vm<CB: FnMut(WitnessGenerationArtifact)>(
                 final_state: final_state.local_state.clone(),
                 auxilary_final_parameters: VmInCircuitAuxilaryParameters::default(), // we will use next circuit's initial as final here!
             };
-            previous_instance_witness = Some(instance_witness);
-        } else {
-            previous_instance_witness = None;
+            instances_witnesses.push(instance_witness);
         }
     }
 
-    artifacts_callback(WitnessGenerationArtifact::RecursionQueue((
-        BaseLayerCircuitType::VM as u64,
-        queue_simulator,
-        main_vm_circuits_compact_forms_witnesses.clone(),
-    )));
+    let mut main_vm_circuits = FirstAndLastCircuitWitness::default();
+    let mut main_vm_circuits_compact_forms_witnesses = vec![];
+    let mut queue_simulator = RecursionQueueSimulator::empty();
+
+    let observable_input = vm_instance_witness_to_circuit_formal_input(
+        instances_witnesses.first().unwrap().clone(),
+        true,
+        instances_witnesses.len() == 1,
+        in_circuit_global_context.clone(),
+    )
+    .closed_form_input
+    .observable_input;
+
+    let instances_len = instances_witnesses.len();
+    for (index, vm_instance) in instances_witnesses.into_iter().enumerate() {
+        let is_last = index == instances_len - 1;
+        let is_first = index == 0;
+
+        let mut circuit_input = vm_instance_witness_to_circuit_formal_input(
+            vm_instance,
+            is_first,
+            is_last,
+            in_circuit_global_context.clone(),
+        );
+
+        circuit_input.closed_form_input.observable_input = observable_input.clone();
+
+        let (proof_system_input, compact_form_witness) =
+            simulate_public_input_value_from_encodable_witness(
+                circuit_input.closed_form_input.clone(),
+                &round_function,
+            );
+
+        let instance = VMMainCircuit {
+            witness: AtomicCell::new(Some(circuit_input)),
+            config: Arc::new(geometry.cycles_per_vm_snapshot as usize),
+            round_function: Arc::new(round_function),
+            expected_public_input: Some(proof_system_input),
+        };
+
+        if is_first {
+            let mut wit = instance.clone_witness().unwrap();
+            let wit = wit.closed_form_input();
+            main_vm_circuits.first = Some(VmObservableWitness {
+                observable_input: wit.observable_input.clone(),
+                observable_output: wit.observable_output.clone(),
+            });
+        }
+        if is_last {
+            let mut wit = instance.clone_witness().unwrap();
+            let wit = wit.closed_form_input();
+            main_vm_circuits.last = Some(VmObservableWitness {
+                observable_input: wit.observable_input.clone(),
+                observable_output: wit.observable_output.clone(),
+            });
+        }
+
+        let instance = ZkSyncBaseLayerCircuit::MainVM(instance);
+
+        let recursive_request = RecursionRequest {
+            circuit_type: GoldilocksField::from_u64_unchecked(
+                instance.numeric_circuit_type() as u64
+            ),
+            public_input: proof_system_input,
+        };
+
+        queue_simulator.push(recursive_request, &round_function);
+        artifacts_callback_sender
+            .send(WitnessGenerationArtifact::BaseLayerCircuit(instance))
+            .unwrap();
+        main_vm_circuits_compact_forms_witnesses.push(compact_form_witness);
+    }
+
+    artifacts_callback_sender
+        .send(WitnessGenerationArtifact::RecursionQueue((
+            BaseLayerCircuitType::VM as u64,
+            queue_simulator,
+            main_vm_circuits_compact_forms_witnesses.clone(),
+        )))
+        .unwrap();
 
     (main_vm_circuits, main_vm_circuits_compact_forms_witnesses)
 }

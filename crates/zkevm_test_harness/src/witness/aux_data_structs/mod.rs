@@ -23,8 +23,7 @@ use crate::witness::aux_data_structs::per_circuit_accumulator::PerCircuitAccumul
 use circuit_definitions::encodings::memory_query::CustomMemoryQueueSimulator;
 use circuit_definitions::encodings::memory_query::QueueWitness;
 
-pub type MemoryQueuePerCircuitSimulator<F> =
-    CustomMemoryQueueSimulator<F, PerCircuitAccumulator<QueueWitness<F>>>;
+pub type MemoryQueuePerCircuitSimulator<F> = CustomMemoryQueueSimulator<F>;
 
 pub(crate) mod one_per_circuit_accumulator;
 pub(crate) mod per_circuit_accumulator;

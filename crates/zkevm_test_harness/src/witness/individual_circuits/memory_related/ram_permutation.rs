@@ -28,12 +28,14 @@ use rayon::prelude::*;
 use snark_wrapper::boojum::field::Field as _;
 use std::borrow::Borrow;
 use std::cmp::Ordering;
+use std::sync::mpsc::SyncSender;
 use std::sync::Arc;
 use zkevm_circuits::base_structures::vm_state::QUEUE_STATE_WIDTH;
 
 use crate::zk_evm::zkevm_opcode_defs::BOOTLOADER_HEAP_PAGE;
 
-pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)>(
+pub(crate) fn compute_ram_circuit_snapshots(
+    sorted_memory_queries_indexes: Vec<usize>,
     memory_queries: &Vec<(u32, MemoryQuery)>,
     implicit_memory_queries: &ImplicitMemoryQueries,
     memory_queue_states_accumulator: LastPerCircuitAccumulator<
@@ -47,7 +49,7 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
     round_function: &RoundFunction,
     num_non_deterministic_heap_queries: usize,
     geometry: &GeometryConfig,
-    mut artifacts_callback: CB,
+    artifacts_callback_sender: SyncSender<WitnessGenerationArtifact>,
 ) -> (
     FirstAndLastCircuitWitness<RamPermutationObservableWitness<Field>>,
     Vec<ClosedFormInputCompactFormWitness<Field>>,
@@ -104,15 +106,10 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
         .chain(implicit_memory_queries.iter())
         .collect();
 
-    use crate::witness::aux_data_structs::per_circuit_accumulator::PerCircuitAccumulator;
-    use rayon::prelude::*;
-    use std::cmp::Ordering;
-    let mut all_memory_queries_sorted = all_memory_queries.clone();
-    // sort by memory location, and then by timestamp
-    all_memory_queries_sorted.par_sort_by(|a, b| match a.location.cmp(&b.location) {
-        Ordering::Equal => a.timestamp.cmp(&b.timestamp),
-        a @ _ => a,
-    });
+    let mut all_memory_queries_sorted = Vec::with_capacity(all_memory_queries.len()); // TODO cleanup?
+    for index in sorted_memory_queries_indexes.iter() {
+        all_memory_queries_sorted.push(all_memory_queries[*index]);
+    }
 
     assert_eq!(
         memory_queue_simulator.num_items as usize,
@@ -124,6 +121,15 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
     let mut rhs_grand_product_chains =
         Vec::with_capacity(DEFAULT_NUM_PERMUTATION_ARGUMENT_REPETITIONS);
     {
+        let lhs_contributions: Vec<_> = all_memory_queries
+            .par_iter()
+            .map(|x| x.encoding_witness())
+            .collect();
+        let rhs_contributions: Vec<_> = sorted_memory_queries_indexes
+            .into_par_iter()
+            .map(|x| lhs_contributions[x])
+            .collect();
+
         let challenges = produce_fs_challenges::<
             Field,
             RoundFunction,
@@ -138,19 +144,10 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
             round_function,
         );
 
-        let lhs_contributions: Vec<_> = all_memory_queries
-            .iter()
-            .map(|x| x.encoding_witness())
-            .collect();
-        let rhs_contributions: Vec<_> = all_memory_queries_sorted
-            .iter()
-            .map(|x| x.encoding_witness())
-            .collect();
-
         for idx in 0..DEFAULT_NUM_PERMUTATION_ARGUMENT_REPETITIONS {
             let (lhs_grand_product_chain, rhs_grand_product_chain) = compute_grand_product_chains(
-                &lhs_contributions.iter().collect(),
-                &rhs_contributions.iter().collect(),
+                &lhs_contributions,
+                &rhs_contributions,
                 &challenges[idx],
             );
 
@@ -405,9 +402,13 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
             tmp.current_sorted_queue_state.clone(),
         );
 
-        artifacts_callback(WitnessGenerationArtifact::BaseLayerCircuit(
-            ZkSyncBaseLayerCircuit::RAMPermutation(maker.process(instance_witness, circuit_type)),
-        ));
+        artifacts_callback_sender
+            .send(WitnessGenerationArtifact::BaseLayerCircuit(
+                ZkSyncBaseLayerCircuit::RAMPermutation(
+                    maker.process(instance_witness, circuit_type),
+                ),
+            ))
+            .unwrap();
     }
 
     drop(lhs_grand_product_chains);
@@ -418,11 +419,13 @@ pub(crate) fn compute_ram_circuit_snapshots<CB: FnMut(WitnessGenerationArtifact)
         queue_simulator,
         ram_permutation_circuits_compact_forms_witnesses,
     ) = maker.into_results();
-    artifacts_callback(WitnessGenerationArtifact::RecursionQueue((
-        circuit_type as u64,
-        queue_simulator,
-        ram_permutation_circuits_compact_forms_witnesses.clone(),
-    )));
+    artifacts_callback_sender
+        .send(WitnessGenerationArtifact::RecursionQueue((
+            circuit_type as u64,
+            queue_simulator,
+            ram_permutation_circuits_compact_forms_witnesses.clone(),
+        )))
+        .unwrap();
 
     (
         ram_permutation_circuits,

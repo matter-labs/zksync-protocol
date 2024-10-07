@@ -80,7 +80,6 @@ pub(crate) fn keccak256_decompose_into_per_circuit_witness<
     F: SmallField,
     R: BuildableCircuitRoundFunction<F, 8, 12, 4> + AlgebraicRoundFunction<F, 8, 12, 4>,
 >(
-    amount_of_memory_queries_before: usize,
     keccak256_memory_queries: Vec<MemoryQuery>,
     keccak256_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     keccak256_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
@@ -89,16 +88,17 @@ pub(crate) fn keccak256_decompose_into_per_circuit_witness<
     mut demuxed_keccak_precompile_queue: LogQueueStates<F>,
     num_rounds_per_circuit: usize,
     round_function: &R,
-) -> (Vec<Keccak256RoundFunctionCircuitInstanceWitness<F>>, usize) {
+) -> Vec<Keccak256RoundFunctionCircuitInstanceWitness<F>> {
     assert_eq!(
         keccak256_memory_queries.len(),
         keccak256_memory_states.len()
     );
 
     let memory_simulator_before = &keccak256_simulator_snapshots[0];
+    let memory_simulator_after = &keccak256_simulator_snapshots[1];
     assert_eq!(
-        amount_of_memory_queries_before,
-        memory_simulator_before.num_items as usize
+        keccak256_memory_queries.len(),
+        memory_simulator_after.num_items as usize - memory_simulator_before.num_items as usize
     );
 
     let mut result = vec![];
@@ -120,7 +120,7 @@ pub(crate) fn keccak256_decompose_into_per_circuit_witness<
     );
 
     if keccak_precompile_calls.len() == 0 {
-        return (vec![], amount_of_memory_queries_before);
+        return vec![];
     }
 
     let mut round_counter = 0;
@@ -466,16 +466,7 @@ pub(crate) fn keccak256_decompose_into_per_circuit_witness<
         }
     }
 
-    let memory_simulator_after = &keccak256_simulator_snapshots[1];
-    let amount_of_memory_queries_after =
-        amount_of_memory_queries_before + keccak256_memory_queries.len();
-
-    assert_eq!(
-        amount_of_memory_queries_after,
-        memory_simulator_after.num_items as usize
-    );
-
-    (result, amount_of_memory_queries_after)
+    result
 }
 
 pub(crate) fn encode_keccak256_inner_state(state: [u64; 25]) -> [[[u8; 8]; 5]; 5] {
