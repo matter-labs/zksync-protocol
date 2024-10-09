@@ -17,9 +17,9 @@ type EcPairingInputTuple = [U256; 6];
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ECPairingRoundWitness {
-    pub new_request: LogQuery,
+    pub new_request: Option<LogQuery>,
     pub reads: [MemoryQuery; MEMORY_READS_PER_CYCLE],
-    pub writes: [MemoryQuery; MEMORY_WRITES_PER_CYCLE],
+    pub writes: Option<[MemoryQuery; MEMORY_WRITES_PER_CYCLE]>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -50,29 +50,31 @@ impl<const B: bool> Precompile for ECPairingPrecompile<B> {
             index: MemoryIndex(params.input_memory_offset),
         };
 
-        // we do 8*num_rounds queries per precompile
         let mut read_history = if B {
             Vec::with_capacity(num_rounds * MEMORY_READS_PER_CYCLE)
         } else {
             vec![]
         };
         let mut write_history = if B {
-            Vec::with_capacity(num_rounds * MEMORY_WRITES_PER_CYCLE)
+            Vec::with_capacity(MEMORY_WRITES_PER_CYCLE)
         } else {
             vec![]
         };
 
-        let mut round_witness = ECPairingRoundWitness {
-            new_request: precompile_call_params,
-            reads: [MemoryQuery::empty(); MEMORY_READS_PER_CYCLE],
-            writes: [MemoryQuery::empty(); MEMORY_WRITES_PER_CYCLE],
-        };
-        let mut read_idx = 0;
-
         let mut check_tuples = Vec::<EcPairingInputTuple>::with_capacity(num_rounds);
+        let mut witnesses = Vec::<ECPairingRoundWitness>::with_capacity(num_rounds);
+
+        let mut round_witness = ECPairingRoundWitness {
+            new_request: None,
+            reads: [MemoryQuery::empty(); MEMORY_READS_PER_CYCLE],
+            writes: None,
+        };
 
         // Doing NUM_ROUNDS
-        for _ in 0..num_rounds {
+        for i in 0..num_rounds {
+            if i == 0 {
+                round_witness.new_request = Some(precompile_call_params);
+            }
             // we assume that we have
             // - x1 as U256 as a first coordinate of the first point (32 bytes)
             // - y1 as U256 as a second coordinate of the first point (32 bytes)
@@ -91,8 +93,7 @@ impl<const B: bool> Precompile for ECPairingPrecompile<B> {
             let x1_query = memory.execute_partial_query(monotonic_cycle_counter, x1_query);
             let x1_value = x1_query.value;
             if B {
-                round_witness.reads[read_idx] = x1_query;
-                read_idx += 1;
+                round_witness.reads[i % MEMORY_READS_PER_CYCLE] = x1_query;
                 read_history.push(x1_query);
             }
 
@@ -107,8 +108,7 @@ impl<const B: bool> Precompile for ECPairingPrecompile<B> {
             let y1_query = memory.execute_partial_query(monotonic_cycle_counter, y1_query);
             let y1_value = y1_query.value;
             if B {
-                round_witness.reads[read_idx] = y1_query;
-                read_idx += 1;
+                round_witness.reads[(i + 1) % MEMORY_READS_PER_CYCLE] = y1_query;
                 read_history.push(y1_query);
             }
 
@@ -123,8 +123,7 @@ impl<const B: bool> Precompile for ECPairingPrecompile<B> {
             let x2_query = memory.execute_partial_query(monotonic_cycle_counter, x2_query);
             let x2_value = x2_query.value;
             if B {
-                round_witness.reads[read_idx] = x2_query;
-                read_idx += 1;
+                round_witness.reads[(i + 2) % MEMORY_READS_PER_CYCLE] = x2_query;
                 read_history.push(x2_query);
             }
 
@@ -139,8 +138,7 @@ impl<const B: bool> Precompile for ECPairingPrecompile<B> {
             let y2_query = memory.execute_partial_query(monotonic_cycle_counter, y2_query);
             let y2_value = y2_query.value;
             if B {
-                round_witness.reads[read_idx] = y2_query;
-                read_idx += 1;
+                round_witness.reads[(i + 3) % MEMORY_READS_PER_CYCLE] = y2_query;
                 read_history.push(y2_query);
             }
 
@@ -155,8 +153,7 @@ impl<const B: bool> Precompile for ECPairingPrecompile<B> {
             let x3_query = memory.execute_partial_query(monotonic_cycle_counter, x3_query);
             let x3_value = x3_query.value;
             if B {
-                round_witness.reads[read_idx] = x3_query;
-                read_idx += 1;
+                round_witness.reads[(i + 4) % MEMORY_READS_PER_CYCLE] = x3_query;
                 read_history.push(x3_query);
             }
 
@@ -171,14 +168,22 @@ impl<const B: bool> Precompile for ECPairingPrecompile<B> {
             let y3_query = memory.execute_partial_query(monotonic_cycle_counter, y3_query);
             let y3_value = y3_query.value;
             if B {
-                round_witness.reads[read_idx] = y3_query;
+                round_witness.reads[(i + 5) % MEMORY_READS_PER_CYCLE] = y3_query;
                 read_history.push(y3_query);
             }
             current_read_location.index.0 += 1;
 
+            let last_round = i == num_rounds - 1;
+            // We'll add write queries into last round witness separately
+            if !last_round {
+                witnesses.push(round_witness.clone());
+            }
             // Setting check tuples
             check_tuples.push([x1_value, y1_value, x2_value, y2_value, x3_value, y3_value]);
         }
+
+        let mut ok_or_err_query = MemoryQuery::empty();
+        let mut result_query = MemoryQuery::empty();
 
         // Performing ecpairing check
         let pairing_check = ecpairing_inner(check_tuples.to_vec());
@@ -192,14 +197,14 @@ impl<const B: bool> Precompile for ECPairingPrecompile<B> {
 
             // Marking that the operation was successful
             let ok_marker = U256::one();
-            let ok_or_err_query = MemoryQuery {
+            ok_or_err_query = MemoryQuery {
                 timestamp: timestamp_to_write,
                 location: write_location,
                 value: ok_marker,
                 value_is_pointer: false,
                 rw_flag: true,
             };
-            let ok_or_err_query =
+            ok_or_err_query =
                 memory.execute_partial_query(monotonic_cycle_counter, ok_or_err_query);
 
             // Converting result to one if true and zero otherwise
@@ -209,18 +214,16 @@ impl<const B: bool> Precompile for ECPairingPrecompile<B> {
             }
 
             write_location.index.0 += 1;
-            let result_query = MemoryQuery {
+            result_query = MemoryQuery {
                 timestamp: timestamp_to_write,
                 location: write_location,
                 value: output_value,
                 value_is_pointer: false,
                 rw_flag: true,
             };
-            let result_query = memory.execute_partial_query(monotonic_cycle_counter, result_query);
+            result_query = memory.execute_partial_query(monotonic_cycle_counter, result_query);
 
             if B {
-                round_witness.writes[0] = ok_or_err_query;
-                round_witness.writes[1] = result_query;
                 write_history.push(ok_or_err_query);
                 write_history.push(result_query);
             }
@@ -232,37 +235,37 @@ impl<const B: bool> Precompile for ECPairingPrecompile<B> {
             };
 
             let err_marker = U256::zero();
-            let ok_or_err_query = MemoryQuery {
+            ok_or_err_query = MemoryQuery {
                 timestamp: timestamp_to_write,
                 location: write_location,
                 value: err_marker,
                 value_is_pointer: false,
                 rw_flag: true,
             };
-            let ok_or_err_query =
+            ok_or_err_query =
                 memory.execute_partial_query(monotonic_cycle_counter, ok_or_err_query);
 
             write_location.index.0 += 1;
             let empty_result = U256::zero();
-            let result_query = MemoryQuery {
+            result_query = MemoryQuery {
                 timestamp: timestamp_to_write,
                 location: write_location,
                 value: empty_result,
                 value_is_pointer: false,
                 rw_flag: true,
             };
-            let result_query = memory.execute_partial_query(monotonic_cycle_counter, result_query);
+            result_query = memory.execute_partial_query(monotonic_cycle_counter, result_query);
 
             if B {
-                round_witness.writes[0] = ok_or_err_query;
-                round_witness.writes[1] = result_query;
                 write_history.push(ok_or_err_query);
                 write_history.push(result_query);
             }
         }
 
         let witness = if B {
-            Some((read_history, write_history, vec![round_witness]))
+            round_witness.writes = Some([ok_or_err_query, result_query]);
+            witnesses.push(round_witness);
+            Some((read_history, write_history, witnesses))
         } else {
             None
         };
