@@ -117,11 +117,7 @@ impl<const B: bool> Precompile for ModexpPrecompile<B> {
         }
 
         // Performing modular exponentiation
-        let modexp = modexp_inner(
-            b_value,
-            e_value,
-            m_value,
-        );
+        let modexp = modexp_inner(b_value, e_value, m_value);
 
         if let Ok(modexp) = modexp {
             let mut write_location = MemoryLocation {
@@ -210,11 +206,7 @@ impl<const B: bool> Precompile for ModexpPrecompile<B> {
 /// This function evaluates the `modexp(b,e,m)`. For now, b_size, e_size, and m_size are not used.
 /// It uses the simplest square-and-multiply method that can be found here:
 /// https://cse.buffalo.edu/srds2009/escs2009_submission_Gopal.pdf.
-pub fn modexp_inner(
-    b: U256,
-    e: U256,
-    m: U256,
-) -> Result<U256> {
+pub fn modexp_inner(b: U256, e: U256, m: U256) -> Result<U256> {
     let mut a = U256::one();
 
     let modmul = |a: U256, b: U256, m: U256| {

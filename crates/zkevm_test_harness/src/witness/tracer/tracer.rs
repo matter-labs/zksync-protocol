@@ -411,7 +411,6 @@ impl VmWitnessTracer<8, EncodingModeProduction> for WitnessTracer {
                 ));
             }
             PrecompileCyclesWitness::ECPairing(wit) => {
-                assert_eq!(wit.len(), 1);
                 self.ecpairing_witnesses
                     .push((monotonic_cycle_counter, call_params, wit));
             }
