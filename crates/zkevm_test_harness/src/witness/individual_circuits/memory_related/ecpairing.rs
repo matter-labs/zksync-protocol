@@ -29,7 +29,9 @@ pub(crate) fn ecpairing_memory_queries(
         .fold(0, |mut inner, (_, _, witness)| {
             witness.iter().for_each(|el| {
                 inner += el.reads.len();
-                inner += el.writes.len();
+                if el.writes.is_some() {
+                    inner += 1;
+                }
             });
 
             inner
@@ -46,11 +48,11 @@ pub(crate) fn ecpairing_memory_queries(
             } = el;
 
             // we read, then write
-            reads.iter().for_each(|read| {
-                ecpairing_memory_queries.push(*read);
-            });
+            ecpairing_memory_queries.extend_from_slice(reads);
 
-            ecpairing_memory_queries.extend_from_slice(writes);
+            if let Some(writes) = writes.as_ref() {
+                ecpairing_memory_queries.extend_from_slice(writes);
+            }
         }
     }
 
@@ -172,6 +174,10 @@ pub(crate) fn ecpairing_decompose_into_per_circuit_witness<
         let mut internal_state = one_fq12;
 
         for (round_idx, round) in round_witness.into_iter().enumerate() {
+            if round_idx == 0 {
+                assert!(round.new_request.is_some());
+            }
+
             let mut input_pair = [U256::zero(); 6];
 
             for (i, read) in round.reads.iter().enumerate() {
@@ -193,7 +199,8 @@ pub(crate) fn ecpairing_decompose_into_per_circuit_witness<
 
             if is_last_round {
                 assert_eq!(num_rounds_left, 0);
-                let [write_ok, write_res] = round.writes;
+                assert!(round.writes.is_some());
+                let [write_ok, write_res] = round.writes.unwrap();
                 let write_query = memory_queries_it.next().unwrap();
                 assert_eq!(write_ok, write_query);
                 let write_query = memory_queries_it.next().unwrap();

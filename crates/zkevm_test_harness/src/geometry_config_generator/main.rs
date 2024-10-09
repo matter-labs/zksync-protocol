@@ -180,5 +180,8 @@ fn main() {
     ));
     function.line("}");
     println!("Generated config:\n {}", scope.to_string());
-    save_geometry_config_file(scope.to_string(), "crates/circuit_sequencer_api/src/geometry_config.rs");
+    save_geometry_config_file(
+        scope.to_string(),
+        "crates/circuit_sequencer_api/src/geometry_config.rs",
+    );
 }
