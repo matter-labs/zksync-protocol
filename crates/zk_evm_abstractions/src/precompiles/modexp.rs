@@ -4,8 +4,8 @@ pub use zkevm_opcode_defs::sha2::Digest;
 
 use super::*;
 
-// NOTE: We need exponent, base, and modulus, and their respective sizes
-pub const MEMORY_READS_PER_CYCLE: usize = 6;
+// NOTE: We need exponent, base, and modulus
+pub const MEMORY_READS_PER_CYCLE: usize = 3;
 // NOTE: We need to specify the result of the exponentiation and the status of the operation
 pub const MEMORY_WRITES_PER_CYCLE: usize = 2;
 
@@ -46,14 +46,11 @@ impl<const B: bool> Precompile for ModexpPrecompile<B> {
         };
 
         // we assume that we have
-        // - BSize - size of the base number
-        // - ESize - size of the exponent
-        // - MSize - size of the modulus
         // - B - base number
         // - E - exponent
         // - M - modulus
 
-        // we do 8 queries per precompile
+        // we do 5 queries per precompile
         let mut read_history = if B {
             Vec::with_capacity(MEMORY_READS_PER_CYCLE)
         } else {
@@ -73,54 +70,6 @@ impl<const B: bool> Precompile for ModexpPrecompile<B> {
 
         let mut read_idx = 0;
 
-        let b_size_query = MemoryQuery {
-            timestamp: timestamp_to_read,
-            location: current_read_location,
-            value: U256::zero(),
-            value_is_pointer: false,
-            rw_flag: false,
-        };
-        let b_size_query = memory.execute_partial_query(monotonic_cycle_counter, b_size_query);
-        let b_size_value = b_size_query.value;
-        if B {
-            round_witness.reads[read_idx] = b_size_query;
-            read_idx += 1;
-            read_history.push(b_size_query);
-        }
-
-        current_read_location.index.0 += 1;
-        let e_size_query = MemoryQuery {
-            timestamp: timestamp_to_read,
-            location: current_read_location,
-            value: U256::zero(),
-            value_is_pointer: false,
-            rw_flag: false,
-        };
-        let e_size_query = memory.execute_partial_query(monotonic_cycle_counter, e_size_query);
-        let e_size_value = e_size_query.value;
-        if B {
-            round_witness.reads[read_idx] = e_size_query;
-            read_idx += 1;
-            read_history.push(e_size_query);
-        }
-
-        current_read_location.index.0 += 1;
-        let m_size_query = MemoryQuery {
-            timestamp: timestamp_to_read,
-            location: current_read_location,
-            value: U256::zero(),
-            value_is_pointer: false,
-            rw_flag: false,
-        };
-        let m_size_query = memory.execute_partial_query(monotonic_cycle_counter, m_size_query);
-        let m_size_value = m_size_query.value;
-        if B {
-            round_witness.reads[read_idx] = m_size_query;
-            read_idx += 1;
-            read_history.push(m_size_query);
-        }
-
-        current_read_location.index.0 += 1;
         let b_query = MemoryQuery {
             timestamp: timestamp_to_read,
             location: current_read_location,
@@ -167,11 +116,8 @@ impl<const B: bool> Precompile for ModexpPrecompile<B> {
             read_history.push(m_query);
         }
 
-        // Perfmoring modular exponentiation
+        // Performing modular exponentiation
         let modexp = modexp_inner(
-            b_size_value,
-            e_size_value,
-            m_size_value,
             b_value,
             e_value,
             m_value,
@@ -196,7 +142,7 @@ impl<const B: bool> Precompile for ModexpPrecompile<B> {
             let ok_or_err_query =
                 memory.execute_partial_query(monotonic_cycle_counter, ok_or_err_query);
 
-            // Writing resultant modexp result
+            // Writing modexp result
             write_location.index.0 += 1;
 
             let result_query = MemoryQuery {
@@ -265,9 +211,6 @@ impl<const B: bool> Precompile for ModexpPrecompile<B> {
 /// It uses the simplest square-and-multiply method that can be found here:
 /// https://cse.buffalo.edu/srds2009/escs2009_submission_Gopal.pdf.
 pub fn modexp_inner(
-    _b_size: U256,
-    _e_size: U256,
-    _m_size: U256,
     b: U256,
     e: U256,
     m: U256,
@@ -323,7 +266,7 @@ pub mod tests {
         let e = U256::from_str("0x9").unwrap();
         let m = U256::from_str("0xa").unwrap();
 
-        let result = modexp_inner(U256::zero(), U256::zero(), U256::zero(), b, e, m).unwrap();
+        let result = modexp_inner(b, e, m).unwrap();
 
         assert_eq!(result, U256::from_str("0x8").unwrap());
     }
@@ -343,7 +286,7 @@ pub mod tests {
             U256::from_str("0xec6f05ec20e4c25420f9d6bc6800f9544ecabf5dbea80d11e0fb12c7f0517f5b")
                 .unwrap();
 
-        let result = modexp_inner(U256::zero(), U256::zero(), U256::zero(), b, e, m).unwrap();
+        let result = modexp_inner(b, e, m).unwrap();
 
         assert_eq!(
             result,
