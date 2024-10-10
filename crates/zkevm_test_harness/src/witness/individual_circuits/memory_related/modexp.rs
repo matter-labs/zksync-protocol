@@ -25,7 +25,7 @@ pub(crate) fn modexp_memory_queries(
         modexp_memory_queries.extend_from_slice(&witness.reads);
         modexp_memory_queries.extend_from_slice(&witness.writes);
 
-        assert_eq!(modexp_memory_queries.len() - initial_memory_len, 8);
+        assert_eq!(modexp_memory_queries.len() - initial_memory_len, 5);
     }
     modexp_memory_queries
 }
