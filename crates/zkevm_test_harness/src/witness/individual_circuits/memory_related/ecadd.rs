@@ -128,7 +128,7 @@ pub(crate) fn ecadd_decompose_into_per_circuit_witness<
             amount_of_queries += 1;
         }
 
-        assert_eq!(amount_of_queries, 6);
+        assert_eq!(amount_of_queries, 7);
         round_counter += 1;
 
         if round_counter == num_rounds_per_circuit || is_last_request {
