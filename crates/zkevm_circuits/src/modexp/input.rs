@@ -67,5 +67,5 @@ pub type ModexpCircuitInputOutputWitness<F> = ClosedFormInputWitness<
 pub struct ModexpCircuitInstanceWitness<F: SmallField> {
     pub closed_form_input: ModexpCircuitInputOutputWitness<F>,
     pub requests_queue_witness: CircuitQueueRawWitness<F, LogQuery<F>, 4, LOG_QUERY_PACKED_WIDTH>,
-    pub memory_reads_witness: VecDeque<[U256; MEMORY_QUERIES_PER_CALL]>,
+    pub memory_reads_witness: VecDeque<[U256; NUM_MEMORY_READS_PER_CYCLE]>,
 }
