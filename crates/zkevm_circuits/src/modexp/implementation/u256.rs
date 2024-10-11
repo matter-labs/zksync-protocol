@@ -52,6 +52,9 @@ where
         a = UInt256::conditionally_select(cs, e, &a_base, &a_squared);
     }
 
+    // See EIP-198; if exponent is zero, we shall return zero.
+    let e_is_zero = exponent.is_zero(cs);
+    let a = a.mask_negated(cs, e_is_zero);
     a
 }
 
