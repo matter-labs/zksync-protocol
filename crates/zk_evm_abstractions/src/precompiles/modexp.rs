@@ -1,19 +1,16 @@
-use anyhow::Result;
 use zkevm_opcode_defs::ethereum_types::U256;
 pub use zkevm_opcode_defs::sha2::Digest;
 
 use super::*;
 
-// NOTE: We need exponent, base, and modulus
+// Base, exponent and modulus
 pub const MEMORY_READS_PER_CYCLE: usize = 3;
-// NOTE: We need to specify the result of the exponentiation and the status of the operation
-pub const MEMORY_WRITES_PER_CYCLE: usize = 2;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ModexpRoundWitness {
     pub new_request: LogQuery,
     pub reads: [MemoryQuery; MEMORY_READS_PER_CYCLE],
-    pub writes: [MemoryQuery; MEMORY_WRITES_PER_CYCLE],
+    pub write: MemoryQuery,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -45,19 +42,8 @@ impl<const B: bool> Precompile for ModexpPrecompile<B> {
             index: MemoryIndex(params.input_memory_offset),
         };
 
-        // we assume that we have
-        // - B - base number
-        // - E - exponent
-        // - M - modulus
-
-        // we do 5 queries per precompile
         let mut read_history = if B {
             Vec::with_capacity(MEMORY_READS_PER_CYCLE)
-        } else {
-            vec![]
-        };
-        let mut write_history = if B {
-            Vec::with_capacity(MEMORY_WRITES_PER_CYCLE)
         } else {
             vec![]
         };
@@ -65,10 +51,8 @@ impl<const B: bool> Precompile for ModexpPrecompile<B> {
         let mut round_witness = ModexpRoundWitness {
             new_request: precompile_call_params,
             reads: [MemoryQuery::empty(); MEMORY_READS_PER_CYCLE],
-            writes: [MemoryQuery::empty(); MEMORY_WRITES_PER_CYCLE],
+            write: MemoryQuery::empty(),
         };
-
-        let mut read_idx = 0;
 
         let b_query = MemoryQuery {
             timestamp: timestamp_to_read,
@@ -78,10 +62,9 @@ impl<const B: bool> Precompile for ModexpPrecompile<B> {
             rw_flag: false,
         };
         let b_query = memory.execute_partial_query(monotonic_cycle_counter, b_query);
-        let b_value = b_query.value;
+        let base = b_query.value;
         if B {
-            round_witness.reads[read_idx] = b_query;
-            read_idx += 1;
+            round_witness.reads[0] = b_query;
             read_history.push(b_query);
         }
 
@@ -94,10 +77,9 @@ impl<const B: bool> Precompile for ModexpPrecompile<B> {
             rw_flag: false,
         };
         let e_query = memory.execute_partial_query(monotonic_cycle_counter, e_query);
-        let e_value = e_query.value;
+        let exponent = e_query.value;
         if B {
-            round_witness.reads[read_idx] = e_query;
-            read_idx += 1;
+            round_witness.reads[1] = e_query;
             read_history.push(e_query);
         }
 
@@ -110,91 +92,35 @@ impl<const B: bool> Precompile for ModexpPrecompile<B> {
             rw_flag: false,
         };
         let m_query = memory.execute_partial_query(monotonic_cycle_counter, m_query);
-        let m_value = m_query.value;
+        let modulus = m_query.value;
         if B {
-            round_witness.reads[read_idx] = m_query;
+            round_witness.reads[2] = m_query;
             read_history.push(m_query);
         }
 
-        // Performing modular exponentiation
-        let modexp = modexp_inner(b_value, e_value, m_value);
+        let result = modexp_inner(base, exponent, modulus);
 
-        if let Ok(modexp) = modexp {
-            let mut write_location = MemoryLocation {
-                memory_type: MemoryType::Heap, // we default for some value, here it's not that important
-                page: MemoryPage(params.memory_page_to_write),
-                index: MemoryIndex(params.output_memory_offset),
-            };
+        let write_location = MemoryLocation {
+            memory_type: MemoryType::Heap, // we default for some value, here it's not that important
+            page: MemoryPage(params.memory_page_to_write),
+            index: MemoryIndex(params.output_memory_offset),
+        };
 
-            // Marking that the operation was successful
-            let ok_marker = U256::one();
-            let ok_or_err_query = MemoryQuery {
-                timestamp: timestamp_to_write,
-                location: write_location,
-                value: ok_marker,
-                value_is_pointer: false,
-                rw_flag: true,
-            };
-            let ok_or_err_query =
-                memory.execute_partial_query(monotonic_cycle_counter, ok_or_err_query);
+        let result_query = MemoryQuery {
+            timestamp: timestamp_to_write,
+            location: write_location,
+            value: result,
+            value_is_pointer: false,
+            rw_flag: true,
+        };
+        let result_query = memory.execute_partial_query(monotonic_cycle_counter, result_query);
 
-            // Writing modexp result
-            write_location.index.0 += 1;
-
-            let result_query = MemoryQuery {
-                timestamp: timestamp_to_write,
-                location: write_location,
-                value: modexp,
-                value_is_pointer: false,
-                rw_flag: true,
-            };
-            let result_query = memory.execute_partial_query(monotonic_cycle_counter, result_query);
-
-            if B {
-                round_witness.writes[0] = ok_or_err_query;
-                round_witness.writes[1] = result_query;
-                write_history.push(ok_or_err_query);
-                write_history.push(result_query);
-            }
-        } else {
-            let mut write_location = MemoryLocation {
-                memory_type: MemoryType::Heap, // we default for some value, here it's not that important
-                page: MemoryPage(params.memory_page_to_write),
-                index: MemoryIndex(params.output_memory_offset),
-            };
-
-            let err_marker = U256::zero();
-            let ok_or_err_query = MemoryQuery {
-                timestamp: timestamp_to_write,
-                location: write_location,
-                value: err_marker,
-                value_is_pointer: false,
-                rw_flag: true,
-            };
-            let ok_or_err_query =
-                memory.execute_partial_query(monotonic_cycle_counter, ok_or_err_query);
-
-            write_location.index.0 += 1;
-            let empty_result = U256::zero();
-            let result_query = MemoryQuery {
-                timestamp: timestamp_to_write,
-                location: write_location,
-                value: empty_result,
-                value_is_pointer: false,
-                rw_flag: true,
-            };
-            let result_query = memory.execute_partial_query(monotonic_cycle_counter, result_query);
-
-            if B {
-                round_witness.writes[0] = ok_or_err_query;
-                round_witness.writes[1] = result_query;
-                write_history.push(ok_or_err_query);
-                write_history.push(result_query);
-            }
+        if B {
+            round_witness.write = result_query;
         }
 
         let witness = if B {
-            Some((read_history, write_history, vec![round_witness]))
+            Some((read_history, vec![result_query], vec![round_witness]))
         } else {
             None
         };
@@ -203,33 +129,35 @@ impl<const B: bool> Precompile for ModexpPrecompile<B> {
     }
 }
 
-/// This function evaluates the `modexp(b,e,m)`. For now, b_size, e_size, and m_size are not used.
+/// This function evaluates the `modexp(b,e,m)`.
 /// It uses the simplest square-and-multiply method that can be found here:
 /// https://cse.buffalo.edu/srds2009/escs2009_submission_Gopal.pdf.
-pub fn modexp_inner(b: U256, e: U256, m: U256) -> Result<U256> {
+pub fn modexp_inner(b: U256, e: U256, m: U256) -> U256 {
+    // See EIP-198 for specification
+    if b.is_zero() || e.is_zero() || m.is_zero() {
+        return U256::zero();
+    }
+
     let mut a = U256::one();
 
     let modmul = |a: U256, b: U256, m: U256| {
-        // Computing a*b mod m
         let product: zkevm_opcode_defs::ethereum_types::U512 = a.full_mul(b);
-        let (_, result) = product.div_mod(m.into());
+        let (_, rem) = product.div_mod(m.into());
 
-        // Converting result in U512 to U256 format
-        // TODO: Wrap an error
-        let result: U256 = result.try_into().expect("U512 to U256 conversion failed");
-        anyhow::Ok(result)
+        let result: U256 = rem.try_into().unwrap();
+        result
     };
 
     for i in (0..e.bits()).rev() {
         let bit = e.bit(i);
 
-        a = modmul(a, a, m)?;
+        a = modmul(a, a, m);
         if bit {
-            a = modmul(a, b, m)?;
+            a = modmul(a, b, m);
         }
     }
 
-    Ok(a)
+    a
 }
 
 pub fn modexp_function<M: Memory, const B: bool>(
@@ -258,7 +186,7 @@ pub mod tests {
         let e = U256::from_str("0x9").unwrap();
         let m = U256::from_str("0xa").unwrap();
 
-        let result = modexp_inner(b, e, m).unwrap();
+        let result = modexp_inner(b, e, m);
 
         assert_eq!(result, U256::from_str("0x8").unwrap());
     }
@@ -278,7 +206,7 @@ pub mod tests {
             U256::from_str("0xec6f05ec20e4c25420f9d6bc6800f9544ecabf5dbea80d11e0fb12c7f0517f5b")
                 .unwrap();
 
-        let result = modexp_inner(b, e, m).unwrap();
+        let result = modexp_inner(b, e, m);
 
         assert_eq!(
             result,

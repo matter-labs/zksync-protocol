@@ -13,7 +13,7 @@ pub(crate) fn modexp_memory_queries(
     modexp_witnesses: &Vec<(u32, LogQuery_, ModexpRoundWitness)>,
 ) -> Vec<MemoryQuery> {
     let amount_of_queries = modexp_witnesses.iter().fold(0, |inner, (_, _, witness)| {
-        inner + witness.reads.len() + witness.writes.len()
+        inner + witness.reads.len() + 1 // one per one write
     });
 
     let mut modexp_memory_queries = Vec::with_capacity(amount_of_queries);
@@ -23,9 +23,9 @@ pub(crate) fn modexp_memory_queries(
 
         // we read, then write
         modexp_memory_queries.extend_from_slice(&witness.reads);
-        modexp_memory_queries.extend_from_slice(&witness.writes);
+        modexp_memory_queries.push(witness.write);
 
-        assert_eq!(modexp_memory_queries.len() - initial_memory_len, 5);
+        assert_eq!(modexp_memory_queries.len() - initial_memory_len, 4);
     }
     modexp_memory_queries
 }
@@ -106,7 +106,7 @@ pub(crate) fn modexp_decompose_into_per_circuit_witness<
         let is_last_request = request_idx == num_requests - 1;
 
         let mut amount_of_queries = 0;
-        // we have 6 reads
+        // we have 3 reads
         for (_query_index, read) in round_witness.reads.into_iter().enumerate() {
             let read_query = memory_queries_it.next().unwrap();
             assert!(read == read_query);
@@ -119,19 +119,16 @@ pub(crate) fn modexp_decompose_into_per_circuit_witness<
             amount_of_queries += 1;
         }
 
-        // and 2 writes
-        for (_query_index, write) in round_witness.writes.into_iter().enumerate() {
-            let write_query = memory_queries_it.next().unwrap();
-            assert!(write == write_query);
-            assert!(write_query.rw_flag == true);
+        // And one write
+        let write_query = memory_queries_it.next().unwrap();
+        assert!(write_query.rw_flag == true);
 
-            current_memory_queue_state = memory_queue_states_it.next().unwrap().clone();
+        current_memory_queue_state = memory_queue_states_it.next().unwrap().clone();
 
-            precompile_request.output_memory_offset += 1;
-            amount_of_queries += 1;
-        }
+        precompile_request.output_memory_offset += 1;
+        amount_of_queries += 1;
 
-        assert_eq!(amount_of_queries, 5);
+        assert_eq!(amount_of_queries, 4);
         round_counter += 1;
 
         if round_counter == num_rounds_per_circuit || is_last_request {
