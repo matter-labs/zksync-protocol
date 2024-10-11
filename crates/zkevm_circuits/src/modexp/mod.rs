@@ -24,7 +24,6 @@ use boojum::gadgets::traits::round_function::CircuitRoundFunction;
 use boojum::gadgets::traits::selectable::Selectable;
 use boojum::gadgets::traits::witnessable::WitnessHookable;
 use boojum::gadgets::u160::UInt160;
-use boojum::gadgets::u2048::UInt2048;
 use boojum::gadgets::u256::UInt256;
 use boojum::gadgets::u32::UInt32;
 use boojum::gadgets::u8::UInt8;
@@ -45,12 +44,7 @@ use crate::storage_application::ConditionalWitnessAllocator;
 
 use super::*;
 
-pub const BASE_U256_SIZE: usize = 1; // 256
-pub const EXP_U256_SIZE: usize = 1; // 256
-pub const MOD_U256_SIZE: usize = 1; //  256
-
-pub const MEMORY_QUERIES_PER_CALL: usize = BASE_U256_SIZE + EXP_U256_SIZE + MOD_U256_SIZE;
-pub const NUM_MEMORY_READS_PER_CYCLE: usize = BASE_U256_SIZE + EXP_U256_SIZE + MOD_U256_SIZE;
+pub const NUM_MEMORY_READS_PER_CYCLE: usize = 3;
 
 #[derive(Derivative, CSSelectable)]
 #[derivative(Clone, Debug)]
@@ -77,61 +71,6 @@ impl<F: SmallField> ModexpPrecompileCallParams<F> {
 
         new
     }
-}
-
-// Use this function in case you wish to update base or mod size from u256 to u2048 bits.
-fn uint256s_to_u2048<F: SmallField, CS: ConstraintSystem<F>>(
-    cs: &mut CS,
-    values: [UInt256<F>; 8],
-) -> UInt2048<F> {
-    let mut u2048: UInt2048<F> = UInt2048::zero(cs);
-
-    for (i, value) in values.iter().enumerate() {
-        u2048.inner[i * 8..(i + 1) * 8].copy_from_slice(&value.inner);
-    }
-
-    u2048
-}
-
-// Use this function in case you wish to update base or mod size from u256 to u2048 bits.
-fn uint2048_to_uint256s<F: SmallField, CS: ConstraintSystem<F>>(
-    cs: &mut CS,
-    value: UInt2048<F>,
-) -> [UInt256<F>; 8] {
-    let mut result: [UInt256<F>; 8] = core::array::from_fn(|_| UInt256::zero(cs));
-
-    for (i, chunk) in result.iter_mut().enumerate() {
-        chunk
-            .inner
-            .copy_from_slice(&value.inner[i * 8..(i + 1) * 8]);
-    }
-
-    result
-}
-
-fn modexp_precompile_inner<F: SmallField, CS: ConstraintSystem<F>>(
-    cs: &mut CS,
-    values: [UInt256<F>; NUM_MEMORY_READS_PER_CYCLE],
-) -> (Boolean<F>, [UInt256<F>; MOD_U256_SIZE]) {
-    let base: [UInt256<F>; BASE_U256_SIZE] = values[..BASE_U256_SIZE].try_into().unwrap();
-    let exponent: [UInt256<F>; EXP_U256_SIZE] = values
-        [BASE_U256_SIZE..BASE_U256_SIZE + EXP_U256_SIZE]
-        .try_into()
-        .unwrap();
-    let modulus: [UInt256<F>; MOD_U256_SIZE] = values
-        [BASE_U256_SIZE + EXP_U256_SIZE..BASE_U256_SIZE + EXP_U256_SIZE + MOD_U256_SIZE]
-        .try_into()
-        .unwrap();
-
-    // This shall be edited if dimensions for something change:
-    let base = base[0];
-    let exponent = exponent[0];
-    let modulus = modulus[0];
-
-    let success = Boolean::allocated_constant(cs, true);
-    let result = modexp_32_32_32(cs, &base, &exponent, &modulus);
-
-    (success, [result])
 }
 
 pub fn modexp_function_entry_point<
@@ -271,51 +210,25 @@ where
                 }
             }
         }
-
-        let (success, v) = modexp_precompile_inner(cs, read_values);
-
-        let success_as_u32 = unsafe { UInt32::from_variable_unchecked(success.get_variable()) };
-        let mut success = zero_u256;
-        success.inner[0] = success_as_u32;
+        let [base, exponent, modulus] = read_values;
+        let result = modexp_32_32_32(cs, &base, &exponent, &modulus);
 
         if crate::config::CIRCUIT_VERSOBE {
             if should_process.witness_hook(cs)().unwrap() == true {
-                dbg!(success.witness_hook(cs)());
-                for each in v.iter() {
-                    dbg!(each.witness_hook(cs)());
-                }
+                dbg!(result.witness_hook(cs)());
             }
         }
 
-        let success_query = MemoryQuery {
+        let result_query = MemoryQuery {
             timestamp: timestamp_to_use_for_write,
             memory_page: precompile_call_params.output_page,
             index: precompile_call_params.output_offset,
             rw_flag: boolean_true,
             is_ptr: boolean_false,
-            value: success,
+            value: result,
         };
 
-        let _ = memory_queue.push(cs, success_query, should_process);
-        precompile_call_params.output_offset = precompile_call_params
-            .output_offset
-            .add_no_overflow(cs, one_u32);
-
-        for v_u256 in v {
-            let v_u256_query = MemoryQuery {
-                timestamp: timestamp_to_use_for_write,
-                memory_page: precompile_call_params.output_page,
-                index: precompile_call_params.output_offset,
-                rw_flag: boolean_true,
-                is_ptr: boolean_false,
-                value: v_u256,
-            };
-
-            let _ = memory_queue.push(cs, v_u256_query, should_process);
-            precompile_call_params.output_offset = precompile_call_params
-                .output_offset
-                .add_no_overflow(cs, one_u32);
-        }
+        let _ = memory_queue.push(cs, result_query, should_process);
     }
 
     requests_queue.enforce_consistency(cs);
