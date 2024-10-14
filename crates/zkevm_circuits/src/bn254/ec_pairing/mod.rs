@@ -287,7 +287,6 @@ where
             &state.timestamp_to_use_for_write,
         );
 
-        let _reset_buffer = Boolean::multi_or(cs, &[state.read_precompile_call, state.completed]);
         state.read_words_for_round = Boolean::multi_or(
             cs,
             &[state.read_precompile_call, state.read_words_for_round],
