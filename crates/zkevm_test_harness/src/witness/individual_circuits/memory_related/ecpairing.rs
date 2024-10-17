@@ -206,7 +206,7 @@ pub(crate) fn ecpairing_decompose_into_per_circuit_witness<
                 let write_query = memory_queries_it.next().unwrap();
                 assert_eq!(write_res, write_query);
 
-                current_memory_queue_state = memory_queue_states_it.next().unwrap().clone();
+                _ = memory_queue_states_it.next().unwrap().clone();
                 current_memory_queue_state = memory_queue_states_it.next().unwrap().clone();
 
                 if is_last_request {
