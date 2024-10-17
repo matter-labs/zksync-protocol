@@ -25,7 +25,7 @@ where
 {
     fn geometry() -> CSGeometry {
         CSGeometry {
-            num_columns_under_copy_permutation: 200,
+            num_columns_under_copy_permutation: 100,
             num_witness_columns: 0,
             num_constant_columns: 8,
             max_allowed_constraint_degree: 4,
@@ -63,7 +63,10 @@ where
         );
         let builder = BooleanConstraintGate::configure_builder(
             builder,
-            GatePlacementStrategy::UseGeneralPurposeColumns,
+            GatePlacementStrategy::UseSpecializedColumns {
+                num_repetitions: 1,
+                share_constants: false,
+            },
         );
         let builder = UIntXAddGate::<32>::configure_builder(
             builder,
