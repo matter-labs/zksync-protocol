@@ -83,6 +83,7 @@ pub(crate) fn modexp_decompose_into_per_circuit_witness<
     let mut starting_request_idx = 0;
 
     let mut memory_queue_input_state = memory_simulator_before.take_sponge_like_queue_state();
+    #[allow(unused_assignments)]
     let mut current_memory_queue_state = memory_queue_input_state.clone();
 
     let mut memory_queue_states_it = modexp_memory_states.iter();
@@ -113,7 +114,7 @@ pub(crate) fn modexp_decompose_into_per_circuit_witness<
             assert!(read_query.rw_flag == false);
             memory_reads_per_request.push(read_query.value);
 
-            current_memory_queue_state = memory_queue_states_it.next().unwrap().clone();
+            _ = memory_queue_states_it.next().unwrap().clone();
 
             precompile_request.input_memory_offset += 1;
             amount_of_queries += 1;
