@@ -182,7 +182,9 @@ impl<const B: bool> Precompile for ECPairingPrecompile<B> {
             check_tuples.push([x1_value, y1_value, x2_value, y2_value, x3_value, y3_value]);
         }
 
+        #[allow(unused_assignments)]
         let mut ok_or_err_query = MemoryQuery::empty();
+        #[allow(unused_assignments)]
         let mut result_query = MemoryQuery::empty();
 
         // Performing ecpairing check
