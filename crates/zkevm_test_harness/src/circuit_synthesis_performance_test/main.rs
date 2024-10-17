@@ -35,6 +35,10 @@ fn get_circuit_to_synthesis_upper_bound_in_seconds(circuit_type: u8) -> u64 {
         (15, 5 * 60), // 5 min
         (16, 5 * 60), // 5 min
         (17, 5 * 60), // 5 min
+        (17, 5 * 60), // 5 min
+        (17, 5 * 60), // 5 min
+        (17, 5 * 60), // 5 min
+        (17, 5 * 60), // 5 min
     ].iter().cloned().collect();
     map[&circuit_type]
 }
