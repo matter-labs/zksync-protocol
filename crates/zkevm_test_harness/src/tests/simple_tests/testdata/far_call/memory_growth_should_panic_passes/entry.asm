@@ -22,13 +22,9 @@ __entry:
     context.ergs_left r9
     add r9, r0, stack[0]
 
-    far_call r1, r2, @catch_all
-
-    add stack[0], r0, r10
-    context.ergs_left r9
-    add r9, r0, stack[0]
+    far_call r1, r2, @expected_panic
 
     ret.panic r0
 
-catch_all:
+expected_panic:
     ret.ok r0
