@@ -10,7 +10,7 @@
     __entry:
     .main:
         ; create ABI for far_call
-        ; give 10k gas
+        ; give 100k gas
         add 100000, r1, r1
         shl.s 96, r1, r1
         add 36, r1, r1
