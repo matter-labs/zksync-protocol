@@ -15,8 +15,8 @@ mod tests {
         )
     }
 
-    /// Regression test for an exploit where it was possible to allocate the entire heap
-    /// and pay only 66 ergs for it.
+    /// Regression test: it should not be possible to allocate the entire heap,
+    /// paying only 66 ergs for it.
     #[test_log::test]
     fn test_unpaid_heap_allocation() {
         run_asm_based_test(
