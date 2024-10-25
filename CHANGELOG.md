@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.150.7](https://github.com/matter-labs/zksync-protocol/compare/v0.150.6...v0.150.7) (2024-10-25)
+
+
+### Bug Fixes
+
+* remove the need for the `regex` crate's `pattern` feature ([#51](https://github.com/matter-labs/zksync-protocol/issues/51)) ([042ed7c](https://github.com/matter-labs/zksync-protocol/commit/042ed7c1d141f9da0ce54eb680bc42dc706371b2))
+
 ## [0.150.6](https://github.com/matter-labs/zksync-protocol/compare/v0.150.5...v0.150.6) (2024-10-07)
 
 
