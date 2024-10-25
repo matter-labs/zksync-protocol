@@ -74,7 +74,7 @@ fn replace_tags_in_template(
     let mut result = asm_template.clone();
     let template_regex = Regex::new(r#"\$\{[^\}]+\}"#).expect("Invalid regex");
 
-    for (_, matched) in asm_template.match_indices(&template_regex) {
+    for matched in template_regex.find_iter(&asm_template).map(|m| m.as_str()) {
         let prefix = "${";
         let suffix = "}";
         let key_to_replace = matched
@@ -111,7 +111,7 @@ fn link_additional_contracts(
     // regex: <ADDRESS.asm>
     let contract_regex = Regex::new(r#"<\d+\.asm>"#).expect("Invalid regex");
 
-    for (_, matched) in asm.match_indices(&contract_regex) {
+    for matched in contract_regex.find_iter(asm).map(|m| m.as_str()) {
         let prefix = "<";
         let suffix = ".asm>";
         let contract_address = Address::from_low_u64_be(
@@ -214,7 +214,7 @@ fn replace_directives(asm: String, directive: Directive) -> (String, Vec<String>
     };
 
     let mut args_for_commands: Vec<String> = Vec::new();
-    for (index, matched) in asm.match_indices(&regex) {
+    for (index, matched) in regex.find_iter(&asm).map(|m| (m.start(), m.as_str())) {
         // skip if directive commented out
         if asm[..index]
             .chars()
@@ -330,9 +330,9 @@ fn parse_args<'a>(text: &'a str, prefix: &str, suffix: &str) -> Vec<&'a str> {
         .expect("Invalid text in directive")
         .trim();
 
-    trimmed_content
-        .matches(&args_regex)
-        .map(|x| x.trim_matches(',').trim().trim_matches('"'))
+    args_regex
+        .find_iter(trimmed_content)
+        .map(|x| x.as_str().trim_matches(',').trim().trim_matches('"'))
         .collect()
 }
 
