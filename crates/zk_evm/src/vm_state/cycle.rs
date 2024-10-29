@@ -80,7 +80,7 @@ pub fn read_and_decode<
     // global generic tracing
     if DT::CALL_BEFORE_DECODING {
         let local_state = VmLocalStateData {
-            vm_local_state: &local_state,
+            vm_local_state: local_state,
         };
 
         tracer.before_decoding(local_state, memory);
@@ -121,7 +121,6 @@ pub fn read_and_decode<
             // then for our BE machine we should consider that "first" bytes, that will be
             // our integer's "highest" bytes, so to follow bytearray-like enumeration we
             // have to use inverse order here
-            let u256_word = u256_word;
             E::integer_representaiton_from_u256(u256_word, sub_pc)
         } else {
             // use a saved one
@@ -180,8 +179,7 @@ pub fn read_and_decode<
     }
 
     // now try to get ergs price (unmodified for hard cases), that will also allow us to catch invalid opcode
-    let mut ergs_cost =
-        zkevm_opcode_defs::OPCODES_PRICES[opcode_raw_variant_idx.into_usize()] as u32;
+    let mut ergs_cost: u32 = zkevm_opcode_defs::OPCODES_PRICES[opcode_raw_variant_idx.into_usize()];
     if skip_cycle {
         // we have already paid for it
         ergs_cost = 0;
@@ -319,7 +317,7 @@ impl<
 
         let (after_masking_decoded, delayed_changes, skip_cycle) = read_and_decode(
             &self.local_state,
-            &mut self.memory,
+            &self.memory,
             &mut self.witness_tracer,
             tracer,
         );
@@ -421,7 +419,7 @@ impl<
                 new_pc,
             };
 
-            tracer.before_execution(local_state, data, &mut self.memory);
+            tracer.before_execution(local_state, data, &self.memory);
         }
 
         let is_kernel_mode = self
@@ -481,7 +479,7 @@ impl<
                 dst0_mem_location,
             };
 
-            tracer.after_execution(local_state, data, &mut self.memory);
+            tracer.after_execution(local_state, data, &self.memory);
         }
 
         Ok(())

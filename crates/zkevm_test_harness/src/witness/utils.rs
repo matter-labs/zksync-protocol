@@ -56,8 +56,8 @@ pub fn log_queries_into_states<
     result
 }
 
-pub fn transform_queue_state<F: SmallField, const N: usize, const M: usize>(
-    witness_state: QueueIntermediateStates<F, QUEUE_STATE_WIDTH, N, M>,
+pub fn transform_queue_state<F: SmallField, const N: usize>(
+    witness_state: QueueIntermediateStates<F, QUEUE_STATE_WIDTH, N>,
 ) -> QueueStateWitness<F, QUEUE_STATE_WIDTH> {
     let result = QueueStateWitness {
         head: witness_state.head,
@@ -70,8 +70,8 @@ pub fn transform_queue_state<F: SmallField, const N: usize, const M: usize>(
     result
 }
 
-pub fn transform_sponge_like_queue_state<F: SmallField, const M: usize>(
-    witness_state: FullWidthQueueIntermediateStates<F, FULL_SPONGE_QUEUE_STATE_WIDTH, M>,
+pub fn transform_sponge_like_queue_state<F: SmallField>(
+    witness_state: FullWidthQueueIntermediateStates<F, FULL_SPONGE_QUEUE_STATE_WIDTH>,
 ) -> QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH> {
     let result = QueueStateWitness {
         head: witness_state.head,
@@ -290,50 +290,34 @@ where
         CLOSED_FORM_COMMITTMENT_LENGTH,
         R,
     >(&full_form.observable_input, round_function);
-    let observable_output_committment = commit_variable_length_encodable_witness::<
-        F,
-        OUT,
-        AW,
-        SW,
-        CW,
-        CLOSED_FORM_COMMITTMENT_LENGTH,
-        R,
-    >(&full_form.observable_output, round_function);
-
-    let hidden_fsm_input_committment = commit_variable_length_encodable_witness::<
-        F,
-        T,
-        AW,
-        SW,
-        CW,
-        CLOSED_FORM_COMMITTMENT_LENGTH,
-        R,
-    >(&full_form.hidden_fsm_input, round_function);
-    let hidden_fsm_output_committment = commit_variable_length_encodable_witness::<
-        F,
-        T,
-        AW,
-        SW,
-        CW,
-        CLOSED_FORM_COMMITTMENT_LENGTH,
-        R,
-    >(&full_form.hidden_fsm_output, round_function);
-
-    // mask FSM part. Observable part is NEVER masked
 
     let empty_committment = [F::ZERO; CLOSED_FORM_COMMITTMENT_LENGTH];
-
-    // mask FSM part. Observable part is NEVER masked
 
     let hidden_fsm_input_committment = if full_form.start_flag {
         empty_committment.clone()
     } else {
-        hidden_fsm_input_committment.clone()
+        commit_variable_length_encodable_witness::<
+            F,
+            T,
+            AW,
+            SW,
+            CW,
+            CLOSED_FORM_COMMITTMENT_LENGTH,
+            R,
+        >(&full_form.hidden_fsm_input, round_function)
     };
 
     // mask output. Observable output is zero is not the last indeed
     let observable_output_committment = if full_form.completion_flag {
-        observable_output_committment.clone()
+        commit_variable_length_encodable_witness::<
+            F,
+            OUT,
+            AW,
+            SW,
+            CW,
+            CLOSED_FORM_COMMITTMENT_LENGTH,
+            R,
+        >(&full_form.observable_output, round_function)
     } else {
         empty_committment.clone()
     };
@@ -342,7 +326,15 @@ where
     let hidden_fsm_output_committment = if full_form.completion_flag {
         empty_committment.clone()
     } else {
-        hidden_fsm_output_committment.clone()
+        commit_variable_length_encodable_witness::<
+            F,
+            T,
+            AW,
+            SW,
+            CW,
+            CLOSED_FORM_COMMITTMENT_LENGTH,
+            R,
+        >(&full_form.hidden_fsm_output, round_function)
     };
 
     let new = ClosedFormInputCompactFormWitness {
@@ -599,8 +591,8 @@ pub fn produce_fs_challenges<
 const PARALLELIZATION_CHUNK_SIZE: usize = 1 << 16;
 
 pub(crate) fn compute_grand_product_chains<F: SmallField, const N: usize, const M: usize>(
-    lhs_contributions: &Vec<&[F; N]>,
-    rhs_contributions: &Vec<&[F; N]>,
+    lhs_contributions: &Vec<[F; N]>,
+    rhs_contributions: &Vec<[F; N]>,
     challenges: &[F; M],
 ) -> (Vec<F>, Vec<F>) {
     assert_eq!(N + 1, M);

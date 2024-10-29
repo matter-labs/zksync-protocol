@@ -468,12 +468,8 @@ pub type LogQueueSimulator<F> = QueueSimulator<
     LOG_QUERY_PACKED_WIDTH,
     LOG_QUERY_ABSORBTION_ROUNDS,
 >;
-pub type LogQueueState<F> = QueueIntermediateStates<
-    F,
-    QUEUE_STATE_WIDTH,
-    FULL_SPONGE_QUEUE_STATE_WIDTH,
-    LOG_QUERY_ABSORBTION_ROUNDS,
->;
+pub type LogQueueState<F> =
+    QueueIntermediateStates<F, QUEUE_STATE_WIDTH, FULL_SPONGE_QUEUE_STATE_WIDTH>;
 
 pub type LogWithExtendedEnumerationQueueSimulator<F> = QueueSimulator<
     F,

@@ -289,13 +289,22 @@ impl<const N: usize, E: VmEncodingMode<N>> Linker<N, E> {
         let all_constant_labels_to_offset = constant_labels_to_offset.keys().cloned().collect();
         let all_globals_labels_to_offset = globals_labels_to_offset.keys().cloned().collect();
 
-        for el in all_function_labels_to_pc.intersection(&all_constant_labels_to_offset) {
+        if let Some(el) = all_function_labels_to_pc
+            .intersection(&all_constant_labels_to_offset)
+            .next()
+        {
             return Err(AssemblyParseError::DuplicateLabel(el.clone()));
         }
-        for el in all_function_labels_to_pc.intersection(&all_globals_labels_to_offset) {
+        if let Some(el) = all_function_labels_to_pc
+            .intersection(&all_globals_labels_to_offset)
+            .next()
+        {
             return Err(AssemblyParseError::DuplicateLabel(el.clone()));
         }
-        for el in all_constant_labels_to_offset.intersection(&all_globals_labels_to_offset) {
+        if let Some(el) = all_constant_labels_to_offset
+            .intersection(&all_globals_labels_to_offset)
+            .next()
+        {
             return Err(AssemblyParseError::DuplicateLabel(el.clone()));
         }
 

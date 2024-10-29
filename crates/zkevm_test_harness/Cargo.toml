@@ -1,16 +1,14 @@
 [package]
 name = "zkevm_test_harness"
 version.workspace = true
-edition = "2021"
-authors = ["Alex Vlasov <alex.m.vlasov@gmail.com>", "Konstantin Panarin <kp@matterlabs.dev>"]
-homepage = "https://zksync.io/"
-repository = "https://github.com/matter-labs/era-zkevm_test_harness/"
-license = "MIT OR Apache-2.0"
-keywords = ["blockchain", "zksync"]
-categories = ["cryptography"]
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
 description = "ZKsync Era proving utilities"
-
-resolver = "2"
 
 # [[bin]]
 # name = "circuit_limit_estimator"
@@ -25,12 +23,13 @@ name = "geometry_config_generator"
 path = "src/geometry_config_generator/main.rs"
 
 [dependencies]
+# "Owned" dependencies
 circuit_definitions.workspace = true
 circuit_sequencer_api.workspace = true
 kzg.workspace = true
-
 zkevm-assembly.workspace = true
 
+# "External" dependencies
 rand = "0.4"
 rayon = "1.10"
 derivative = "2.2"
@@ -45,18 +44,11 @@ env_logger = "0.9"
 smallvec = "1.13"
 structopt = "0.3.26"
 codegen = "0.2.0"
-regex = { version = "1.10.6", features = ["pattern"] }
+regex = "1.11.1"
 
 [dev-dependencies]
 rand = "0.4"
 indicatif = "0.16"
-
-[profile.release]
-debug = false
-lto = false
-
-[profile.bench]
-debug = false
 
 [features]
 verbose_circuits = ["circuit_definitions/verbose_circuits", "circuit_sequencer_api/verbose_circuits"]

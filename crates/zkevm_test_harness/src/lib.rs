@@ -1,5 +1,4 @@
 #![recursion_limit = "32"]
-#![allow(dropping_references)]
 #![feature(allocator_api)]
 #![feature(array_chunks)]
 #![feature(stmt_expr_attributes)]
@@ -9,7 +8,12 @@
 #![feature(associated_type_defaults)]
 #![feature(bigint_helper_methods)]
 #![allow(unused_imports)]
-#![allow(clippy::drop_ref)]
+#![allow(
+    dropping_references,
+    clippy::needless_borrow,
+    clippy::needless_borrows_for_generic_args,
+    clippy::needless_range_loop
+)]
 
 use crate::boojum::field::goldilocks::GoldilocksField;
 use crate::boojum::implementations::poseidon2::Poseidon2Goldilocks;

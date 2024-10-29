@@ -10,6 +10,8 @@ pub mod testing_wrapper;
 mod wrapper_negative_tests;
 
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::sync::mpsc::sync_channel;
+use std::thread;
 
 use super::*;
 use crate::boojum::cs::implementations::pow::NoPow;
@@ -61,6 +63,7 @@ use utils::read_basic_test_artifact;
 
 use witness::oracle::WitnessGenerationArtifact;
 use zkevm_assembly::Assembly;
+use zkevm_circuits::base_structures::vm_state::FULL_SPONGE_QUEUE_STATE_WIDTH;
 
 #[ignore = "Too slow"]
 #[test]
@@ -257,26 +260,28 @@ pub(crate) fn generate_base_layer(
 
     let mut basic_block_circuits = vec![];
     let mut recursion_queues = vec![];
-    let mut unsorted_memory_queue_witnesses = vec![];
-    let mut sorted_memory_queue_witnesses = vec![];
 
-    let artifacts_callback = |artifact: WitnessGenerationArtifact| match artifact {
-        WitnessGenerationArtifact::BaseLayerCircuit(circuit) => basic_block_circuits.push(circuit),
-        WitnessGenerationArtifact::RecursionQueue((a, b, c)) => recursion_queues.push((
-            a,
-            b,
-            c.into_iter()
-                .map(|x| ZkSyncBaseLayerStorage::from_inner(a as u8, x))
-                .collect(),
-        )),
-        WitnessGenerationArtifact::MemoryQueueWitness((witnesses, sorted)) => {
-            if sorted {
-                sorted_memory_queue_witnesses.push(witnesses);
-            } else {
-                unsorted_memory_queue_witnesses.push(witnesses);
+    let (sender, receiver) = sync_channel(1);
+
+    let artifacts_receiver_handle = thread::spawn(move || {
+        while let Ok(artifact) = receiver.recv() {
+            match artifact {
+                WitnessGenerationArtifact::BaseLayerCircuit(circuit) => {
+                    basic_block_circuits.push(circuit)
+                }
+                WitnessGenerationArtifact::RecursionQueue((a, b, c)) => recursion_queues.push((
+                    a,
+                    b,
+                    c.into_iter()
+                        .map(|x| ZkSyncBaseLayerStorage::from_inner(a as u8, x))
+                        .collect(),
+                )),
+                _ => {}
             }
         }
-    };
+
+        (basic_block_circuits, recursion_queues)
+    });
 
     let (scheduler_partial_input, _aux_data) = run(
         Address::zero(),
@@ -292,29 +297,12 @@ pub(crate) fn generate_base_layer(
         geometry,
         storage_impl,
         tree,
-        "../kzg/src/trusted_setup.json",
+        "../kzg/src/trusted_setup.json".to_owned(),
         blobs,
-        artifacts_callback,
+        sender,
     );
 
-    let mut unsorted_memory_queue_witnesses_it = unsorted_memory_queue_witnesses.into_iter();
-    let mut sorted_memory_queue_witnesses = sorted_memory_queue_witnesses.into_iter();
-    for el in basic_block_circuits.iter_mut() {
-        match &el {
-            ZkSyncBaseLayerCircuit::RAMPermutation(inner) => {
-                let mut witness = inner.witness.take().unwrap();
-                witness.sorted_queue_witness = FullStateCircuitQueueRawWitness {
-                    elements: sorted_memory_queue_witnesses.next().unwrap().into(),
-                };
-                witness.unsorted_queue_witness = FullStateCircuitQueueRawWitness {
-                    elements: unsorted_memory_queue_witnesses_it.next().unwrap().into(),
-                };
-
-                inner.witness.store(Some(witness));
-            }
-            _ => {}
-        }
-    }
+    let (basic_block_circuits, recursion_queues) = artifacts_receiver_handle.join().unwrap();
 
     (
         basic_block_circuits,

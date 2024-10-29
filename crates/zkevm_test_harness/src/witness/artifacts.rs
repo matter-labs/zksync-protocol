@@ -11,12 +11,12 @@ use crate::zkevm_circuits::sha256_round_function::input::Sha256RoundFunctionCirc
 use crate::zkevm_circuits::sort_decommittment_requests::input::CodeDecommittmentsDeduplicatorInstanceWitness;
 use crate::zkevm_circuits::storage_validity_by_grand_product::input::StorageDeduplicatorInstanceWitness;
 use circuit_definitions::encodings::decommittment_request::DecommittmentQueueState;
-use circuit_definitions::encodings::memory_query::MemoryQueueState;
 use circuit_definitions::encodings::*;
 use circuit_definitions::zkevm_circuits::secp256r1_verify::Secp256r1VerifyCircuitInstanceWitness;
 use circuit_definitions::zkevm_circuits::transient_storage_validity_by_grand_product::input::TransientStorageDeduplicatorInstanceWitness;
 use circuit_sequencer_api::toolset::GeometryConfig;
 use derivative::Derivative;
+use zkevm_circuits::fsm_input_output::ClosedFormInputCompactFormWitness;
 
 use crate::witness::aux_data_structs::one_per_circuit_accumulator::CircuitsEntryAccumulatorSparse;
 use crate::witness::aux_data_structs::per_circuit_accumulator::PerCircuitAccumulatorSparse;
@@ -116,40 +116,79 @@ pub struct DecommitmentArtifactsForMainVM<F: SmallField> {
 }
 
 pub struct MemoryArtifacts<F: SmallField> {
-    pub memory_queries: Vec<(u32, MemoryQuery)>,
     pub memory_queue_entry_states:
         CircuitsEntryAccumulatorSparse<(u32, QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>)>,
 }
 
 #[derive(Derivative)]
 #[derivative(Default)]
-pub struct LogCircuitsArtifacts<F: SmallField> {
-    // IO related circuits
-    pub storage_deduplicator_circuit_data: Vec<StorageDeduplicatorInstanceWitness<F>>,
-    pub events_deduplicator_circuit_data: Vec<EventsDeduplicatorInstanceWitness<F>>,
-    pub l1_messages_deduplicator_circuit_data: Vec<EventsDeduplicatorInstanceWitness<F>>,
-    pub transient_storage_sorter_circuit_data: Vec<TransientStorageDeduplicatorInstanceWitness<F>>,
-    pub l1_messages_linear_hash_data: Vec<LinearHasherCircuitInstanceWitness<F>>,
+pub(crate) struct LogCircuitsArtifacts<F: SmallField> {
+    pub storage_application_artifacts: (
+        FirstAndLastCircuitWitness<StorageApplicationObservableWitness<F>>,
+        Vec<ClosedFormInputCompactFormWitness<F>>,
+    ),
+    pub storage_deduplicator_artifacts: (
+        FirstAndLastCircuitWitness<StorageDeduplicatorObservableWitness<F>>,
+        Vec<ClosedFormInputCompactFormWitness<F>>,
+    ),
+    pub events_deduplicator_artifacts: (
+        FirstAndLastCircuitWitness<EventsDeduplicatorObservableWitness<F>>,
+        Vec<ClosedFormInputCompactFormWitness<F>>,
+    ),
+    pub l1_messages_deduplicator_artifacts: (
+        FirstAndLastCircuitWitness<EventsDeduplicatorObservableWitness<F>>,
+        Vec<ClosedFormInputCompactFormWitness<F>>,
+    ),
+    pub transient_storage_sorter_artifacts: (
+        FirstAndLastCircuitWitness<TransientStorageDeduplicatorObservableWitness<F>>,
+        Vec<ClosedFormInputCompactFormWitness<F>>,
+    ),
+    pub l1_messages_linear_hash_artifacts: (
+        FirstAndLastCircuitWitness<LinearHasherObservableWitness<F>>,
+        Vec<ClosedFormInputCompactFormWitness<F>>,
+    ),
 }
 
 #[derive(Derivative)]
 #[derivative(Default)]
-pub struct MemoryCircuitsArtifacts<F: SmallField> {
-    // processed code decommitter circuits, as well as sorting circuit
-    pub code_decommitter_circuits_data: Vec<CodeDecommitterCircuitInstanceWitness<F>>,
-    pub decommittments_deduplicator_circuits_data:
-        Vec<CodeDecommittmentsDeduplicatorInstanceWitness<F>>,
-    //
-    pub keccak256_circuits_data: Vec<Keccak256RoundFunctionCircuitInstanceWitness<F>>,
-    //
-    pub sha256_circuits_data: Vec<Sha256RoundFunctionCircuitInstanceWitness<F>>,
-    //
-    pub ecrecover_circuits_data: Vec<EcrecoverCircuitInstanceWitness<F>>,
-    //
-    pub secp256r1_verify_circuits_data: Vec<Secp256r1VerifyCircuitInstanceWitness<F>>,
+pub(crate) struct MemoryCircuitsArtifacts<F: SmallField> {
+    pub ram_permutation_artifacts: (
+        FirstAndLastCircuitWitness<RamPermutationObservableWitness<F>>,
+        Vec<ClosedFormInputCompactFormWitness<F>>,
+    ),
+    pub code_decommitter_artifacts: (
+        FirstAndLastCircuitWitness<CodeDecommitterObservableWitness<F>>,
+        Vec<ClosedFormInputCompactFormWitness<F>>,
+    ),
+    pub keccak256_circuits_data: (
+        FirstAndLastCircuitWitness<Keccak256RoundFunctionObservableWitness<F>>,
+        Vec<ClosedFormInputCompactFormWitness<F>>,
+    ),
+    pub sha256_circuits_data: (
+        FirstAndLastCircuitWitness<Sha256RoundFunctionObservableWitness<F>>,
+        Vec<ClosedFormInputCompactFormWitness<F>>,
+    ),
+    pub ecrecover_circuits_data: (
+        FirstAndLastCircuitWitness<EcrecoverObservableWitness<F>>,
+        Vec<ClosedFormInputCompactFormWitness<F>>,
+    ),
+    pub secp256r1_verify_circuits_data: (
+        FirstAndLastCircuitWitness<Secp256r1VerifyObservableWitness<F>>,
+        Vec<ClosedFormInputCompactFormWitness<F>>,
+    ),
 }
 
 use crate::witness::aux_data_structs::one_per_circuit_accumulator::LastPerCircuitAccumulator;
+
+use super::postprocessing::observable_witness::{
+    CodeDecommitterObservableWitness, EcrecoverObservableWitness,
+    EventsDeduplicatorObservableWitness, Keccak256RoundFunctionObservableWitness,
+    LinearHasherObservableWitness, RamPermutationObservableWitness,
+    Secp256r1VerifyObservableWitness, Sha256RoundFunctionObservableWitness,
+    StorageApplicationObservableWitness, StorageDeduplicatorObservableWitness,
+    TransientStorageDeduplicatorObservableWitness,
+};
+use super::postprocessing::FirstAndLastCircuitWitness;
 
 #[derive(Derivative)]
 #[derivative(Default)]

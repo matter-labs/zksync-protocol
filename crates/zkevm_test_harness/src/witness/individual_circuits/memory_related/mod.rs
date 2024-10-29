@@ -15,8 +15,6 @@ use crate::zk_evm::zk_evm_abstractions::precompiles::keccak256::Keccak256RoundWi
 use crate::zk_evm::zk_evm_abstractions::precompiles::secp256r1_verify::Secp256r1VerifyRoundWitness;
 use crate::zk_evm::zk_evm_abstractions::precompiles::sha256::Sha256RoundWitness;
 
-use circuit_definitions::encodings::memory_query::MemoryQueueState;
-
 pub(crate) mod decommit_code;
 pub(crate) mod ecrecover;
 pub(crate) mod keccak256_round_function;
@@ -139,15 +137,15 @@ impl<F: SmallField, const SW: usize> SimulatorSnapshot<F, SW> {
 #[derive(Default)]
 pub(crate) struct ImplicitMemoryStates<F: SmallField> {
     pub decommitter_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
-    pub decommitter_memory_states: Vec<MemoryQueueState<F>>,
+    pub decommitter_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     pub ecrecover_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
-    pub ecrecover_memory_states: Vec<MemoryQueueState<F>>,
+    pub ecrecover_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     pub keccak256_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
-    pub keccak256_memory_states: Vec<MemoryQueueState<F>>,
+    pub keccak256_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     pub secp256r1_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
-    pub secp256r1_memory_states: Vec<MemoryQueueState<F>>,
+    pub secp256r1_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     pub sha256_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
-    pub sha256_memory_states: Vec<MemoryQueueState<F>>,
+    pub sha256_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
 }
 
 impl<F: SmallField> ImplicitMemoryStates<F> {
@@ -178,22 +176,26 @@ pub(crate) fn simulate_implicit_memory_queues<
     R: BuildableCircuitRoundFunction<F, 8, 12, 4> + AlgebraicRoundFunction<F, 8, 12, 4>,
 >(
     memory_queue_simulator: &mut MemoryQueuePerCircuitSimulator<F>,
-    memory_queue_states_accumulator: &mut LastPerCircuitAccumulator<MemoryQueueState<F>>,
+    memory_queue_states_accumulator: &mut LastPerCircuitAccumulator<
+        QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>,
+    >,
     implicit_memory_queries: &ImplicitMemoryQueries,
     round_function: R,
 ) -> ImplicitMemoryStates<F> {
     let mut implicit_memory_states = ImplicitMemoryStates::default();
 
     let mut simulate_subqueue =
-        |memory_queries: &Vec<MemoryQuery>, memory_states: &mut Vec<MemoryQueueState<F>>| {
+        |memory_queries: &Vec<MemoryQuery>,
+         memory_states: &mut Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>| {
+            memory_states.reserve_exact(memory_queries.len());
             let mut snapshots = vec![];
             snapshots.push(get_simulator_snapshot(memory_queue_simulator)); // before
             for query in memory_queries.iter() {
-                let (_old_tail, intermediate_info) = memory_queue_simulator
-                    .push_and_output_intermediate_data(*query, &round_function);
+                let (_old_tail, state_witness) = memory_queue_simulator
+                    .push_and_output_queue_state_witness(*query, &round_function);
 
-                memory_states.push(intermediate_info);
-                memory_queue_states_accumulator.push(intermediate_info);
+                memory_states.push(state_witness.clone());
+                memory_queue_states_accumulator.push(state_witness);
             }
             snapshots.push(get_simulator_snapshot(memory_queue_simulator)); // after
 

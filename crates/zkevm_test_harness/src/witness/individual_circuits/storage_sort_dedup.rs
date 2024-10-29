@@ -112,12 +112,11 @@ pub(crate) fn compute_storage_dedup_and_sort<
             >>::encoding_witness(&extended_query)
         })
         .collect();
-    let lhs_contributions_refs = lhs_contributions.iter().collect();
 
     let rhs_contributions: Vec<_> = intermediate_sorted_log_simulator
         .witness
         .iter()
-        .map(|el| &el.0)
+        .map(|el| el.0)
         .collect();
 
     // --------------------
@@ -133,7 +132,7 @@ pub(crate) fn compute_storage_dedup_and_sort<
             LOG_QUERY_PACKED_WIDTH,
             { LOG_QUERY_PACKED_WIDTH + 1 },
         >(
-            &lhs_contributions_refs,
+            &lhs_contributions,
             &rhs_contributions,
             &challenges[idx],
         );
@@ -364,8 +363,7 @@ pub(crate) fn compute_storage_dedup_and_sort<
                         } else {
                             // read
                             if new_this_cell_current_depth == 0 {
-                                new_this_cell_has_explicit_read_and_rollback_depth_zero =
-                                    true || new_this_cell_has_explicit_read_and_rollback_depth_zero;
+                                new_this_cell_has_explicit_read_and_rollback_depth_zero = true;
                             }
                             new_this_cell_current_value = item.raw_query.read_value;
                         }

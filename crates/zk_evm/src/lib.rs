@@ -1,3 +1,15 @@
+#![allow(
+    clippy::bool_comparison, // Local preference.
+    clippy::bool_assert_comparison, // Local preference.
+    clippy::match_like_matches_macro, // Doesn't always look better.
+    clippy::let_and_return, // Worsens readability.
+    clippy::collapsible_else_if, // Local preference.
+    clippy::collapsible_if, // Local preference.
+    clippy::collapsible_match, // Local preference.
+    clippy::assign_op_pattern, // Local preference.
+    clippy::single_match, // Local preference.
+)]
+
 pub mod block_properties;
 pub mod errors;
 pub mod flags;

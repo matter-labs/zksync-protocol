@@ -1,6 +1,14 @@
 name: "Rust CI"
 on:
   pull_request:
+    paths:
+      - "crates/**"
+      - "Cargo.toml"
+      - ".github/workflows/ci.yaml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -35,7 +43,7 @@ jobs:
           rustup toolchain install nightly-2023-08-23
           rustup default nightly-2023-08-23
           cargo install cargo-nextest
-      - name: zkevm_test_harness - Main test 
+      - name: zkevm_test_harness - Main test
         run: cargo nextest run --release --manifest-path crates/zkevm_test_harness/Cargo.toml --test-threads 2
       - name: Encodings test
         run: cargo nextest run --release --manifest-path crates/circuit_encodings/Cargo.toml

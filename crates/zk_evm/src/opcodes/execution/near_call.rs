@@ -67,7 +67,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
         let current_stack = vm_state.local_state.callstack.get_current_stack();
         // we only need to change a PC and formally start a new context
 
-        let mut new_stack = current_stack.clone();
+        let mut new_stack = *current_stack;
         new_stack.pc = dst;
         new_stack.exception_handler_location = exception_handler_location;
         new_stack.ergs_remaining = passed_ergs;

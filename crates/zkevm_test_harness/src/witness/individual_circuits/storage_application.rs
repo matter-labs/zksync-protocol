@@ -1,3 +1,4 @@
+use std::sync::mpsc::SyncSender;
 use std::sync::Arc;
 
 use self::toolset::GeometryConfig;
@@ -27,14 +28,14 @@ use zk_evm::aux_structures::LogQuery;
 
 use crate::sha3::Digest;
 
-pub(crate) fn decompose_into_storage_application_witnesses<CB: FnMut(WitnessGenerationArtifact)>(
+pub(crate) fn decompose_into_storage_application_witnesses(
     deduplicated_rollup_storage_queue_simulator: LogQueueSimulator<GoldilocksField>,
     deduplicated_rollup_storage_queries: Vec<LogQuery>,
     mut tree: impl BinarySparseStorageTree<256, 32, 32, 8, 32, Blake2s256, ZkSyncStorageLeaf>,
     round_function: &Poseidon2Goldilocks,
     num_rounds_per_circuit: usize,
     geometry: &GeometryConfig,
-    mut artifacts_callback: CB,
+    artifacts_callback_sender: SyncSender<WitnessGenerationArtifact>,
 ) -> (
     FirstAndLastCircuitWitness<StorageApplicationObservableWitness<GoldilocksField>>,
     Vec<ClosedFormInputCompactFormWitness<GoldilocksField>>,
@@ -254,9 +255,11 @@ pub(crate) fn decompose_into_storage_application_witnesses<CB: FnMut(WitnessGene
 
         initial_fsm_state = final_fsm_state.clone();
 
-        artifacts_callback(WitnessGenerationArtifact::BaseLayerCircuit(
-            ZkSyncBaseLayerCircuit::StorageApplication(maker.process(input, circuit_type)),
-        ));
+        artifacts_callback_sender
+            .send(WitnessGenerationArtifact::BaseLayerCircuit(
+                ZkSyncBaseLayerCircuit::StorageApplication(maker.process(input, circuit_type)),
+            ))
+            .unwrap();
     }
 
     let (
@@ -264,11 +267,13 @@ pub(crate) fn decompose_into_storage_application_witnesses<CB: FnMut(WitnessGene
         queue_simulator,
         storage_application_circuits_compact_forms_witnesses,
     ) = maker.into_results();
-    artifacts_callback(WitnessGenerationArtifact::RecursionQueue((
-        circuit_type as u64,
-        queue_simulator,
-        storage_application_circuits_compact_forms_witnesses.clone(),
-    )));
+    artifacts_callback_sender
+        .send(WitnessGenerationArtifact::RecursionQueue((
+            circuit_type as u64,
+            queue_simulator,
+            storage_application_circuits_compact_forms_witnesses.clone(),
+        )))
+        .unwrap();
 
     tracing::debug!(
         "Final enumeration index = {}",

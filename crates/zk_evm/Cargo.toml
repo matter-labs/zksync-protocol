@@ -1,24 +1,25 @@
 [package]
 name = "zk_evm"
 version.workspace = true
-edition = "2021"
-authors = ["The Matter Labs Team <hello@matterlabs.dev>"]
-homepage = "https://zksync.io/"
-repository = "https://github.com/matter-labs/era-zk_evm"
-license = "MIT OR Apache-2.0"
-keywords = ["blockchain", "zksync"]
-categories = ["cryptography"]
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
 description = "ZKsync out-of-circuit EraEVM implementation"
 
-resolver = "2"
-
 [dependencies]
+# "Owned" dependencies
+zk_evm_abstractions.workspace = true
+
+# "External" dependencies
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0"
 anyhow = "1.0"
 num = { version = "0.4"}
 static_assertions = "1"
-zk_evm_abstractions.workspace = true
 lazy_static = "1.4"
 
 [dev-dependencies]

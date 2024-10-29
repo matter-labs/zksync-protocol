@@ -14,7 +14,6 @@ use crate::zkevm_circuits::DEFAULT_NUM_PERMUTATION_ARGUMENT_REPETITIONS;
 use artifacts::MemoryArtifacts;
 use circuit_definitions::encodings::decommittment_request::*;
 use circuit_definitions::encodings::memory_query::MemoryQueueSimulator;
-use circuit_definitions::encodings::memory_query::MemoryQueueState;
 use circuit_definitions::encodings::CircuitEquivalentReflection;
 use circuit_definitions::zk_evm::aux_structures::DecommittmentQuery;
 use rayon::prelude::*;
@@ -225,12 +224,12 @@ pub(crate) fn compute_decommitts_sorter_circuit_snapshots<
     let lhs_contributions: Vec<_> = unsorted_decommittment_queue_simulator
         .witness
         .iter()
-        .map(|el| &el.0)
+        .map(|el| el.0)
         .collect();
     let rhs_contributions: Vec<_> = sorted_decommittment_queue_simulator
         .witness
         .iter()
-        .map(|el| &el.0)
+        .map(|el| el.0)
         .collect();
 
     let mut lhs_grand_product_chains = vec![];

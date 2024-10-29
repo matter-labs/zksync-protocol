@@ -1,18 +1,22 @@
 [package]
 name = "zkevm_circuits"
 version.workspace = true
-edition = "2021"
-authors = ["The Matter Labs Team <hello@matterlabs.dev>"]
-homepage = "https://zksync.io/"
-repository = "https://github.com/matter-labs/era-zkevm_circuits"
-license = "MIT OR Apache-2.0"
-keywords = ["blockchain", "zksync"]
-categories = ["cryptography"]
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
 description = "ZKsync Era circuits for EraVM"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
+# "Owned" dependencies
+zkevm_opcode_defs.workspace = true
+cs_derive.workspace = true
+boojum.workspace = true
+
+# "External" dependencies
 derivative = "2"
 serde = { version = "1", features = ["derive"] }
 rand = "0.4"
@@ -26,10 +30,6 @@ itertools = "0.10"
 rand_new = { package = "rand", version = "0.8" }
 hex = "0.4"
 seq-macro = "0.3"
-
-zkevm_opcode_defs.workspace = true
-cs_derive = "=0.2.2"
-boojum = "=0.2.2"
 
 [features]
 default = []

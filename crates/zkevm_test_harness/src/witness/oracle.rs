@@ -4,7 +4,9 @@
 
 use super::artifacts::LogCircuitsArtifacts;
 use super::individual_circuits::main_vm::CallstackSimulationResult;
+use super::individual_circuits::memory_related::decommit_code::DecommiterCircuitProcessingInputs;
 use super::individual_circuits::memory_related::{ImplicitMemoryQueries, ImplicitMemoryStates};
+use super::postprocessing::observable_witness::CodeDecommittmentsDeduplicatorObservableWitness;
 use super::postprocessing::{
     BlockFirstAndLastBasicCircuitsObservableWitnesses, FirstAndLastCircuitWitness,
 };
@@ -47,9 +49,10 @@ use circuit_definitions::zkevm_circuits::base_structures::memory_query::{
 use circuit_definitions::zkevm_circuits::eip_4844::input::EIP4844CircuitInstanceWitness;
 use circuit_definitions::zkevm_circuits::fsm_input_output::ClosedFormInputCompactFormWitness;
 use circuit_definitions::zkevm_circuits::scheduler::aux::BaseLayerCircuitType;
+use circuit_definitions::zkevm_circuits::sort_decommittment_requests::input::CodeDecommittmentsDeduplicatorInstanceWitness;
 use derivative::Derivative;
 use std::collections::{BTreeMap, HashMap};
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::mpsc::{self, Receiver, Sender, SyncSender};
 use std::sync::{Arc, Mutex};
 use zkevm_assembly::zkevm_opcode_defs::BOOTLOADER_HEAP_PAGE;
 
@@ -235,11 +238,7 @@ fn process_multiplexed_log_queue(
         }
 
         let (query_marker, cycle, query) = match extended_query {
-            ExtendedLogQuery::Query {
-                marker,
-                cycle,
-                query,
-            } => (marker, cycle, query),
+            ExtendedLogQuery::Query(inner) => (inner.marker, inner.cycle, inner.query),
             ExtendedLogQuery::FrameForwardHeadMarker(..) => {
                 continue; // not used
             }
@@ -270,7 +269,7 @@ fn process_multiplexed_log_queue(
         };
 
         // actually simulate new queue state
-        let (_, simulator_state) =
+        let (round_states, simulator_state) =
             log_queue_simulator.push_and_output_intermediate_data(query, &round_function);
 
         let pointer_to_chain_of_states = states_data.chain_of_states.len();
@@ -284,10 +283,13 @@ fn process_multiplexed_log_queue(
         }
 
         let timestamp = query.timestamp.0; // special "timestamp-like" value
+        let round_function_execution_pairs =
+            LogQueueSimulator::make_round_function_pairs(round_states, &round_function);
+
         if !query.rollback {
             let sponge_data = sponges_data.entry(timestamp).or_default();
-            sponge_data.rf_0 = simulator_state.round_function_execution_pairs[0];
-            sponge_data.rf_1 = simulator_state.round_function_execution_pairs[1];
+            sponge_data.rf_0 = round_function_execution_pairs[0];
+            sponge_data.rf_1 = round_function_execution_pairs[1];
             // forward case
             states_data
                 .forward_and_rollback_pointers
@@ -298,14 +300,8 @@ fn process_multiplexed_log_queue(
             let sponge_data = sponges_data
                 .get_mut(&timestamp)
                 .expect("rollbacks always happen after forward case");
-            assert_eq!(
-                &sponge_data.rf_0,
-                &simulator_state.round_function_execution_pairs[0]
-            );
-            assert_eq!(
-                &sponge_data.rf_1,
-                &simulator_state.round_function_execution_pairs[1]
-            );
+            assert_eq!(&sponge_data.rf_0, &round_function_execution_pairs[0]);
+            assert_eq!(&sponge_data.rf_1, &round_function_execution_pairs[1]);
             // rollback case
             states_data
                 .forward_and_rollback_pointers
@@ -695,18 +691,14 @@ use crate::zkevm_circuits::demux_log_queue::DemuxOutput;
 /// Process log circuits that do not use memory.
 /// Storage, transient storage, events, l2 to l1 queries
 /// Precompiles use memory and are processed in 'process_memory_related_circuits'
-fn process_io_log_circuits<CB: FnMut(WitnessGenerationArtifact)>(
+fn process_io_log_circuits(
     geometry: &GeometryConfig,
     tree: impl BinarySparseStorageTree<256, 32, 32, 8, 32, Blake2s256, ZkSyncStorageLeaf>,
     demuxed_log_queues_states: IOLogsQueuesStates,
     demuxed_log_queries: DemuxedIOLogQueries,
     round_function: &Poseidon2Goldilocks,
-    mut artifacts_callback: &mut CB,
-) -> (
-    LogCircuitsArtifacts<GoldilocksField>,
-    FirstAndLastCircuitWitness<StorageApplicationObservableWitness<GoldilocksField>>,
-    Vec<ClosedFormInputCompactFormWitness<GoldilocksField>>,
-) {
+    artifacts_callback_sender: SyncSender<WitnessGenerationArtifact>,
+) -> LogCircuitsArtifacts<GoldilocksField> {
     let mut log_circuits_data = LogCircuitsArtifacts::default();
 
     // now completely parallel process to reconstruct the states, with internally parallelism in each round function
@@ -725,7 +717,29 @@ fn process_io_log_circuits<CB: FnMut(WitnessGenerationArtifact)>(
         geometry.cycles_per_storage_sorter as usize,
         round_function,
     );
-    log_circuits_data.storage_deduplicator_circuit_data = storage_deduplicator_circuit_data;
+
+    log_circuits_data.storage_deduplicator_artifacts = make_circuits(
+        geometry.cycles_per_storage_sorter,
+        BaseLayerCircuitType::StorageFilter,
+        storage_deduplicator_circuit_data,
+        *round_function,
+        |x| ZkSyncBaseLayerCircuit::StorageSorter(x),
+        artifacts_callback_sender.clone(),
+    );
+
+    tracing::debug!("Running storage application");
+
+    use crate::witness::individual_circuits::storage_application::decompose_into_storage_application_witnesses;
+
+    log_circuits_data.storage_application_artifacts = decompose_into_storage_application_witnesses(
+        deduplicated_rollup_storage_queue_simulator,
+        deduplicated_rollup_storage_queries,
+        tree,
+        round_function,
+        geometry.cycles_per_storage_application as usize,
+        geometry,
+        artifacts_callback_sender.clone(),
+    );
 
     use crate::witness::individual_circuits::events_sort_dedup::compute_events_dedup_and_sort;
 
@@ -739,7 +753,14 @@ fn process_io_log_circuits<CB: FnMut(WitnessGenerationArtifact)>(
         round_function,
     );
 
-    log_circuits_data.events_deduplicator_circuit_data = events_deduplicator_circuit_data;
+    log_circuits_data.events_deduplicator_artifacts = make_circuits(
+        geometry.cycles_per_events_or_l1_messages_sorter,
+        BaseLayerCircuitType::EventsRevertsFilter,
+        events_deduplicator_circuit_data,
+        *round_function,
+        |x| ZkSyncBaseLayerCircuit::EventsSorter(x),
+        artifacts_callback_sender.clone(),
+    );
 
     tracing::debug!("Running L1 messages deduplication simulation");
 
@@ -751,7 +772,15 @@ fn process_io_log_circuits<CB: FnMut(WitnessGenerationArtifact)>(
         geometry.cycles_per_events_or_l1_messages_sorter as usize,
         round_function,
     );
-    log_circuits_data.l1_messages_deduplicator_circuit_data = l1_messages_deduplicator_circuit_data;
+
+    log_circuits_data.l1_messages_deduplicator_artifacts = make_circuits(
+        geometry.cycles_per_events_or_l1_messages_sorter,
+        BaseLayerCircuitType::L1MessagesRevertsFilter,
+        l1_messages_deduplicator_circuit_data,
+        *round_function,
+        |x| ZkSyncBaseLayerCircuit::L1MessagesSorter(x),
+        artifacts_callback_sender.clone(),
+    );
 
     use crate::witness::individual_circuits::transient_storage_sorter::compute_transient_storage_dedup_and_sort;
 
@@ -763,7 +792,15 @@ fn process_io_log_circuits<CB: FnMut(WitnessGenerationArtifact)>(
         geometry.cycles_per_transient_storage_sorter as usize,
         round_function,
     );
-    log_circuits_data.transient_storage_sorter_circuit_data = transient_storage_sorter_circuit_data;
+
+    log_circuits_data.transient_storage_sorter_artifacts = make_circuits(
+        geometry.cycles_per_transient_storage_sorter,
+        BaseLayerCircuitType::TransientStorageChecker,
+        transient_storage_sorter_circuit_data,
+        *round_function,
+        |x| ZkSyncBaseLayerCircuit::TransientStorageSorter(x),
+        artifacts_callback_sender.clone(),
+    );
 
     // compute flattened hash of all messages
 
@@ -782,29 +819,17 @@ fn process_io_log_circuits<CB: FnMut(WitnessGenerationArtifact)>(
         geometry.limit_for_l1_messages_pudata_hasher as usize,
         round_function,
     );
-    log_circuits_data.l1_messages_linear_hash_data = l1_messages_pubdata_hasher_data;
 
-    // process the storage application
+    log_circuits_data.l1_messages_linear_hash_artifacts = make_circuits(
+        geometry.limit_for_l1_messages_pudata_hasher,
+        BaseLayerCircuitType::L1MessagesHasher,
+        l1_messages_pubdata_hasher_data,
+        *round_function,
+        |x| ZkSyncBaseLayerCircuit::L1MessagesHasher(x),
+        artifacts_callback_sender.clone(),
+    );
 
-    // and do the actual storage application
-    use crate::witness::individual_circuits::storage_application::decompose_into_storage_application_witnesses;
-
-    let (storage_application_circuits, storage_application_compact_forms) =
-        decompose_into_storage_application_witnesses(
-            deduplicated_rollup_storage_queue_simulator,
-            deduplicated_rollup_storage_queries,
-            tree,
-            round_function,
-            geometry.cycles_per_storage_application as usize,
-            geometry,
-            &mut artifacts_callback,
-        );
-
-    (
-        log_circuits_data,
-        storage_application_circuits,
-        storage_application_compact_forms,
-    )
+    log_circuits_data
 }
 
 use crate::zk_evm::aux_structures::MemoryQuery;
@@ -823,24 +848,22 @@ use crate::witness::artifacts::DecommitmentArtifactsForMainVM;
 use crate::witness::artifacts::LogQueueStates;
 use crate::zkevm_circuits::demux_log_queue::NUM_DEMUX_OUTPUTS;
 
-use circuit_definitions::encodings::memory_query::{MemoryQueueState, MemoryQueueStateWitnesses};
+use circuit_definitions::encodings::memory_query::MemoryQueueStateWitnesses;
 
 fn simulate_memory_queue(
     geometry: GeometryConfig,
     memory_queries: Arc<Vec<(Cycle, MemoryQuery)>>,
     implicit_memory_queries: Arc<ImplicitMemoryQueries>,
     round_function: Poseidon2Goldilocks,
-    channel_sender: Sender<WitnessGenerationArtifact>,
 ) -> (
     CircuitsEntryAccumulatorSparse<(
         u32,
         QueueStateWitness<GoldilocksField, FULL_SPONGE_QUEUE_STATE_WIDTH>,
     )>,
-    MemoryQueueState<GoldilocksField>,
-    LastPerCircuitAccumulator<MemoryQueueState<GoldilocksField>>,
+    QueueStateWitness<GoldilocksField, FULL_SPONGE_QUEUE_STATE_WIDTH>,
+    LastPerCircuitAccumulator<QueueStateWitness<GoldilocksField, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     MemoryQueuePerCircuitSimulator<GoldilocksField>,
     ImplicitMemoryStates<GoldilocksField>,
-    Vec<[GoldilocksField; MEMORY_QUERY_PACKED_WIDTH]>,
 ) {
     // for MainVM circuits
     let mut memory_queue_entry_states = CircuitsEntryAccumulatorSparse::new(
@@ -849,73 +872,25 @@ fn simulate_memory_queue(
     );
 
     // for RAM permutation circuits, only last per circuit
-    let mut memory_queue_states_accumulator =
-        LastPerCircuitAccumulator::<MemoryQueueState<GoldilocksField>>::with_flat_capacity(
-            geometry.cycles_per_ram_permutation as usize,
-            memory_queries.len(),
-        );
+    let mut memory_queue_states_accumulator = LastPerCircuitAccumulator::<
+        QueueStateWitness<GoldilocksField, FULL_SPONGE_QUEUE_STATE_WIDTH>,
+    >::with_flat_capacity(
+        geometry.cycles_per_ram_permutation as usize,
+        memory_queries.len(),
+    );
 
     use crate::witness::aux_data_structs::per_circuit_accumulator::PerCircuitAccumulator;
-    // simulator states are very RAM-heavy
-    let mut memory_queue_simulator =
-        MemoryQueuePerCircuitSimulator::using_container(PerCircuitAccumulator::with_flat_capacity(
-            geometry.cycles_per_ram_permutation as usize,
-            geometry.cycles_per_ram_permutation as usize,
-        ));
-
-    // for fs challenges in RAM permutation circuits
-    let mut encodings_witnesses_for_fs = vec![];
-
-    // move accumulated full state witnesses from simulator, and process them
-    let mut process_simulation_result =
-        |mut memory_queue_simulator: MemoryQueuePerCircuitSimulator<GoldilocksField>| {
-            let witnesses;
-            (memory_queue_simulator, witnesses) = memory_queue_simulator.replace_container(
-                PerCircuitAccumulator::with_flat_capacity(
-                    geometry.cycles_per_ram_permutation as usize,
-                    geometry.cycles_per_ram_permutation as usize,
-                ),
-            );
-            let amount_of_circuits_accumulated = witnesses.amount_of_circuits_accumulated();
-            for full_witnesses_for_circuit in
-                witnesses.into_circuits(amount_of_circuits_accumulated)
-            {
-                let mut unsorted_witnesses_for_circuit =
-                    Vec::with_capacity(full_witnesses_for_circuit.len());
-
-                // split full witnesses
-                for witness in full_witnesses_for_circuit.into_iter() {
-                    encodings_witnesses_for_fs.push(witness.0);
-                    unsorted_witnesses_for_circuit.push((witness.2.reflect(), witness.1));
-                }
-
-                // send to storage
-                channel_sender
-                    .send(WitnessGenerationArtifact::MemoryQueueWitness((
-                        unsorted_witnesses_for_circuit,
-                        false, // unsorted
-                    )))
-                    .unwrap();
-            }
-
-            memory_queue_simulator
-        };
+    let mut memory_queue_simulator = MemoryQueuePerCircuitSimulator::new();
 
     // the simulation is mostly a sequential computation of hashes
     // for this reason it is one of the slowest parts
     // we are simulating explicit part of queue (direct memory queries)
     for (cycle, query) in memory_queries.iter() {
-        let (_, intermediate_info) =
-            memory_queue_simulator.push_and_output_intermediate_data(*query, &round_function);
+        let (_, state_witness) =
+            memory_queue_simulator.push_and_output_queue_state_witness(*query, &round_function);
 
-        memory_queue_states_accumulator.push(intermediate_info);
-        memory_queue_entry_states
-            .push((*cycle, transform_sponge_like_queue_state(intermediate_info)));
-
-        // if we have collected witnesses for the circuit, we process and send part of them to the storage to free up RAM
-        if memory_queue_simulator.witness.len() == geometry.cycles_per_ram_permutation as usize {
-            memory_queue_simulator = process_simulation_result(memory_queue_simulator);
-        }
+        memory_queue_states_accumulator.push(state_witness.clone());
+        memory_queue_entry_states.push((*cycle, state_witness));
     }
 
     assert_eq!(memory_queries.len(), memory_queue_states_accumulator.len());
@@ -936,39 +911,30 @@ fn simulate_memory_queue(
         round_function,
     );
 
-    memory_queue_simulator = process_simulation_result(memory_queue_simulator);
-
-    assert_eq!(
-        memory_queries.len() + implicit_memory_queries.amount_of_queries(),
-        encodings_witnesses_for_fs.len()
-    );
-
     (
         memory_queue_entry_states,
         final_explicit_memory_queue_state,
         memory_queue_states_accumulator,
         memory_queue_simulator,
         implicit_memory_states,
-        encodings_witnesses_for_fs,
     )
 }
 
-fn simulate_sorted_memory_queue(
+fn simulate_sorted_memory_queue<'a>(
     geometry: GeometryConfig,
     memory_queries: Arc<Vec<(Cycle, MemoryQuery)>>,
     implicit_memory_queries: Arc<ImplicitMemoryQueries>,
     round_function: Poseidon2Goldilocks,
-    channel_sender: Sender<WitnessGenerationArtifact>,
 ) -> (
-    LastPerCircuitAccumulator<MemoryQueueState<GoldilocksField>>,
+    Vec<usize>,
+    LastPerCircuitAccumulator<QueueStateWitness<GoldilocksField, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     MemoryQueuePerCircuitSimulator<GoldilocksField>,
-    Vec<[GoldilocksField; MEMORY_QUERY_PACKED_WIDTH]>,
-    Vec<(u32, MemoryQuery, usize)>,
 ) {
-    let mut all_memory_queries_sorted: Vec<&MemoryQuery> = memory_queries
+    let mut all_memory_queries_sorted: Vec<(usize, &MemoryQuery)> = memory_queries
         .iter()
         .map(|(_, query)| query)
         .chain(implicit_memory_queries.iter())
+        .enumerate()
         .collect();
 
     use crate::witness::aux_data_structs::per_circuit_accumulator::PerCircuitAccumulator;
@@ -976,7 +942,7 @@ fn simulate_sorted_memory_queue(
     use std::cmp::Ordering;
 
     // sort by memory location, and then by timestamp
-    all_memory_queries_sorted.par_sort_by(|a, b| match a.location.cmp(&b.location) {
+    all_memory_queries_sorted.par_sort_by(|(_, a), (_, b)| match a.location.cmp(&b.location) {
         Ordering::Equal => a.timestamp.cmp(&b.timestamp),
         a @ _ => a,
     });
@@ -987,96 +953,31 @@ fn simulate_sorted_memory_queue(
         amount_of_queries
     );
 
-    // simulator states are very RAM-heavy
-    let mut sorted_memory_queries_simulator =
-        MemoryQueuePerCircuitSimulator::using_container(PerCircuitAccumulator::with_flat_capacity(
-            geometry.cycles_per_ram_permutation as usize,
-            amount_of_queries,
-        ));
+    let mut sorted_memory_queries_simulator = MemoryQueuePerCircuitSimulator::new();
 
     // for RAM permutation circuits
-    let mut sorted_memory_queue_states_accumulator =
-        LastPerCircuitAccumulator::<MemoryQueueState<GoldilocksField>>::with_flat_capacity(
-            geometry.cycles_per_ram_permutation as usize,
-            amount_of_queries,
-        );
+    let mut sorted_memory_queue_states_accumulator = LastPerCircuitAccumulator::<
+        QueueStateWitness<GoldilocksField, FULL_SPONGE_QUEUE_STATE_WIDTH>,
+    >::with_flat_capacity(
+        geometry.cycles_per_ram_permutation as usize,
+        amount_of_queries,
+    );
 
-    // for fs challenges in RAM permutation circuits
-    let mut encodings_witnesses_for_fs = Vec::with_capacity(amount_of_queries);
-
-    let amount_of_ram_circuits = (amount_of_queries as u32 + geometry.cycles_per_ram_permutation
-        - 1)
-        / geometry.cycles_per_ram_permutation;
-    // for RAM permutation circuits
-    let mut sorted_queries_aux_data_for_chunks =
-        Vec::with_capacity(amount_of_ram_circuits as usize);
+    let mut sorted_indexes = Vec::with_capacity(all_memory_queries_sorted.len());
 
     // the simulation is mostly a sequential computation of hashes
     // for this reason it is one of the slowest parts
-    for (idx, query) in all_memory_queries_sorted.into_iter().enumerate() {
-        let (_, intermediate_info) = sorted_memory_queries_simulator
-            .push_and_output_intermediate_data(*query, &round_function);
-        sorted_memory_queue_states_accumulator.push(intermediate_info);
-
-        // if we have collected witnesses for the circuit, we process and send part of them to the storage to free up RAM
-        if sorted_memory_queries_simulator.witness.len()
-            == geometry.cycles_per_ram_permutation as usize
-            || idx == amount_of_queries - 1
-        {
-            let witnesses;
-            (sorted_memory_queries_simulator, witnesses) = sorted_memory_queries_simulator
-                .replace_container(PerCircuitAccumulator::with_flat_capacity(
-                    geometry.cycles_per_ram_permutation as usize,
-                    geometry.cycles_per_ram_permutation as usize,
-                ));
-
-            assert_eq!(witnesses.amount_of_circuits_accumulated(), 1);
-
-            // should be only one iteration
-            for full_witnesses_for_circuit in witnesses.into_circuits(1) {
-                let sorted_states_len = full_witnesses_for_circuit.len();
-                let num_nondet_writes_in_chunk = full_witnesses_for_circuit
-                    .iter()
-                    .filter(|el| {
-                        let query = &el.2;
-                        query.rw_flag == true
-                            && query.timestamp.0 == 0
-                            && query.location.page.0 == BOOTLOADER_HEAP_PAGE
-                    })
-                    .count();
-                let last_sorted_query = full_witnesses_for_circuit.last().unwrap().2;
-
-                sorted_queries_aux_data_for_chunks.push((
-                    num_nondet_writes_in_chunk as u32,
-                    last_sorted_query,
-                    sorted_states_len,
-                ));
-
-                let mut sorted_witnesses_for_circuit =
-                    Vec::with_capacity(full_witnesses_for_circuit.len());
-
-                // split full witnesses
-                for witness in full_witnesses_for_circuit.into_iter() {
-                    encodings_witnesses_for_fs.push(witness.0);
-                    sorted_witnesses_for_circuit.push((witness.2.reflect(), witness.1));
-                }
-
-                // send to storage
-                channel_sender
-                    .send(WitnessGenerationArtifact::MemoryQueueWitness((
-                        sorted_witnesses_for_circuit,
-                        true, // sorted
-                    )))
-                    .unwrap();
-            }
-        }
+    for (index, query) in all_memory_queries_sorted.into_iter() {
+        let (_, state_witness) = sorted_memory_queries_simulator
+            .push_and_output_queue_state_witness(*query, &round_function);
+        sorted_memory_queue_states_accumulator.push(state_witness);
+        sorted_indexes.push(index);
     }
 
     (
+        sorted_indexes,
         sorted_memory_queue_states_accumulator,
         sorted_memory_queries_simulator,
-        encodings_witnesses_for_fs,
-        sorted_queries_aux_data_for_chunks,
     )
 }
 
@@ -1092,27 +993,39 @@ pub(crate) struct PrecompilesInputData {
     pub logs_queries: DemuxedPrecompilesLogQueries,
 }
 
-fn process_memory_related_circuits<CB: FnMut(WitnessGenerationArtifact)>(
+fn prepare_memory_queues_and_decommitments(
     geometry: &GeometryConfig,
     vm_snapshots: &Vec<VmSnapshot>,
     memory_queries: Vec<(Cycle, MemoryQuery)>,
-    num_non_deterministic_heap_queries: usize,
     prepared_decommittment_queries: Vec<(Cycle, DecommittmentQuery)>,
     executed_decommittment_queries: Vec<(Cycle, DecommittmentQuery, Vec<U256>)>,
-    precompiles_data: PrecompilesInputData,
+    precompiles_data: &PrecompilesInputData,
     round_function: &Poseidon2Goldilocks,
-    mut artifacts_callback: &mut CB,
+    artifacts_callback_sender: SyncSender<WitnessGenerationArtifact>,
 ) -> (
-    MemoryCircuitsArtifacts<GoldilocksField>,
-    MemoryArtifacts<GoldilocksField>,
     DecommitmentArtifactsForMainVM<GoldilocksField>,
-    FirstAndLastCircuitWitness<RamPermutationObservableWitness<GoldilocksField>>,
+    DecommiterCircuitProcessingInputs<GoldilocksField>,
+    FirstAndLastCircuitWitness<CodeDecommittmentsDeduplicatorObservableWitness<GoldilocksField>>,
     Vec<ClosedFormInputCompactFormWitness<GoldilocksField>>,
+    Vec<(u32, MemoryQuery)>,
+    MemoryArtifacts<GoldilocksField>,
+    (
+        QueueStateWitness<GoldilocksField, FULL_SPONGE_QUEUE_STATE_WIDTH>,
+        LastPerCircuitAccumulator<
+            QueueStateWitness<GoldilocksField, FULL_SPONGE_QUEUE_STATE_WIDTH>,
+        >,
+        MemoryQueuePerCircuitSimulator<GoldilocksField>,
+        ImplicitMemoryQueries,
+        ImplicitMemoryStates<GoldilocksField>,
+    ),
+    (
+        Vec<usize>,
+        LastPerCircuitAccumulator<
+            QueueStateWitness<GoldilocksField, FULL_SPONGE_QUEUE_STATE_WIDTH>,
+        >,
+        MemoryQueuePerCircuitSimulator<GoldilocksField>,
+    ),
 ) {
-    tracing::debug!("Processing memory related queues");
-
-    let mut circuits_data = MemoryCircuitsArtifacts::default();
-
     use crate::witness::individual_circuits::memory_related::sort_decommit_requests::compute_decommitts_sorter_circuit_snapshots;
 
     tracing::debug!("Running code decommittments sorter simulation");
@@ -1125,6 +1038,18 @@ fn process_memory_related_circuits<CB: FnMut(WitnessGenerationArtifact)>(
         executed_decommittment_queries,
         round_function,
         geometry.cycles_code_decommitter_sorter as usize,
+    );
+
+    let (
+        code_decommittments_sorter_circuits,
+        code_decommittments_sorter_circuits_compact_forms_witnesses,
+    ) = make_circuits(
+        geometry.cycles_code_decommitter_sorter,
+        BaseLayerCircuitType::DecommitmentsFilter,
+        decommittments_deduplicator_circuits_data,
+        *round_function,
+        |x| ZkSyncBaseLayerCircuit::CodeDecommittmentsSorter(x),
+        artifacts_callback_sender.clone(),
     );
 
     // first decommittment query (for bootloader) must come before the beginning of time
@@ -1151,8 +1076,6 @@ fn process_memory_related_circuits<CB: FnMut(WitnessGenerationArtifact)>(
                 .map(|el| (el.0, transform_sponge_like_queue_state(el.1))),
         ),
     };
-    circuits_data.decommittments_deduplicator_circuits_data =
-        decommittments_deduplicator_circuits_data;
 
     tracing::debug!("Running unsorted memory queue simulation");
 
@@ -1164,21 +1087,9 @@ fn process_memory_related_circuits<CB: FnMut(WitnessGenerationArtifact)>(
         &precompiles_data,
     );
 
-    let amount_of_explicit_memory_queries = memory_queries.len();
-    let amount_of_ram_circuits = ((amount_of_explicit_memory_queries
-        + implicit_memory_queries.amount_of_queries()) as u32
-        + geometry.cycles_per_ram_permutation
-        - 1)
-        / geometry.cycles_per_ram_permutation;
-
     // Memory queues simulation is a slowest part in basic witness generation.
     // Each queue simulation is sequential single-threaded computation of hashes.
     // We will simulate unsorted and sorted queues in separate threads.
-
-    let (tx, rx): (
-        Sender<WitnessGenerationArtifact>,
-        Receiver<WitnessGenerationArtifact>,
-    ) = mpsc::channel();
 
     let implicit_memory_queries_arc = Arc::new(implicit_memory_queries);
     let memory_queries_arc = Arc::new(memory_queries);
@@ -1189,14 +1100,12 @@ fn process_memory_related_circuits<CB: FnMut(WitnessGenerationArtifact)>(
         let implicit_memory_queries_arc = implicit_memory_queries_arc.clone();
         let geometry = *geometry;
         let round_function = *round_function;
-        let tx_thread = tx.clone();
         thread::spawn(move || {
             simulate_sorted_memory_queue(
                 geometry,
                 memory_queries_arc,
                 implicit_memory_queries_arc,
                 round_function,
-                tx_thread,
             )
         })
     };
@@ -1206,24 +1115,15 @@ fn process_memory_related_circuits<CB: FnMut(WitnessGenerationArtifact)>(
         let implicit_memory_queries_arc = implicit_memory_queries_arc.clone();
         let geometry = *geometry;
         let round_function = *round_function;
-        let tx_thread = tx.clone();
         thread::spawn(move || {
             simulate_memory_queue(
                 geometry,
                 memory_queries_arc,
                 implicit_memory_queries_arc,
                 round_function,
-                tx_thread,
             )
         })
     };
-
-    // send "finalized" part of RAM permutations circuits witnesses to storage (parts of simulator states, RAM-heavy)
-    // the rest will be processed further
-    for _ in 0..amount_of_ram_circuits * 2 {
-        let artifact = rx.recv().unwrap();
-        artifacts_callback(artifact);
-    }
 
     let (
         memory_queue_entry_states_for_main_vm,
@@ -1231,47 +1131,135 @@ fn process_memory_related_circuits<CB: FnMut(WitnessGenerationArtifact)>(
         memory_queue_states_accumulator,
         memory_queue_simulator,
         implicit_memory_states,
-        unsorted_encodings,
     ) = unsorted_handle.join().unwrap();
 
     let (
+        sorted_memory_queries_indexes,
         sorted_memory_queue_states_accumulator,
         sorted_memory_queue_simulator,
-        sorted_encodings,
-        sorted_queries_aux_data_for_chunks,
     ) = sorted_handle.join().unwrap();
 
+    let memory_queries = Arc::into_inner(memory_queries_arc).unwrap();
     let memory_artifacts_for_main_vm = MemoryArtifacts {
-        memory_queries: Arc::into_inner(memory_queries_arc).unwrap(),
         memory_queue_entry_states: memory_queue_entry_states_for_main_vm,
     };
     let implicit_memory_queries = Arc::into_inner(implicit_memory_queries_arc).unwrap();
 
+    (
+        decommitment_artifacts_for_main_vm,
+        decommiter_circuit_inputs,
+        code_decommittments_sorter_circuits,
+        code_decommittments_sorter_circuits_compact_forms_witnesses,
+        memory_queries,
+        memory_artifacts_for_main_vm,
+        // unsorted artifacts
+        (
+            final_explicit_memory_queue_state,
+            memory_queue_states_accumulator,
+            memory_queue_simulator,
+            implicit_memory_queries,
+            implicit_memory_states,
+        ),
+        // sorted artifacts
+        (
+            sorted_memory_queries_indexes,
+            sorted_memory_queue_states_accumulator,
+            sorted_memory_queue_simulator,
+        ),
+    )
+}
+
+fn process_memory_related_circuits(
+    geometry: &GeometryConfig,
+    num_non_deterministic_heap_queries: usize,
+    explicit_memory_queries: Vec<(u32, MemoryQuery)>,
+    unsorted_mem_queue_artifacts: (
+        QueueStateWitness<GoldilocksField, FULL_SPONGE_QUEUE_STATE_WIDTH>,
+        LastPerCircuitAccumulator<
+            QueueStateWitness<GoldilocksField, FULL_SPONGE_QUEUE_STATE_WIDTH>,
+        >,
+        MemoryQueuePerCircuitSimulator<GoldilocksField>,
+        ImplicitMemoryQueries,
+        ImplicitMemoryStates<GoldilocksField>,
+    ),
+    sorted_mem_queue_artifacts: (
+        Vec<usize>,
+        LastPerCircuitAccumulator<
+            QueueStateWitness<GoldilocksField, FULL_SPONGE_QUEUE_STATE_WIDTH>,
+        >,
+        MemoryQueuePerCircuitSimulator<GoldilocksField>,
+    ),
+    decommiter_circuit_inputs: DecommiterCircuitProcessingInputs<GoldilocksField>,
+    precompiles_data: PrecompilesInputData,
+    round_function: &Poseidon2Goldilocks,
+    artifacts_callback_sender: SyncSender<WitnessGenerationArtifact>,
+) -> MemoryCircuitsArtifacts<GoldilocksField> {
+    tracing::debug!("Processing memory related queues");
+
+    let mut circuits_data = MemoryCircuitsArtifacts::default();
+
     // direct VM related part is done, other subcircuit's functionality is moved to other functions
     // that should properly do sorts and memory writes
+
+    let (
+        final_explicit_memory_queue_state,
+        memory_queue_states_accumulator,
+        memory_queue_simulator,
+        implicit_memory_queries,
+        implicit_memory_states,
+    ) = unsorted_mem_queue_artifacts;
+
+    let (
+        sorted_memory_queries_indexes,
+        sorted_memory_queue_states_accumulator,
+        sorted_memory_queue_simulator,
+    ) = sorted_mem_queue_artifacts;
 
     assert_eq!(
         implicit_memory_queries.amount_of_queries(),
         implicit_memory_states.amount_of_states()
     );
 
+    use crate::witness::individual_circuits::memory_related::ram_permutation::compute_ram_circuit_snapshots;
+
+    tracing::debug!("Running RAM permutation simulation");
+
+    circuits_data.ram_permutation_artifacts = compute_ram_circuit_snapshots(
+        sorted_memory_queries_indexes,
+        &explicit_memory_queries,
+        &implicit_memory_queries,
+        memory_queue_states_accumulator,
+        sorted_memory_queue_states_accumulator,
+        memory_queue_simulator,
+        sorted_memory_queue_simulator,
+        round_function,
+        num_non_deterministic_heap_queries,
+        geometry,
+        artifacts_callback_sender.clone(),
+    );
+
     use crate::witness::individual_circuits::memory_related::decommit_code::compute_decommitter_circuit_snapshots;
 
     tracing::debug!("Running code code decommitter simulation");
 
-    let (code_decommitter_circuits_data, amount_of_memory_queries) =
-        compute_decommitter_circuit_snapshots(
-            amount_of_explicit_memory_queries,
-            implicit_memory_queries.decommitter_memory_queries,
-            implicit_memory_states.decommitter_simulator_snapshots,
-            implicit_memory_states.decommitter_memory_states,
-            final_explicit_memory_queue_state,
-            decommiter_circuit_inputs,
-            round_function,
-            geometry.cycles_per_code_decommitter as usize,
-        );
+    let code_decommitter_circuits_data = compute_decommitter_circuit_snapshots(
+        implicit_memory_queries.decommitter_memory_queries,
+        implicit_memory_states.decommitter_simulator_snapshots,
+        implicit_memory_states.decommitter_memory_states,
+        final_explicit_memory_queue_state,
+        decommiter_circuit_inputs,
+        round_function,
+        geometry.cycles_per_code_decommitter as usize,
+    );
 
-    circuits_data.code_decommitter_circuits_data = code_decommitter_circuits_data;
+    circuits_data.code_decommitter_artifacts = make_circuits(
+        geometry.cycles_per_code_decommitter,
+        BaseLayerCircuitType::Decommiter,
+        code_decommitter_circuits_data,
+        *round_function,
+        |x| ZkSyncBaseLayerCircuit::CodeDecommitter(x),
+        artifacts_callback_sender.clone(),
+    );
 
     use crate::zkevm_circuits::demux_log_queue::DemuxOutput;
 
@@ -1281,19 +1269,25 @@ fn process_memory_related_circuits<CB: FnMut(WitnessGenerationArtifact)>(
 
     tracing::debug!("Running keccak simulation");
 
-    let (keccak256_circuits_data, amount_of_memory_queries) =
-        keccak256_decompose_into_per_circuit_witness(
-            amount_of_memory_queries,
-            implicit_memory_queries.keccak256_memory_queries,
-            implicit_memory_states.keccak256_simulator_snapshots,
-            implicit_memory_states.keccak256_memory_states,
-            precompiles_data.keccak_round_function_witnesses,
-            precompiles_data.logs_queries.keccak,
-            precompiles_data.logs_queues_states.keccak,
-            geometry.cycles_per_keccak256_circuit as usize,
-            round_function,
-        );
-    circuits_data.keccak256_circuits_data = keccak256_circuits_data;
+    let keccak256_circuits_data = keccak256_decompose_into_per_circuit_witness(
+        implicit_memory_queries.keccak256_memory_queries,
+        implicit_memory_states.keccak256_simulator_snapshots,
+        implicit_memory_states.keccak256_memory_states,
+        precompiles_data.keccak_round_function_witnesses,
+        precompiles_data.logs_queries.keccak,
+        precompiles_data.logs_queues_states.keccak,
+        geometry.cycles_per_keccak256_circuit as usize,
+        round_function,
+    );
+
+    circuits_data.keccak256_circuits_data = make_circuits(
+        geometry.cycles_per_keccak256_circuit,
+        BaseLayerCircuitType::KeccakPrecompile,
+        keccak256_circuits_data,
+        *round_function,
+        |x| ZkSyncBaseLayerCircuit::KeccakRoundFunction(x),
+        artifacts_callback_sender.clone(),
+    );
 
     // sha256 precompile
 
@@ -1301,19 +1295,25 @@ fn process_memory_related_circuits<CB: FnMut(WitnessGenerationArtifact)>(
 
     tracing::debug!("Running sha256 simulation");
 
-    let (sha256_circuits_data, amount_of_memory_queries) =
-        sha256_decompose_into_per_circuit_witness(
-            amount_of_memory_queries,
-            implicit_memory_queries.sha256_memory_queries,
-            implicit_memory_states.sha256_simulator_snapshots,
-            implicit_memory_states.sha256_memory_states,
-            precompiles_data.sha256_round_function_witnesses,
-            precompiles_data.logs_queries.sha256,
-            precompiles_data.logs_queues_states.sha256,
-            geometry.cycles_per_sha256_circuit as usize,
-            round_function,
-        );
-    circuits_data.sha256_circuits_data = sha256_circuits_data;
+    let sha256_circuits_data = sha256_decompose_into_per_circuit_witness(
+        implicit_memory_queries.sha256_memory_queries,
+        implicit_memory_states.sha256_simulator_snapshots,
+        implicit_memory_states.sha256_memory_states,
+        precompiles_data.sha256_round_function_witnesses,
+        precompiles_data.logs_queries.sha256,
+        precompiles_data.logs_queues_states.sha256,
+        geometry.cycles_per_sha256_circuit as usize,
+        round_function,
+    );
+
+    circuits_data.sha256_circuits_data = make_circuits(
+        geometry.cycles_per_sha256_circuit,
+        BaseLayerCircuitType::Sha256Precompile,
+        sha256_circuits_data,
+        *round_function,
+        |x| ZkSyncBaseLayerCircuit::Sha256RoundFunction(x),
+        artifacts_callback_sender.clone(),
+    );
 
     // ecrecover precompile
 
@@ -1321,65 +1321,51 @@ fn process_memory_related_circuits<CB: FnMut(WitnessGenerationArtifact)>(
 
     tracing::debug!("Running ecrecover simulation");
 
-    let (ecrecover_circuits_data, amount_of_memory_queries) =
-        ecrecover_decompose_into_per_circuit_witness(
-            amount_of_memory_queries,
-            implicit_memory_queries.ecrecover_memory_queries,
-            implicit_memory_states.ecrecover_simulator_snapshots,
-            implicit_memory_states.ecrecover_memory_states,
-            precompiles_data.ecrecover_witnesses,
-            precompiles_data.logs_queries.ecrecover,
-            precompiles_data.logs_queues_states.ecrecover,
-            geometry.cycles_per_ecrecover_circuit as usize,
-            round_function,
-        );
-    circuits_data.ecrecover_circuits_data = ecrecover_circuits_data;
+    let ecrecover_circuits_data = ecrecover_decompose_into_per_circuit_witness(
+        implicit_memory_queries.ecrecover_memory_queries,
+        implicit_memory_states.ecrecover_simulator_snapshots,
+        implicit_memory_states.ecrecover_memory_states,
+        precompiles_data.ecrecover_witnesses,
+        precompiles_data.logs_queries.ecrecover,
+        precompiles_data.logs_queues_states.ecrecover,
+        geometry.cycles_per_ecrecover_circuit as usize,
+        round_function,
+    );
+
+    circuits_data.ecrecover_circuits_data = make_circuits(
+        geometry.cycles_per_ecrecover_circuit,
+        BaseLayerCircuitType::EcrecoverPrecompile,
+        ecrecover_circuits_data,
+        *round_function,
+        |x| ZkSyncBaseLayerCircuit::ECRecover(x),
+        artifacts_callback_sender.clone(),
+    );
 
     use crate::witness::individual_circuits::memory_related::secp256r1_verify::secp256r1_verify_decompose_into_per_circuit_witness;
 
     tracing::debug!("Running secp256r1_simulation simulation");
 
-    let (secp256r1_verify_circuits_data, amount_of_memory_queries) =
-        secp256r1_verify_decompose_into_per_circuit_witness(
-            amount_of_memory_queries,
-            implicit_memory_queries.secp256r1_memory_queries,
-            implicit_memory_states.secp256r1_simulator_snapshots,
-            implicit_memory_states.secp256r1_memory_states,
-            precompiles_data.secp256r1_verify_witnesses,
-            precompiles_data.logs_queries.secp256r1_verify,
-            precompiles_data.logs_queues_states.secp256r1_verify,
-            geometry.cycles_per_secp256r1_verify_circuit as usize,
-            round_function,
-        );
-    circuits_data.secp256r1_verify_circuits_data = secp256r1_verify_circuits_data;
+    let secp256r1_verify_circuits_data = secp256r1_verify_decompose_into_per_circuit_witness(
+        implicit_memory_queries.secp256r1_memory_queries,
+        implicit_memory_states.secp256r1_simulator_snapshots,
+        implicit_memory_states.secp256r1_memory_states,
+        precompiles_data.secp256r1_verify_witnesses,
+        precompiles_data.logs_queries.secp256r1_verify,
+        precompiles_data.logs_queues_states.secp256r1_verify,
+        geometry.cycles_per_secp256r1_verify_circuit as usize,
+        round_function,
+    );
 
-    use crate::witness::individual_circuits::memory_related::ram_permutation::compute_ram_circuit_snapshots;
+    circuits_data.secp256r1_verify_circuits_data = make_circuits(
+        geometry.cycles_per_secp256r1_verify_circuit,
+        BaseLayerCircuitType::Secp256r1Verify,
+        secp256r1_verify_circuits_data,
+        *round_function,
+        |x| ZkSyncBaseLayerCircuit::Secp256r1Verify(x),
+        artifacts_callback_sender.clone(),
+    );
 
-    tracing::debug!("Running RAM permutation simulation");
-
-    let (ram_permutation_circuits, ram_permutation_circuits_compact_forms_witnesses) =
-        compute_ram_circuit_snapshots(
-            amount_of_memory_queries,
-            memory_queue_states_accumulator,
-            sorted_memory_queue_states_accumulator,
-            memory_queue_simulator,
-            sorted_memory_queue_simulator,
-            sorted_queries_aux_data_for_chunks,
-            sorted_encodings,
-            unsorted_encodings,
-            round_function,
-            num_non_deterministic_heap_queries,
-            geometry,
-            &mut artifacts_callback,
-        );
-
-    (
-        circuits_data,
-        memory_artifacts_for_main_vm,
-        decommitment_artifacts_for_main_vm,
-        ram_permutation_circuits,
-        ram_permutation_circuits_compact_forms_witnesses,
-    )
+    circuits_data
 }
 
 pub enum WitnessGenerationArtifact {
@@ -1391,24 +1377,26 @@ pub enum WitnessGenerationArtifact {
             Vec<ClosedFormInputCompactFormWitness<GoldilocksField>>,
         ),
     ),
-    MemoryQueueWitness((MemoryQueueStateWitnesses<GoldilocksField>, bool)), // sorted/unsorted
+    MemoryQueueWitness((Vec<MemoryQueryWitness<GoldilocksField>>, bool)), // sorted/unsorted
 }
 
 /// Make basic circuits instances and witnesses,
 /// create artifacts for recursion layer and scheduler
-pub(crate) fn create_artifacts_from_tracer<CB: FnMut(WitnessGenerationArtifact)>(
+pub(crate) fn create_artifacts_from_tracer<'a>(
     tracer: WitnessTracer,
     round_function: &Poseidon2Goldilocks,
     geometry: &GeometryConfig,
     entry_point_decommittment_query: (DecommittmentQuery, Vec<U256>),
-    tree: impl BinarySparseStorageTree<256, 32, 32, 8, 32, Blake2s256, ZkSyncStorageLeaf>,
+    tree: impl BinarySparseStorageTree<256, 32, 32, 8, 32, Blake2s256, ZkSyncStorageLeaf>
+        + 'static
+        + std::marker::Send,
     num_non_deterministic_heap_queries: usize,
     zk_porter_is_available: bool,
     default_aa_code_hash: U256,
     evm_simulator_code_hash: U256,
     eip_4844_repack_inputs: [Option<Vec<u8>>; MAX_4844_BLOBS_PER_BLOCK],
-    trusted_setup_path: &str,
-    mut artifacts_callback: CB,
+    trusted_setup_path: String,
+    artifacts_callback_sender: SyncSender<WitnessGenerationArtifact>,
 ) -> (
     BlockFirstAndLastBasicCircuitsObservableWitnesses,
     Vec<ClosedFormInputCompactFormWitness<GoldilocksField>>,
@@ -1514,7 +1502,7 @@ pub(crate) fn create_artifacts_from_tracer<CB: FnMut(WitnessGenerationArtifact)>
         geometry.cycles_per_log_demuxer as usize,
         round_function,
         geometry,
-        &mut artifacts_callback,
+        artifacts_callback_sender.clone(),
     );
 
     tracing::debug!("Processing log circuits");
@@ -1522,17 +1510,43 @@ pub(crate) fn create_artifacts_from_tracer<CB: FnMut(WitnessGenerationArtifact)>
     // Process part of log circuits that do not use memory (I/O-like).
     // Precompiles will be processed in process_memory_related_circuits.
     // Also makes storage application circuits and compact form witnesses.
-    let (log_circuits_data, storage_application_circuits, storage_application_compact_forms) =
+    let round_function_ = round_function.clone();
+    let geometry_ = geometry.clone();
+    let artifacts_callback_sender_ = artifacts_callback_sender.clone();
+    let io_log_circuits_handle = thread::spawn(move || {
         process_io_log_circuits(
-            geometry,
+            &geometry_,
             tree,
             io_logs_queues_states,
             demuxed_log_queries.io,
-            round_function,
-            &mut artifacts_callback,
+            &round_function_,
+            artifacts_callback_sender_,
+        )
+    });
+
+    tracing::debug!("Making eip4844 circuits");
+
+    // eip 4844 circuits are basic, but they do not need closed form input commitments
+
+    let round_function_ = round_function.clone();
+    let artifacts_callback_sender_ = artifacts_callback_sender.clone();
+    let eip_4844_circuits_handle = thread::spawn(move || {
+        use crate::witness::individual_circuits::eip4844_repack::compute_eip_4844;
+        let eip_4844_circuits = compute_eip_4844(eip_4844_repack_inputs, &trusted_setup_path);
+
+        let _ = make_circuits(
+            4096,
+            BaseLayerCircuitType::EIP4844Repack,
+            eip_4844_circuits.clone(),
+            round_function_,
+            |x| ZkSyncBaseLayerCircuit::EIP4844Repack(x),
+            artifacts_callback_sender_,
         );
 
-    tracing::debug!("Processing memory-related circuits");
+        eip_4844_circuits
+    });
+
+    tracing::debug!("Processing memory queues and decommitments");
 
     let precompiles_data = PrecompilesInputData {
         keccak_round_function_witnesses,
@@ -1549,21 +1563,23 @@ pub(crate) fn create_artifacts_from_tracer<CB: FnMut(WitnessGenerationArtifact)>
     // Also makes ram permutation circuits and compact form witnesses.
     // The most RAM- and CPU-demanding part of the witness generation.
     let (
-        memory_circuits_data,
-        memory_artifacts_for_main_vm,
         decommitment_artifacts_for_main_vm,
-        ram_permutation_circuits,
-        ram_permutation_circuits_compact_forms_witnesses,
-    ) = process_memory_related_circuits(
+        decommiter_circuit_inputs,
+        code_decommittments_sorter_circuits,
+        code_decommittments_sorter_circuits_compact_forms_witnesses,
+        explicit_memory_queries,
+        memory_artifacts_for_main_vm,
+        unsorted_mem_queue_artifacts,
+        sorted_mem_queue_artifacts,
+    ) = prepare_memory_queues_and_decommitments(
         geometry,
         &vm_snapshots,
         vm_memory_queries_accumulated,
-        num_non_deterministic_heap_queries,
         prepared_decommittment_queries,
         executed_decommittment_queries,
-        precompiles_data,
+        &precompiles_data,
         round_function,
-        &mut artifacts_callback,
+        artifacts_callback_sender.clone(),
     );
 
     tracing::debug!("Waiting for callstack sumulation");
@@ -1588,6 +1604,7 @@ pub(crate) fn create_artifacts_from_tracer<CB: FnMut(WitnessGenerationArtifact)>
     let (main_vm_circuits, main_vm_circuits_compact_forms_witnesses) = process_main_vm(
         geometry,
         in_circuit_global_context,
+        &explicit_memory_queries,
         memory_artifacts_for_main_vm,
         decommitment_artifacts_for_main_vm,
         storage_queries,
@@ -1599,167 +1616,30 @@ pub(crate) fn create_artifacts_from_tracer<CB: FnMut(WitnessGenerationArtifact)>
         flat_new_frames_history,
         vm_snapshots,
         *round_function,
-        &mut artifacts_callback,
+        artifacts_callback_sender.clone(),
     );
 
-    tracing::debug!("Making remaining circuits");
+    tracing::debug!("Processing memory-related circuits");
 
-    // Some circuit instances and compact form witnesses have already been made in previous functions
-    // Now we'll make the rest
-
-    let LogCircuitsArtifacts {
-        storage_deduplicator_circuit_data,
-        events_deduplicator_circuit_data,
-        l1_messages_deduplicator_circuit_data,
-        l1_messages_linear_hash_data,
-        transient_storage_sorter_circuit_data,
-    } = log_circuits_data;
-
-    let MemoryCircuitsArtifacts {
-        code_decommitter_circuits_data,
-        decommittments_deduplicator_circuits_data,
-        keccak256_circuits_data,
-        sha256_circuits_data,
-        ecrecover_circuits_data,
-        secp256r1_verify_circuits_data,
-    } = memory_circuits_data;
-
-    // Code decommitter sorter
-    let (
-        code_decommittments_sorter_circuits,
-        code_decommittments_sorter_circuits_compact_forms_witnesses,
-    ) = make_circuits(
-        geometry.cycles_code_decommitter_sorter,
-        BaseLayerCircuitType::DecommitmentsFilter,
-        decommittments_deduplicator_circuits_data,
-        *round_function,
-        |x| ZkSyncBaseLayerCircuit::CodeDecommittmentsSorter(x),
-        &mut artifacts_callback,
+    // Prepare inputs for processing of all circuits related to memory
+    // (decommitts sorter, decommiter, precompiles, ram permutation).
+    // Prepare decommitment an memory inputs for MainVM circuits processing.
+    // Also makes ram permutation circuits and compact form witnesses.
+    // The most RAM- and CPU-demanding part of the witness generation.
+    let memory_circuits_data = process_memory_related_circuits(
+        geometry,
+        num_non_deterministic_heap_queries,
+        explicit_memory_queries,
+        unsorted_mem_queue_artifacts,
+        sorted_mem_queue_artifacts,
+        decommiter_circuit_inputs,
+        precompiles_data,
+        round_function,
+        artifacts_callback_sender.clone(),
     );
 
-    // Actual decommitter
-    let (code_decommitter_circuits, code_decommitter_circuits_compact_forms_witnesses) =
-        make_circuits(
-            geometry.cycles_per_code_decommitter,
-            BaseLayerCircuitType::Decommiter,
-            code_decommitter_circuits_data,
-            *round_function,
-            |x| ZkSyncBaseLayerCircuit::CodeDecommitter(x),
-            &mut artifacts_callback,
-        );
-
-    // keccak precompiles
-    let (keccak_precompile_circuits, keccak_precompile_circuits_compact_forms_witnesses) =
-        make_circuits(
-            geometry.cycles_per_keccak256_circuit,
-            BaseLayerCircuitType::KeccakPrecompile,
-            keccak256_circuits_data,
-            *round_function,
-            |x| ZkSyncBaseLayerCircuit::KeccakRoundFunction(x),
-            &mut artifacts_callback,
-        );
-
-    // sha256 precompiles
-    let (sha256_precompile_circuits, sha256_precompile_circuits_compact_forms_witnesses) =
-        make_circuits(
-            geometry.cycles_per_sha256_circuit,
-            BaseLayerCircuitType::Sha256Precompile,
-            sha256_circuits_data,
-            *round_function,
-            |x| ZkSyncBaseLayerCircuit::Sha256RoundFunction(x),
-            &mut artifacts_callback,
-        );
-
-    // ecrecover precompiles
-    let (ecrecover_precompile_circuits, ecrecover_precompile_circuits_compact_forms_witnesses) =
-        make_circuits(
-            geometry.cycles_per_ecrecover_circuit,
-            BaseLayerCircuitType::EcrecoverPrecompile,
-            ecrecover_circuits_data,
-            *round_function,
-            |x| ZkSyncBaseLayerCircuit::ECRecover(x),
-            &mut artifacts_callback,
-        );
-
-    // secp256r1 verify
-    let (secp256r1_verify_circuits, secp256r1_verify_circuits_compact_forms_witnesses) =
-        make_circuits(
-            geometry.cycles_per_secp256r1_verify_circuit,
-            BaseLayerCircuitType::Secp256r1Verify,
-            secp256r1_verify_circuits_data,
-            *round_function,
-            |x| ZkSyncBaseLayerCircuit::Secp256r1Verify(x),
-            &mut artifacts_callback,
-        );
-
-    // storage sorter
-    let (storage_sorter_circuits, storage_sorter_circuit_compact_form_witnesses) = make_circuits(
-        geometry.cycles_per_storage_sorter,
-        BaseLayerCircuitType::StorageFilter,
-        storage_deduplicator_circuit_data,
-        *round_function,
-        |x| ZkSyncBaseLayerCircuit::StorageSorter(x),
-        &mut artifacts_callback,
-    );
-
-    // events sorter
-    let (events_sorter_circuits, events_sorter_circuits_compact_forms_witnesses) = make_circuits(
-        geometry.cycles_per_events_or_l1_messages_sorter,
-        BaseLayerCircuitType::EventsRevertsFilter,
-        events_deduplicator_circuit_data,
-        *round_function,
-        |x| ZkSyncBaseLayerCircuit::EventsSorter(x),
-        &mut artifacts_callback,
-    );
-
-    // l1 messages sorter
-    let (l1_messages_sorter_circuits, l1_messages_sorter_circuits_compact_forms_witnesses) =
-        make_circuits(
-            geometry.cycles_per_events_or_l1_messages_sorter,
-            BaseLayerCircuitType::L1MessagesRevertsFilter,
-            l1_messages_deduplicator_circuit_data,
-            *round_function,
-            |x| ZkSyncBaseLayerCircuit::L1MessagesSorter(x),
-            &mut artifacts_callback,
-        );
-
-    // l1 messages pubdata hasher
-    let (l1_messages_hasher_circuits, l1_messages_hasher_circuits_compact_forms_witnesses) =
-        make_circuits(
-            geometry.limit_for_l1_messages_pudata_hasher,
-            BaseLayerCircuitType::L1MessagesHasher,
-            l1_messages_linear_hash_data,
-            *round_function,
-            |x| ZkSyncBaseLayerCircuit::L1MessagesHasher(x),
-            &mut artifacts_callback,
-        );
-
-    // transient storage sorter
-    let (
-        transient_storage_sorter_circuits,
-        transient_storage_sorter_circuits_compact_forms_witnesses,
-    ) = make_circuits(
-        geometry.cycles_per_transient_storage_sorter,
-        BaseLayerCircuitType::TransientStorageChecker,
-        transient_storage_sorter_circuit_data,
-        *round_function,
-        |x| ZkSyncBaseLayerCircuit::TransientStorageSorter(x),
-        &mut artifacts_callback,
-    );
-
-    // eip 4844 circuits are basic, but they do not need closed form input commitments
-
-    use crate::witness::individual_circuits::eip4844_repack::compute_eip_4844;
-    let eip_4844_circuits = compute_eip_4844(eip_4844_repack_inputs, trusted_setup_path);
-
-    let (_eip_4844_circuits, _eip_4844_circuits_compact_forms_witnesses) = make_circuits(
-        4096,
-        BaseLayerCircuitType::EIP4844Repack,
-        eip_4844_circuits.clone(),
-        *round_function,
-        |x| ZkSyncBaseLayerCircuit::EIP4844Repack(x),
-        &mut artifacts_callback,
-    );
+    let log_circuits_data = io_log_circuits_handle.join().unwrap();
+    let eip_4844_circuits = eip_4844_circuits_handle.join().unwrap();
 
     // All done!
 
@@ -1767,19 +1647,21 @@ pub(crate) fn create_artifacts_from_tracer<CB: FnMut(WitnessGenerationArtifact)>
         BlockFirstAndLastBasicCircuitsObservableWitnesses {
             main_vm_circuits,
             code_decommittments_sorter_circuits,
-            code_decommitter_circuits,
+            code_decommitter_circuits: memory_circuits_data.code_decommitter_artifacts.0,
             log_demux_circuits,
-            keccak_precompile_circuits,
-            sha256_precompile_circuits,
-            ecrecover_precompile_circuits,
-            ram_permutation_circuits,
-            storage_sorter_circuits,
-            storage_application_circuits,
-            events_sorter_circuits,
-            l1_messages_sorter_circuits,
-            l1_messages_hasher_circuits,
-            transient_storage_sorter_circuits,
-            secp256r1_verify_circuits,
+            keccak_precompile_circuits: memory_circuits_data.keccak256_circuits_data.0,
+            sha256_precompile_circuits: memory_circuits_data.sha256_circuits_data.0,
+            ecrecover_precompile_circuits: memory_circuits_data.ecrecover_circuits_data.0,
+            ram_permutation_circuits: memory_circuits_data.ram_permutation_artifacts.0,
+            storage_sorter_circuits: log_circuits_data.storage_deduplicator_artifacts.0,
+            storage_application_circuits: log_circuits_data.storage_application_artifacts.0,
+            events_sorter_circuits: log_circuits_data.events_deduplicator_artifacts.0,
+            l1_messages_sorter_circuits: log_circuits_data.l1_messages_deduplicator_artifacts.0,
+            l1_messages_hasher_circuits: log_circuits_data.l1_messages_linear_hash_artifacts.0,
+            transient_storage_sorter_circuits: log_circuits_data
+                .transient_storage_sorter_artifacts
+                .0,
+            secp256r1_verify_circuits: memory_circuits_data.secp256r1_verify_circuits_data.0,
         };
 
     // NOTE: this should follow in a sequence same as scheduler's work and `SEQUENCE_OF_CIRCUIT_TYPES`
@@ -1787,19 +1669,19 @@ pub(crate) fn create_artifacts_from_tracer<CB: FnMut(WitnessGenerationArtifact)>
     let all_compact_forms = main_vm_circuits_compact_forms_witnesses
         .into_iter()
         .chain(code_decommittments_sorter_circuits_compact_forms_witnesses)
-        .chain(code_decommitter_circuits_compact_forms_witnesses)
+        .chain(memory_circuits_data.code_decommitter_artifacts.1)
         .chain(log_demux_circuits_compact_forms_witnesses)
-        .chain(keccak_precompile_circuits_compact_forms_witnesses)
-        .chain(sha256_precompile_circuits_compact_forms_witnesses)
-        .chain(ecrecover_precompile_circuits_compact_forms_witnesses)
-        .chain(ram_permutation_circuits_compact_forms_witnesses)
-        .chain(storage_sorter_circuit_compact_form_witnesses)
-        .chain(storage_application_compact_forms)
-        .chain(events_sorter_circuits_compact_forms_witnesses)
-        .chain(l1_messages_sorter_circuits_compact_forms_witnesses)
-        .chain(l1_messages_hasher_circuits_compact_forms_witnesses)
-        .chain(transient_storage_sorter_circuits_compact_forms_witnesses)
-        .chain(secp256r1_verify_circuits_compact_forms_witnesses)
+        .chain(memory_circuits_data.keccak256_circuits_data.1)
+        .chain(memory_circuits_data.sha256_circuits_data.1)
+        .chain(memory_circuits_data.ecrecover_circuits_data.1)
+        .chain(memory_circuits_data.ram_permutation_artifacts.1)
+        .chain(log_circuits_data.storage_deduplicator_artifacts.1)
+        .chain(log_circuits_data.storage_application_artifacts.1)
+        .chain(log_circuits_data.events_deduplicator_artifacts.1)
+        .chain(log_circuits_data.l1_messages_deduplicator_artifacts.1)
+        .chain(log_circuits_data.l1_messages_linear_hash_artifacts.1)
+        .chain(log_circuits_data.transient_storage_sorter_artifacts.1)
+        .chain(memory_circuits_data.secp256r1_verify_circuits_data.1)
         .collect();
 
     (
