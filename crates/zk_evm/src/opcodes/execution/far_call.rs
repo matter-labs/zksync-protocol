@@ -458,7 +458,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
 
             if can_call_evm_simulator {
                 assert_eq!(callee_stipend, 0);
-                callee_stipend = zkevm_opcode_defs::system_params::EVM_SIMULATOR_STIPEND;
+                callee_stipend = 0;
             }
 
             let (code_memory_page, remaining_ergs_after_decommittment) = if exceptions.is_empty()
