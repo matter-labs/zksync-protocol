@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.150.8](https://github.com/matter-labs/zksync-protocol/compare/v0.150.7...v0.150.8) (2024-10-29)
+
+
+### Miscellaneous Chores
+
+* release 0.150.8 ([#54](https://github.com/matter-labs/zksync-protocol/issues/54)) ([fb1f3e2](https://github.com/matter-labs/zksync-protocol/commit/fb1f3e2f9cee1d352ca384e5869a771112ecc351))
+
 ## [0.150.7](https://github.com/matter-labs/zksync-protocol/compare/v0.150.6...v0.150.7) (2024-10-25)
 
 
