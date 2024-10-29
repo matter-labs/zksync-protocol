@@ -93,6 +93,7 @@ mod test {
             _,
             _,
             CircuitPoseidon2Transcript<Bn256, 2, 3, 3, true>,
+            crate::snark_wrapper::traits::pow::NoCircuitPow,
         >(
             &mut assembly,
             (),
