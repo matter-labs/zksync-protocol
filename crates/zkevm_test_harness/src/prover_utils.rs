@@ -206,6 +206,178 @@ pub fn create_base_layer_setup_data(
     )
 }
 
+pub fn create_light_base_layer_setup_data(
+    circuit: ZkSyncBaseLayerCircuit,
+    worker: &Worker,
+    fri_lde_factor: usize,
+    merkle_tree_cap_size: usize,
+) -> (
+    SetupBaseStorage<F, P>,
+    SetupStorage<F, P>,
+    VerificationKey<F, H>,
+    MerkleTreeWithCap<F, H>,
+    DenseVariablesCopyHint,
+    DenseWitnessCopyHint,
+    FinalizationHintsForProver,
+) {
+    use crate::boojum::cs::cs_builder::new_builder;
+    use crate::boojum::cs::cs_builder_reference::CsReferenceImplementationBuilder;
+
+    let geometry = circuit.geometry();
+    let (max_trace_len, num_vars) = circuit.size_hint();
+
+    let builder_impl = CsReferenceImplementationBuilder::<GoldilocksField, P, SetupCSConfig>::new(
+        geometry,
+        max_trace_len.unwrap(),
+    );
+
+    let builder = new_builder::<_, GoldilocksField>(builder_impl);
+
+    let (cs, finalization_hint) = match circuit {
+        ZkSyncBaseLayerCircuit::MainVM(inner) => {
+            let builder = inner.configure_builder_proxy(builder);
+            let mut cs = builder.build(num_vars.unwrap());
+            inner.add_tables_proxy(&mut cs);
+            inner.synthesize_proxy(&mut cs);
+            let (_, finalization_hint) = cs.pad_and_shrink();
+            (cs.into_assembly::<std::alloc::Global>(), finalization_hint)
+        }
+        ZkSyncBaseLayerCircuit::CodeDecommittmentsSorter(inner) => {
+            let builder = inner.configure_builder_proxy(builder);
+            let mut cs = builder.build(num_vars.unwrap());
+            inner.add_tables_proxy(&mut cs);
+            inner.synthesize_proxy(&mut cs);
+            let (_, finalization_hint) = cs.pad_and_shrink();
+            (cs.into_assembly::<std::alloc::Global>(), finalization_hint)
+        }
+        ZkSyncBaseLayerCircuit::CodeDecommitter(inner) => {
+            let builder = inner.configure_builder_proxy(builder);
+            let mut cs = builder.build(num_vars.unwrap());
+            inner.add_tables_proxy(&mut cs);
+            inner.synthesize_proxy(&mut cs);
+            let (_, finalization_hint) = cs.pad_and_shrink();
+            (cs.into_assembly::<std::alloc::Global>(), finalization_hint)
+        }
+        ZkSyncBaseLayerCircuit::LogDemuxer(inner) => {
+            let builder = inner.configure_builder_proxy(builder);
+            let mut cs = builder.build(num_vars.unwrap());
+            inner.add_tables_proxy(&mut cs);
+            inner.synthesize_proxy(&mut cs);
+            let (_, finalization_hint) = cs.pad_and_shrink();
+            (cs.into_assembly::<std::alloc::Global>(), finalization_hint)
+        }
+        ZkSyncBaseLayerCircuit::KeccakRoundFunction(inner) => {
+            let builder = inner.configure_builder_proxy(builder);
+            let mut cs = builder.build(num_vars.unwrap());
+            inner.add_tables_proxy(&mut cs);
+            inner.synthesize_proxy(&mut cs);
+            let (_, finalization_hint) = cs.pad_and_shrink();
+            (cs.into_assembly::<std::alloc::Global>(), finalization_hint)
+        }
+        ZkSyncBaseLayerCircuit::Sha256RoundFunction(inner) => {
+            let builder = inner.configure_builder_proxy(builder);
+            let mut cs = builder.build(num_vars.unwrap());
+            inner.add_tables_proxy(&mut cs);
+            inner.synthesize_proxy(&mut cs);
+            let (_, finalization_hint) = cs.pad_and_shrink();
+            (cs.into_assembly::<std::alloc::Global>(), finalization_hint)
+        }
+        ZkSyncBaseLayerCircuit::ECRecover(inner) => {
+            let builder = inner.configure_builder_proxy(builder);
+            let mut cs = builder.build(num_vars.unwrap());
+            inner.add_tables_proxy(&mut cs);
+            inner.synthesize_proxy(&mut cs);
+            let (_, finalization_hint) = cs.pad_and_shrink();
+            (cs.into_assembly::<std::alloc::Global>(), finalization_hint)
+        }
+        ZkSyncBaseLayerCircuit::RAMPermutation(inner) => {
+            let builder = inner.configure_builder_proxy(builder);
+            let mut cs = builder.build(num_vars.unwrap());
+            inner.add_tables_proxy(&mut cs);
+            inner.synthesize_proxy(&mut cs);
+            let (_, finalization_hint) = cs.pad_and_shrink();
+            (cs.into_assembly::<std::alloc::Global>(), finalization_hint)
+        }
+        ZkSyncBaseLayerCircuit::StorageSorter(inner) => {
+            let builder = inner.configure_builder_proxy(builder);
+            let mut cs = builder.build(num_vars.unwrap());
+            inner.add_tables_proxy(&mut cs);
+            inner.synthesize_proxy(&mut cs);
+            let (_, finalization_hint) = cs.pad_and_shrink();
+            (cs.into_assembly::<std::alloc::Global>(), finalization_hint)
+        }
+        ZkSyncBaseLayerCircuit::StorageApplication(inner) => {
+            let builder = inner.configure_builder_proxy(builder);
+            let mut cs = builder.build(num_vars.unwrap());
+            inner.add_tables_proxy(&mut cs);
+            inner.synthesize_proxy(&mut cs);
+            let (_, finalization_hint) = cs.pad_and_shrink();
+            (cs.into_assembly::<std::alloc::Global>(), finalization_hint)
+        }
+        ZkSyncBaseLayerCircuit::EventsSorter(inner) => {
+            let builder = inner.configure_builder_proxy(builder);
+            let mut cs = builder.build(num_vars.unwrap());
+            inner.add_tables_proxy(&mut cs);
+            inner.synthesize_proxy(&mut cs);
+            let (_, finalization_hint) = cs.pad_and_shrink();
+            (cs.into_assembly::<std::alloc::Global>(), finalization_hint)
+        }
+        ZkSyncBaseLayerCircuit::L1MessagesSorter(inner) => {
+            let builder = inner.configure_builder_proxy(builder);
+            let mut cs = builder.build(num_vars.unwrap());
+            inner.add_tables_proxy(&mut cs);
+            inner.synthesize_proxy(&mut cs);
+            let (_, finalization_hint) = cs.pad_and_shrink();
+            (cs.into_assembly::<std::alloc::Global>(), finalization_hint)
+        }
+        ZkSyncBaseLayerCircuit::L1MessagesHasher(inner) => {
+            let builder = inner.configure_builder_proxy(builder);
+            let mut cs = builder.build(num_vars.unwrap());
+            inner.add_tables_proxy(&mut cs);
+            inner.synthesize_proxy(&mut cs);
+            let (_, finalization_hint) = cs.pad_and_shrink();
+            (cs.into_assembly::<std::alloc::Global>(), finalization_hint)
+        }
+        ZkSyncBaseLayerCircuit::TransientStorageSorter(inner) => {
+            let builder = inner.configure_builder_proxy(builder);
+            let mut cs = builder.build(num_vars.unwrap());
+            inner.add_tables_proxy(&mut cs);
+            inner.synthesize_proxy(&mut cs);
+            let (_, finalization_hint) = cs.pad_and_shrink();
+            (cs.into_assembly::<std::alloc::Global>(), finalization_hint)
+        }
+        ZkSyncBaseLayerCircuit::Secp256r1Verify(inner) => {
+            let builder = inner.configure_builder_proxy(builder);
+            let mut cs = builder.build(num_vars.unwrap());
+            inner.add_tables_proxy(&mut cs);
+            inner.synthesize_proxy(&mut cs);
+            let (_, finalization_hint) = cs.pad_and_shrink();
+            (cs.into_assembly::<std::alloc::Global>(), finalization_hint)
+        }
+        ZkSyncBaseLayerCircuit::EIP4844Repack(inner) => {
+            let builder = inner.configure_builder_proxy(builder);
+            let mut cs = builder.build(num_vars.unwrap());
+            inner.add_tables_proxy(&mut cs);
+            inner.synthesize_proxy(&mut cs);
+            let (_, finalization_hint) = cs.pad_and_shrink();
+            (cs.into_assembly::<std::alloc::Global>(), finalization_hint)
+        }
+    };
+
+    let (setup_base, setup, vk, setup_tree, vars_hint, witness_hints) =
+        cs.get_full_setup(worker, fri_lde_factor, merkle_tree_cap_size);
+
+    (
+        setup_base,
+        setup,
+        vk,
+        setup_tree,
+        vars_hint,
+        witness_hints,
+        finalization_hint,
+    )
+}
+
 use crate::boojum::cs::implementations::proof::Proof;
 use crate::boojum::cs::implementations::prover::ProofConfig;
 use crate::boojum::cs::implementations::transcript::GoldilocksPoisedon2Transcript;

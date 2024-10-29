@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use crate::zkevm_circuits::recursion::leaf_layer::input::RecursionLeafParametersWitness;
 use crate::zkevm_circuits::recursion::NUM_BASE_LAYER_CIRCUITS;
+use circuit_definitions::circuit_definitions::aux_layer::{ZkSyncCompressionForWrapperCircuit, ZkSyncCompressionLayerCircuit};
 use circuit_definitions::boojum::gadgets::traits::allocatable::CSAllocatable;
 use circuit_definitions::{
     circuit_definitions::{
@@ -46,8 +47,118 @@ use circuit_definitions::circuit_definitions::recursion_layer::leaf_layer::*;
 use circuit_definitions::circuit_definitions::recursion_layer::*;
 use circuit_definitions::{BASE_LAYER_CAP_SIZE, BASE_LAYER_FRI_LDE_FACTOR};
 use std::collections::VecDeque;
+use circuit_definitions::circuit_definitions::aux_layer::compression::{CompressionMode1Circuit, CompressionMode1ForWrapperCircuit, CompressionMode2Circuit, CompressionMode2ForWrapperCircuit, CompressionMode3Circuit, CompressionMode3ForWrapperCircuit, CompressionMode4Circuit, CompressionMode4ForWrapperCircuit, CompressionMode5Circuit, CompressionMode5ForWrapperCircuit, ProofCompressionFunction};
+use circuit_definitions::circuit_definitions::aux_layer::compression_modes::{CompressionMode1, CompressionMode2, CompressionMode3, CompressionMode4, CompressionMode5};
+use circuit_definitions::zkevm_circuits::recursion::compression::CompressionRecursionConfig;
 
 use crate::prover_utils::*;
+
+
+fn get_compression_circuits(source: &mut dyn SetupDataSource) -> Vec<ZkSyncCompressionLayerCircuit>{
+    vec![ZkSyncCompressionLayerCircuit::CompressionMode1Circuit(CompressionMode1Circuit {
+        witness: None,
+        config: CompressionRecursionConfig {
+            proof_config: CompressionMode1::proof_config_for_compression_step(),
+            verification_key: VerificationKey::default(),
+            _marker: Default::default(),
+        },
+        transcript_params: (),
+        _marker: Default::default(),
+    }),
+    ZkSyncCompressionLayerCircuit::CompressionMode2Circuit(CompressionMode2Circuit {
+        witness: None,
+        config: CompressionRecursionConfig {
+            proof_config: CompressionMode2::proof_config_for_compression_step(),
+            verification_key: VerificationKey::default(),
+            _marker: Default::default(),
+        },
+        transcript_params: (),
+        _marker: Default::default(),
+    }),
+    ZkSyncCompressionLayerCircuit::CompressionMode3Circuit(CompressionMode3Circuit {
+        witness: None,
+        config: CompressionRecursionConfig {
+            proof_config: CompressionMode3::proof_config_for_compression_step(),
+            verification_key: VerificationKey::default(),
+            _marker: Default::default(),
+        },
+        transcript_params: (),
+        _marker: Default::default(),
+    }),
+    ZkSyncCompressionLayerCircuit::CompressionMode4Circuit(CompressionMode4Circuit {
+        witness: None,
+        config: CompressionRecursionConfig {
+            proof_config: CompressionMode4::proof_config_for_compression_step(),
+            verification_key: VerificationKey::default(),
+            _marker: Default::default(),
+        },
+        transcript_params: (),
+        _marker: Default::default(),
+    }),
+    ZkSyncCompressionLayerCircuit::CompressionMode5Circuit(CompressionMode5Circuit {
+        witness: None,
+        config: CompressionRecursionConfig {
+            proof_config: CompressionMode5::proof_config_for_compression_step(),
+            verification_key: VerificationKey::default(),
+            _marker: Default::default(),
+        },
+        transcript_params: (),
+        _marker: Default::default(),
+    }),]
+}
+
+fn get_compression_for_wrapper__circuits(source: &mut dyn SetupDataSource) -> Vec<ZkSyncCompressionForWrapperCircuit>{
+    vec![ZkSyncCompressionForWrapperCircuit::CompressionMode1Circuit(CompressionMode1ForWrapperCircuit {
+        witness: None,
+        config: CompressionRecursionConfig {
+            proof_config: CompressionMode1::proof_config_for_compression_step(),
+            verification_key: VerificationKey::default(),
+            _marker: Default::default(),
+        },
+        transcript_params: (),
+        _marker: Default::default(),
+    }),
+         ZkSyncCompressionForWrapperCircuit::CompressionMode2Circuit(CompressionMode2ForWrapperCircuit {
+             witness: None,
+             config: CompressionRecursionConfig {
+                 proof_config: CompressionMode2::proof_config_for_compression_step(),
+                 verification_key: VerificationKey::default(),
+                 _marker: Default::default(),
+             },
+             transcript_params: (),
+             _marker: Default::default(),
+         }),
+         ZkSyncCompressionForWrapperCircuit::CompressionMode3Circuit(CompressionMode3ForWrapperCircuit {
+             witness: None,
+             config: CompressionRecursionConfig {
+                 proof_config: CompressionMode3::proof_config_for_compression_step(),
+                 verification_key: VerificationKey::default(),
+                 _marker: Default::default(),
+             },
+             transcript_params: (),
+             _marker: Default::default(),
+         }),
+         ZkSyncCompressionForWrapperCircuit::CompressionMode4Circuit(CompressionMode4ForWrapperCircuit {
+             witness: None,
+             config: CompressionRecursionConfig {
+                 proof_config: CompressionMode4::proof_config_for_compression_step(),
+                 verification_key: VerificationKey::default(),
+                 _marker: Default::default(),
+             },
+             transcript_params: (),
+             _marker: Default::default(),
+         }),
+         ZkSyncCompressionForWrapperCircuit::CompressionMode5Circuit(CompressionMode5ForWrapperCircuit {
+             witness: None,
+             config: CompressionRecursionConfig {
+                 proof_config: CompressionMode5::proof_config_for_compression_step(),
+                 verification_key: VerificationKey::default(),
+                 _marker: Default::default(),
+             },
+             transcript_params: (),
+             _marker: Default::default(),
+         }),]
+}
 
 /// Returns all types of basic circuits, with empty witnesses.
 /// Can be used for things like verification key generation.
@@ -356,15 +467,15 @@ pub struct CircuitSetupData {
 /// Generate verification, and setup keys for a given circuit type from a base layer.
 /// If generating the setup data for recursion layers, the 'source' must have verification keys for basic circuits, leaf and node.
 pub fn generate_circuit_setup_data(
-    is_base_layer: bool,
+    proving_stage: u8,
     circuit_type: u8,
     source: &mut dyn SetupDataSource,
 ) -> crate::data_source::SourceResult<CircuitSetupData> {
     let geometry = crate::geometry_config::get_geometry_config();
     let worker = Worker::new();
 
-    let (setup_base, setup, vk, setup_tree, vars_hint, wits_hint, finalization_hint) =
-        if is_base_layer {
+    let (setup_base, setup, vk, setup_tree, vars_hint, wits_hint, finalization_hint) = match proving_stage {
+        0 => {
             let circuit = get_all_basic_circuits(&geometry)
                 .iter()
                 .find(|circuit| circuit.numeric_circuit_type() == circuit_type)
@@ -380,7 +491,8 @@ pub fn generate_circuit_setup_data(
                 BASE_LAYER_FRI_LDE_FACTOR,
                 BASE_LAYER_CAP_SIZE,
             )
-        } else {
+        },
+        1..=4 => {
             let circuit = get_all_recursive_circuits(source)?
                 .iter()
                 .find(|circuit| circuit.numeric_circuit_type() == circuit_type)
@@ -393,10 +505,30 @@ pub fn generate_circuit_setup_data(
             create_recursive_layer_setup_data(
                 circuit,
                 &worker,
+                RECURSION_LAYER_FRI_LDE_FACTOR,
+                RECURSION_LAYER_CAP_SIZE,
+            )
+        },
+        5 => {
+            // todo: this part is copy-pasted now
+            let circuit = get_all_basic_circuits(&geometry)
+                .iter()
+                .find(|circuit| circuit.numeric_circuit_type() == circuit_type)
+                .expect(&format!(
+                    "Could not find circuit matching {:?}",
+                    circuit_type
+                ))
+                .clone();
+
+            create_light_base_layer_setup_data(
+                circuit,
+                &worker,
                 BASE_LAYER_FRI_LDE_FACTOR,
                 BASE_LAYER_CAP_SIZE,
             )
-        };
+        },
+        _ => unreachable!("Invalid proving stage"),
+    };
 
     Ok(CircuitSetupData {
         setup_base,
