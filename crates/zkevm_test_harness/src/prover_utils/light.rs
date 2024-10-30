@@ -189,7 +189,7 @@ pub fn create_light_base_layer_setup_data(
         }
     };
 
-    let (setup_base,vk_geometry, vars_hint, witness_hint) =
+    let (setup_base, vk_geometry, vars_hint, witness_hint) =
         cs.get_light_setup(worker, fri_lde_factor, merkle_tree_cap_size);
 
     (
@@ -277,7 +277,7 @@ pub fn create_light_recursive_layer_setup_data(
         }
     };
 
-    let (setup_base,vk_geometry, vars_hint, witness_hint) =
+    let (setup_base, vk_geometry, vars_hint, witness_hint) =
         cs.get_light_setup(worker, fri_lde_factor, merkle_tree_cap_size);
 
     (
@@ -336,7 +336,7 @@ pub fn create_light_compression_layer_setup_data(
         ZkSyncCompressionLayerCircuit::CompressionMode5Circuit(inner) => synthesize_inner(inner),
     };
 
-    let (setup_base,vk_geometry, vars_hint, witness_hint) =
+    let (setup_base, vk_geometry, vars_hint, witness_hint) =
         cs.get_light_setup(worker, fri_lde_factor, merkle_tree_cap_size);
 
     (
@@ -405,7 +405,7 @@ pub fn create_light_compression_for_wrapper_setup_data(
         }
     };
 
-    let (setup_base,vk_geometry, vars_hint, witness_hint) =
+    let (setup_base, vk_geometry, vars_hint, witness_hint) =
         cs.get_light_setup(worker, fri_lde_factor, merkle_tree_cap_size);
 
     (

@@ -1,4 +1,4 @@
 mod full;
-mod light;
+pub mod light;
 
 pub use full::*;
