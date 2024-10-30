@@ -36,7 +36,7 @@ use circuit_definitions::zk_evm::vm_state::CallStackEntry;
 use circuit_definitions::zkevm_circuits::fsm_input_output::ClosedFormInputCompactFormWitness;
 use circuit_definitions::zkevm_circuits::main_vm::witness_oracle::WitnessOracle;
 use circuit_definitions::zkevm_circuits::scheduler::aux::BaseLayerCircuitType;
-use circuit_sequencer_api::toolset::GeometryConfig;
+use circuit_sequencer_api::geometry_config::GeometryConfig;
 use crossbeam::atomic::AtomicCell;
 use derivative::Derivative;
 

@@ -1,6 +1,5 @@
 use rayon::prelude::*;
 use std::cmp::Ordering;
-use std::iter::IntoIterator;
 use zk_evm::{
     aux_structures::{LogQuery, LogQueryWithExtendedEnumeration, Timestamp},
     ethereum_types::{H160, U256},
@@ -14,14 +13,16 @@ pub struct StorageSlotHistoryKeeper {
     pub did_read_at_depth_zero: bool,
 }
 
-pub fn sort_storage_access_queries<'a>(
-    unsorted_storage_queries: impl IntoIterator<Item = &'a LogQuery>,
+// IMPORTANT! This function is being used by all the protocol versions in MultiVM, so changing it
+// may cause a change in behavior for existing protocol versions.
+pub fn sort_storage_access_queries(
+    unsorted_storage_queries: impl IntoIterator<Item = LogQuery>,
 ) -> (Vec<LogQueryWithExtendedEnumeration>, Vec<LogQuery>) {
     let mut sorted_storage_queries_with_extra_timestamp: Vec<_> = unsorted_storage_queries
         .into_iter()
         .enumerate()
         .map(|(i, el)| LogQueryWithExtendedEnumeration {
-            raw_query: el.clone(),
+            raw_query: el,
             extended_timestamp: i as u32,
         })
         .collect();
@@ -249,14 +250,14 @@ pub fn sort_storage_access_queries<'a>(
     )
 }
 
-pub fn sort_transient_storage_access_queries<'a>(
-    unsorted_storage_queries: impl IntoIterator<Item = &'a LogQuery>,
+pub fn sort_transient_storage_access_queries(
+    unsorted_storage_queries: impl IntoIterator<Item = LogQuery>,
 ) -> Vec<LogQueryWithExtendedEnumeration> {
     let mut sorted_storage_queries_with_extra_timestamp: Vec<_> = unsorted_storage_queries
         .into_iter()
         .enumerate()
         .map(|(i, el)| LogQueryWithExtendedEnumeration {
-            raw_query: el.clone(),
+            raw_query: el,
             extended_timestamp: i as u32,
         })
         .collect();

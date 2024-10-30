@@ -8,6 +8,8 @@ use crate::{
 use circuit_encodings::{boojum::field::goldilocks::GoldilocksField, *};
 use zk_evm::aux_structures::LogQuery;
 
+// IMPORTANT! This function is being used by all the protocol versions in MultiVM, so changing it
+// may cause a change in behavior for existing protocol versions.
 pub fn initial_heap_content_commitment<
     F: SmallField,
     R: BuildableCircuitRoundFunction<F, 8, 12, 4> + AlgebraicRoundFunction<F, 8, 12, 4>,
@@ -49,6 +51,8 @@ pub fn initial_heap_content_commitment_fixed(bootloader_heap_data: &Vec<u8>) -> 
     )
 }
 
+// IMPORTANT! This function is being used by all the protocol versions in MultiVM, so changing it
+// may cause a change in behavior for existing protocol versions.
 pub fn events_queue_commitment<
     F: SmallField,
     R: BuildableCircuitRoundFunction<F, 8, 12, 4> + AlgebraicRoundFunction<F, 8, 12, 4>,

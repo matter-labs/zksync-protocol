@@ -381,7 +381,7 @@ fn run_and_try_create_witness_inner(
     use crate::toolset::GeometryConfig;
 
     let geometry = if options.use_production_geometry {
-        crate::geometry_config::get_geometry_config()
+        crate::geometry_config::ProtocolGeometry::latest().config()
     } else {
         get_testing_geometry_config()
     };
