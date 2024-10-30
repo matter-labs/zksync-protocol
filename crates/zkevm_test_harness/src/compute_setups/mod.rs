@@ -47,7 +47,7 @@ fn get_compression_circuits(
             witness: None,
             config: CompressionRecursionConfig {
                 proof_config: CompressionMode1::proof_config_for_compression_step(),
-                verification_key: VerificationKey::default(),
+                verification_key: source.get_compression_vk(1).unwrap().into_inner(),
                 _marker: Default::default(),
             },
             transcript_params: (),
@@ -57,7 +57,7 @@ fn get_compression_circuits(
             witness: None,
             config: CompressionRecursionConfig {
                 proof_config: CompressionMode2::proof_config_for_compression_step(),
-                verification_key: VerificationKey::default(),
+                verification_key: source.get_compression_vk(2).unwrap().into_inner(),
                 _marker: Default::default(),
             },
             transcript_params: (),
@@ -67,7 +67,7 @@ fn get_compression_circuits(
             witness: None,
             config: CompressionRecursionConfig {
                 proof_config: CompressionMode3::proof_config_for_compression_step(),
-                verification_key: VerificationKey::default(),
+                verification_key: source.get_compression_vk(3).unwrap().into_inner(),
                 _marker: Default::default(),
             },
             transcript_params: (),
@@ -77,7 +77,7 @@ fn get_compression_circuits(
             witness: None,
             config: CompressionRecursionConfig {
                 proof_config: CompressionMode4::proof_config_for_compression_step(),
-                verification_key: VerificationKey::default(),
+                verification_key: source.get_compression_vk(4).unwrap().into_inner(),
                 _marker: Default::default(),
             },
             transcript_params: (),
@@ -87,7 +87,7 @@ fn get_compression_circuits(
             witness: None,
             config: CompressionRecursionConfig {
                 proof_config: CompressionMode5::proof_config_for_compression_step(),
-                verification_key: VerificationKey::default(),
+                verification_key: source.get_compression_vk(5).unwrap().into_inner(),
                 _marker: Default::default(),
             },
             transcript_params: (),
@@ -105,7 +105,10 @@ fn get_compression_for_wrapper_circuits(
                 witness: None,
                 config: CompressionRecursionConfig {
                     proof_config: CompressionMode1::proof_config_for_compression_step(),
-                    verification_key: VerificationKey::default(),
+                    verification_key: source
+                        .get_compression_for_wrapper_vk(1)
+                        .unwrap()
+                        .into_inner(),
                     _marker: Default::default(),
                 },
                 transcript_params: (),
@@ -117,7 +120,10 @@ fn get_compression_for_wrapper_circuits(
                 witness: None,
                 config: CompressionRecursionConfig {
                     proof_config: CompressionMode2::proof_config_for_compression_step(),
-                    verification_key: VerificationKey::default(),
+                    verification_key: source
+                        .get_compression_for_wrapper_vk(2)
+                        .unwrap()
+                        .into_inner(),
                     _marker: Default::default(),
                 },
                 transcript_params: (),
@@ -129,7 +135,10 @@ fn get_compression_for_wrapper_circuits(
                 witness: None,
                 config: CompressionRecursionConfig {
                     proof_config: CompressionMode3::proof_config_for_compression_step(),
-                    verification_key: VerificationKey::default(),
+                    verification_key: source
+                        .get_compression_for_wrapper_vk(3)
+                        .unwrap()
+                        .into_inner(),
                     _marker: Default::default(),
                 },
                 transcript_params: (),
@@ -141,7 +150,10 @@ fn get_compression_for_wrapper_circuits(
                 witness: None,
                 config: CompressionRecursionConfig {
                     proof_config: CompressionMode4::proof_config_for_compression_step(),
-                    verification_key: VerificationKey::default(),
+                    verification_key: source
+                        .get_compression_for_wrapper_vk(4)
+                        .unwrap()
+                        .into_inner(),
                     _marker: Default::default(),
                 },
                 transcript_params: (),
@@ -153,7 +165,10 @@ fn get_compression_for_wrapper_circuits(
                 witness: None,
                 config: CompressionRecursionConfig {
                     proof_config: CompressionMode5::proof_config_for_compression_step(),
-                    verification_key: VerificationKey::default(),
+                    verification_key: source
+                        .get_compression_for_wrapper_vk(5)
+                        .unwrap()
+                        .into_inner(),
                     _marker: Default::default(),
                 },
                 transcript_params: (),

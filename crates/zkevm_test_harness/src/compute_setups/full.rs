@@ -86,6 +86,7 @@ pub fn generate_circuit_setup_data(
 
     let (setup_base, setup, vk, setup_tree, vars_hint, wits_hint, finalization_hint) =
         match proving_stage {
+            // basic circuits
             0 => {
                 let circuit = get_all_basic_circuits(&geometry)
                     .iter()
@@ -103,6 +104,7 @@ pub fn generate_circuit_setup_data(
                     BASE_LAYER_CAP_SIZE,
                 )
             }
+            // recursive circuits
             1..=4 => {
                 let circuit = get_all_recursive_circuits(source)?
                     .iter()
@@ -120,6 +122,7 @@ pub fn generate_circuit_setup_data(
                     RECURSION_LAYER_CAP_SIZE,
                 )
             }
+            // compression circuits
             5 => {
                 let circuit = get_compression_circuits(&source)
                     .iter()
@@ -139,6 +142,7 @@ pub fn generate_circuit_setup_data(
                         .merkle_tree_cap_size,
                 )
             }
+            // compression for wrapper circuits
             6 => {
                 let circuit = get_compression_for_wrapper_circuits(&source)
                     .iter()
