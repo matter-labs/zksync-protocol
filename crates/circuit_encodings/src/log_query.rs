@@ -1,83 +1,5 @@
 use zk_evm::aux_structures::LogQuery;
-use zk_evm::aux_structures::Timestamp;
-use zk_evm::ethereum_types::H160;
-use zk_evm::ethereum_types::U256;
-
-// Proxy, as we just need read-only
-pub trait LogQueryLike: 'static + Clone + Send + Sync + std::fmt::Debug {
-    fn shard_id(&self) -> u8;
-    fn tx_number_in_block(&self) -> u32;
-    fn address(&self) -> H160;
-    fn key(&self) -> U256;
-    fn rw_flag(&self) -> bool;
-    fn rollback(&self) -> bool;
-    fn read_value(&self) -> U256;
-    fn written_value(&self) -> U256;
-    fn create_partially_filled_from_fields(
-        shard_id: u8,
-        address: H160,
-        key: U256,
-        read_value: U256,
-        written_value: U256,
-        rw_flag: bool,
-    ) -> Self;
-}
-
-impl LogQueryLike for LogQuery {
-    fn shard_id(&self) -> u8 {
-        self.shard_id
-    }
-    fn tx_number_in_block(&self) -> u32 {
-        self.tx_number_in_block as u32
-    }
-    fn address(&self) -> H160 {
-        self.address
-    }
-    fn key(&self) -> U256 {
-        self.key
-    }
-    fn rw_flag(&self) -> bool {
-        self.rw_flag
-    }
-    fn rollback(&self) -> bool {
-        self.rollback
-    }
-    fn read_value(&self) -> U256 {
-        self.read_value
-    }
-    fn written_value(&self) -> U256 {
-        self.written_value
-    }
-    fn create_partially_filled_from_fields(
-        shard_id: u8,
-        address: H160,
-        key: U256,
-        read_value: U256,
-        written_value: U256,
-        rw_flag: bool,
-    ) -> Self {
-        // only smaller number of field matters in practice
-        LogQuery {
-            timestamp: Timestamp(0),
-            tx_number_in_block: 0,
-            aux_byte: 0,
-            shard_id,
-            address,
-            key,
-            read_value,
-            written_value,
-            rw_flag,
-            rollback: false,
-            is_service: false,
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct LogQueryLikeWithExtendedEnumeration<L: LogQueryLike> {
-    pub raw_query: L,
-    pub extended_timestamp: u32,
-}
+use zk_evm::aux_structures::LogQueryWithExtendedEnumeration;
 
 use super::*;
 
@@ -427,8 +349,6 @@ impl<F: SmallField> OutOfCircuitFixedLengthEncodable<F, LOG_QUERY_PACKED_WIDTH> 
         ]
     }
 }
-
-pub type LogQueryWithExtendedEnumeration = LogQueryLikeWithExtendedEnumeration<LogQuery>;
 
 impl<F: SmallField> OutOfCircuitFixedLengthEncodable<F, LOG_QUERY_PACKED_WIDTH>
     for LogQueryWithExtendedEnumeration

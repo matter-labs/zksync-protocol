@@ -9,6 +9,7 @@ use crate::zkevm_circuits::base_structures::vm_state::QUEUE_STATE_WIDTH;
 use crate::zkevm_circuits::storage_validity_by_grand_product::input::*;
 use crate::zkevm_circuits::DEFAULT_NUM_PERMUTATION_ARGUMENT_REPETITIONS;
 use circuit_definitions::encodings::*;
+use zk_evm::aux_structures::LogQueryWithExtendedEnumeration;
 
 pub(crate) fn compute_storage_dedup_and_sort<
     F: SmallField,

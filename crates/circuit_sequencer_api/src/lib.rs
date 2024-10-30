@@ -1,4 +1,5 @@
 #![feature(array_chunks)]
+#![allow(clippy::bool_comparison)]
 
 pub mod geometry_config;
 pub mod proof;

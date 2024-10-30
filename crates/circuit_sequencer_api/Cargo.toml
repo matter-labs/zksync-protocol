@@ -11,7 +11,7 @@ categories.workspace = true
 description = "ZKsync Era circuit API for sequencer"
 
 [dependencies]
-
+zk_evm.workspace = true
 circuit_encodings.workspace = true
 bellman.workspace = true
 
