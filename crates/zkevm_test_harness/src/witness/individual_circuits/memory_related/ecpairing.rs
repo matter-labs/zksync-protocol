@@ -242,13 +242,10 @@ pub(crate) fn ecpairing_decompose_into_per_circuit_witness<
                 let read_precompile_call =
                     precompile_state == ECPairingPrecompileState::GetRequestFromQueue;
 
-                // Pairing check:
-                internal_state.sub_assign(&Fq12::one());
-                let paired = internal_state.eq(&Fq12::zero());
-                let internal_state = match paired {
-                    true => Fq12::one(),
-                    false => Fq12::zero(),
-                };
+                let mut output_offset = precompile_request.output_memory_offset;
+                if completed {
+                    output_offset += 1;
+                }
 
                 let hidden_fsm_output_state = EcPairingFunctionFSMWitness::<F> {
                     completed,
@@ -261,8 +258,7 @@ pub(crate) fn ecpairing_decompose_into_per_circuit_witness<
                         input_page: precompile_request.memory_page_to_read,
                         input_offset: precompile_request.input_memory_offset,
                         output_page: precompile_request.memory_page_to_write,
-                        // plus one because we write pairing check result after success mark:
-                        output_offset: precompile_request.output_memory_offset + 1,
+                        output_offset,
                         num_pairs: num_rounds_left as u32,
                     },
                 };
