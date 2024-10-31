@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.150.10](https://github.com/matter-labs/zksync-protocol/compare/v0.150.9...v0.150.10) (2024-10-31)
+
+
+### Miscellaneous Chores
+
+* bump crypto deps ([#59](https://github.com/matter-labs/zksync-protocol/issues/59)) ([e4d42e2](https://github.com/matter-labs/zksync-protocol/commit/e4d42e2ab1ff9c3f7767a1515f8407bb651c106f))
+
 ## [0.150.9](https://github.com/matter-labs/zksync-protocol/compare/v0.150.8...v0.150.9) (2024-10-29)
 
 
