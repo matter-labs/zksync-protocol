@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.150.9](https://github.com/matter-labs/zksync-protocol/compare/v0.150.8...v0.150.9) (2024-10-29)
+
+
+### Features
+
+* **circuit_definitions:** naive snark-wrapper circuit for fflonk ([#50](https://github.com/matter-labs/zksync-protocol/issues/50)) ([53481d1](https://github.com/matter-labs/zksync-protocol/commit/53481d18eee028a72979ef32f930d40d1bfa0133))
+
 ## [0.150.8](https://github.com/matter-labs/zksync-protocol/compare/v0.150.7...v0.150.8) (2024-10-29)
 
 
