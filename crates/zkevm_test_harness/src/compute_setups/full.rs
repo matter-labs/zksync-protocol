@@ -134,34 +134,16 @@ pub fn generate_circuit_setup_data(
                     .clone();
 
                 create_compression_layer_setup_data(
-                    circuit,
+                    circuit.clone(),
                     &worker,
-                    circuit.proof_config_for_compression_step().fri_lde_factor,
+                    circuit.clone().proof_config_for_compression_step().fri_lde_factor,
                     circuit
                         .proof_config_for_compression_step()
                         .merkle_tree_cap_size,
                 )
             }
             // compression for wrapper circuits
-            6 => {
-                let circuit = get_compression_for_wrapper_circuits(source)
-                    .iter()
-                    .find(|circuit| circuit.numeric_circuit_type() == circuit_type)
-                    .expect(&format!(
-                        "Could not find circuit matching {:?}",
-                        circuit_type
-                    ))
-                    .clone();
-
-                create_compression_for_wrapper_setup_data(
-                    circuit,
-                    &worker,
-                    circuit.proof_config_for_compression_step().fri_lde_factor,
-                    circuit
-                        .proof_config_for_compression_step()
-                        .merkle_tree_cap_size,
-                )
-            }
+            6 => panic!("Full generation of setup for wrapper circuits should be generated with light setup"),
             _ => unreachable!("Invalid proving stage"),
         };
 

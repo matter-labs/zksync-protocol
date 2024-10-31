@@ -135,7 +135,10 @@ pub fn generate_light_circuit_setup_data(
             create_light_compression_layer_setup_data(
                 circuit.clone(),
                 &worker,
-                circuit.clone().proof_config_for_compression_step().fri_lde_factor,
+                circuit
+                    .clone()
+                    .proof_config_for_compression_step()
+                    .fri_lde_factor,
                 circuit
                     .proof_config_for_compression_step()
                     .merkle_tree_cap_size,
@@ -154,7 +157,10 @@ pub fn generate_light_circuit_setup_data(
             create_light_compression_for_wrapper_setup_data(
                 circuit.clone(),
                 &worker,
-                circuit.clone().proof_config_for_compression_step().fri_lde_factor,
+                circuit
+                    .clone()
+                    .proof_config_for_compression_step()
+                    .fri_lde_factor,
                 circuit
                     .proof_config_for_compression_step()
                     .merkle_tree_cap_size,
