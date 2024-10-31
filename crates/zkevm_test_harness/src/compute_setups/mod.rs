@@ -40,7 +40,7 @@ pub mod light;
 pub use full::*;
 
 fn get_compression_circuits(
-    source: &dyn SetupDataSource,
+    source: &mut dyn SetupDataSource,
 ) -> Vec<ZkSyncCompressionLayerCircuit> {
     vec![
         ZkSyncCompressionLayerCircuit::CompressionMode1Circuit(CompressionMode1Circuit {
@@ -97,7 +97,7 @@ fn get_compression_circuits(
 }
 
 fn get_compression_for_wrapper_circuits(
-    source: &dyn SetupDataSource,
+    source: &mut dyn SetupDataSource,
 ) -> Vec<ZkSyncCompressionForWrapperCircuit> {
     vec![
         ZkSyncCompressionForWrapperCircuit::CompressionMode1Circuit(

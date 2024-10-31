@@ -124,7 +124,7 @@ pub fn generate_circuit_setup_data(
             }
             // compression circuits
             5 => {
-                let circuit = get_compression_circuits(&source)
+                let circuit = get_compression_circuits(source)
                     .iter()
                     .find(|circuit| circuit.numeric_circuit_type() == circuit_type)
                     .expect(&format!(
@@ -144,7 +144,7 @@ pub fn generate_circuit_setup_data(
             }
             // compression for wrapper circuits
             6 => {
-                let circuit = get_compression_for_wrapper_circuits(&source)
+                let circuit = get_compression_for_wrapper_circuits(source)
                     .iter()
                     .find(|circuit| circuit.numeric_circuit_type() == circuit_type)
                     .expect(&format!(
