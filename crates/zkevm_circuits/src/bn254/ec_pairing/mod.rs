@@ -380,12 +380,19 @@ where
 
         let _ = memory_queue.push(cs, success_query, write_result);
 
-        state.precompile_call_params.output_offset = unsafe {
+        let maybe_new_offset = unsafe {
             state
                 .precompile_call_params
                 .output_offset
                 .increment_unchecked(cs)
         };
+
+        state.precompile_call_params.output_offset = UInt32::conditionally_select(
+            cs,
+            write_result,
+            &maybe_new_offset,
+            &state.precompile_call_params.output_offset,
+        );
 
         let paired = acc.sub(cs, &mut one_fq12.clone()).is_zero(cs);
         let paired_as_u32 = unsafe { UInt32::from_variable_unchecked(paired.get_variable()) };

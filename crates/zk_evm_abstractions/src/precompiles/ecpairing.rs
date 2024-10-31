@@ -93,7 +93,7 @@ impl<const B: bool> Precompile for ECPairingPrecompile<B> {
             let x1_query = memory.execute_partial_query(monotonic_cycle_counter, x1_query);
             let x1_value = x1_query.value;
             if B {
-                round_witness.reads[i % MEMORY_READS_PER_CYCLE] = x1_query;
+                round_witness.reads[0] = x1_query;
                 read_history.push(x1_query);
             }
 
@@ -108,7 +108,7 @@ impl<const B: bool> Precompile for ECPairingPrecompile<B> {
             let y1_query = memory.execute_partial_query(monotonic_cycle_counter, y1_query);
             let y1_value = y1_query.value;
             if B {
-                round_witness.reads[(i + 1) % MEMORY_READS_PER_CYCLE] = y1_query;
+                round_witness.reads[1] = y1_query;
                 read_history.push(y1_query);
             }
 
@@ -123,7 +123,7 @@ impl<const B: bool> Precompile for ECPairingPrecompile<B> {
             let x2_query = memory.execute_partial_query(monotonic_cycle_counter, x2_query);
             let x2_value = x2_query.value;
             if B {
-                round_witness.reads[(i + 2) % MEMORY_READS_PER_CYCLE] = x2_query;
+                round_witness.reads[2] = x2_query;
                 read_history.push(x2_query);
             }
 
@@ -138,7 +138,7 @@ impl<const B: bool> Precompile for ECPairingPrecompile<B> {
             let y2_query = memory.execute_partial_query(monotonic_cycle_counter, y2_query);
             let y2_value = y2_query.value;
             if B {
-                round_witness.reads[(i + 3) % MEMORY_READS_PER_CYCLE] = y2_query;
+                round_witness.reads[3] = y2_query;
                 read_history.push(y2_query);
             }
 
@@ -153,7 +153,7 @@ impl<const B: bool> Precompile for ECPairingPrecompile<B> {
             let x3_query = memory.execute_partial_query(monotonic_cycle_counter, x3_query);
             let x3_value = x3_query.value;
             if B {
-                round_witness.reads[(i + 4) % MEMORY_READS_PER_CYCLE] = x3_query;
+                round_witness.reads[4] = x3_query;
                 read_history.push(x3_query);
             }
 
@@ -168,7 +168,7 @@ impl<const B: bool> Precompile for ECPairingPrecompile<B> {
             let y3_query = memory.execute_partial_query(monotonic_cycle_counter, y3_query);
             let y3_value = y3_query.value;
             if B {
-                round_witness.reads[(i + 5) % MEMORY_READS_PER_CYCLE] = y3_query;
+                round_witness.reads[5] = y3_query;
                 read_history.push(y3_query);
             }
             current_read_location.index.0 += 1;
