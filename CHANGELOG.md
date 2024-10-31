@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.150.11](https://github.com/matter-labs/zksync-protocol/compare/v0.150.10...v0.150.11) (2024-10-31)
+
+
+### Features
+
+* Generate light setup keys ([#56](https://github.com/matter-labs/zksync-protocol/issues/56)) ([587aaa1](https://github.com/matter-labs/zksync-protocol/commit/587aaa1530e0f44300530865a01777c42a3b1d85))
+
 ## [0.150.10](https://github.com/matter-labs/zksync-protocol/compare/v0.150.9...v0.150.10) (2024-10-31)
 
 
