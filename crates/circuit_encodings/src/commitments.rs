@@ -1,11 +1,11 @@
-use crate::{
-    boojum::{
-        algebraic_props::round_function::AlgebraicRoundFunction, field::SmallField,
-        gadgets::traits::round_function::*,
-    },
-    utils::{calldata_to_aligned_data, finalize_queue_state, finalized_queue_state_as_bytes},
+use crate::boojum::{
+    algebraic_props::round_function::AlgebraicRoundFunction, field::SmallField,
+    gadgets::traits::round_function::*,
 };
-use circuit_encodings::{boojum::field::goldilocks::GoldilocksField, *};
+use crate::utils::{
+    calldata_to_aligned_data, finalize_queue_state, finalized_queue_state_as_bytes,
+};
+use crate::{boojum::field::goldilocks::GoldilocksField, *};
 use zk_evm::aux_structures::LogQuery;
 
 // IMPORTANT! This function is being used by all the protocol versions in MultiVM, so changing it
@@ -19,7 +19,7 @@ pub fn initial_heap_content_commitment<
 ) -> [u8; 32] {
     let heap_writes = calldata_to_aligned_data(bootloader_heap_data);
 
-    use circuit_encodings::memory_query::MemoryQueueSimulator;
+    use crate::memory_query::MemoryQueueSimulator;
     use zk_evm::abstractions::*;
     use zk_evm::aux_structures::*;
 
