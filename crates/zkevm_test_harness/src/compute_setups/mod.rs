@@ -8,18 +8,12 @@ use circuit_definitions::circuit_definitions::aux_layer::compression::{
     CompressionMode4Circuit, CompressionMode4ForWrapperCircuit, CompressionMode5Circuit,
     CompressionMode5ForWrapperCircuit, ProofCompressionFunction,
 };
-use circuit_definitions::circuit_definitions::aux_layer::compression_modes::{
-    CompressionMode1, CompressionMode2, CompressionMode3, CompressionMode4, CompressionMode5,
-};
 use circuit_definitions::circuit_definitions::aux_layer::{
     ZkSyncCompressionForWrapperCircuit, ZkSyncCompressionLayerCircuit,
 };
 use circuit_definitions::circuit_definitions::base_layer::ZkSyncBaseLayerCircuit;
 use circuit_definitions::circuit_definitions::recursion_layer::leaf_layer::ZkSyncLeafLayerRecursiveCircuit;
-use circuit_definitions::circuit_definitions::recursion_layer::{
-    base_circuit_type_into_recursive_leaf_circuit_type, ZkSyncRecursionLayerStorageType,
-    ZkSyncRecursiveLayerCircuit, RECURSION_ARITY, SCHEDULER_CAPACITY,
-};
+use circuit_definitions::circuit_definitions::recursion_layer::{base_circuit_type_into_recursive_leaf_circuit_type, ZkSyncRecursionLayerStorageType, ZkSyncRecursiveLayerCircuit, RECURSION_ARITY, SCHEDULER_CAPACITY, circuit_def};
 use circuit_definitions::circuit_definitions::ZkSyncUniformCircuitInstance;
 use circuit_definitions::recursion_layer_proof_config;
 use circuit_definitions::zkevm_circuits::eip_4844::input::ELEMENTS_PER_4844_BLOCK;
@@ -31,6 +25,7 @@ use circuit_sequencer_api::toolset::GeometryConfig;
 use crossbeam::atomic::AtomicCell;
 use std::collections::VecDeque;
 use std::sync::Arc;
+use circuit_definitions::circuit_definitions::aux_layer::compression_modes::{CompressionMode1, CompressionMode1ForWrapper, CompressionMode2, CompressionMode2ForWrapper, CompressionMode3, CompressionMode3ForWrapper, CompressionMode4, CompressionMode4ForWrapper, CompressionMode5, CompressionMode5ForWrapper};
 
 use crate::zkevm_circuits::base_structures::vm_state::FULL_SPONGE_QUEUE_STATE_WIDTH;
 
@@ -105,7 +100,7 @@ fn get_compression_for_wrapper_circuits(
             CompressionMode1ForWrapperCircuit {
                 witness: None,
                 config: CompressionRecursionConfig {
-                    proof_config: CompressionMode1::proof_config_for_compression_step(),
+                    proof_config: CompressionMode1ForWrapper::proof_config_for_compression_step(),
                     verification_key: source.get_compression_vk(1).unwrap().into_inner(),
                     _marker: Default::default(),
                 },
@@ -117,7 +112,7 @@ fn get_compression_for_wrapper_circuits(
             CompressionMode2ForWrapperCircuit {
                 witness: None,
                 config: CompressionRecursionConfig {
-                    proof_config: CompressionMode2::proof_config_for_compression_step(),
+                    proof_config: CompressionMode2ForWrapper::proof_config_for_compression_step(),
                     verification_key: source.get_compression_vk(2).unwrap().into_inner(),
                     _marker: Default::default(),
                 },
@@ -129,7 +124,7 @@ fn get_compression_for_wrapper_circuits(
             CompressionMode3ForWrapperCircuit {
                 witness: None,
                 config: CompressionRecursionConfig {
-                    proof_config: CompressionMode3::proof_config_for_compression_step(),
+                    proof_config: CompressionMode3ForWrapper::proof_config_for_compression_step(),
                     verification_key: source.get_compression_vk(3).unwrap().into_inner(),
                     _marker: Default::default(),
                 },
@@ -141,7 +136,7 @@ fn get_compression_for_wrapper_circuits(
             CompressionMode4ForWrapperCircuit {
                 witness: None,
                 config: CompressionRecursionConfig {
-                    proof_config: CompressionMode4::proof_config_for_compression_step(),
+                    proof_config: CompressionMode4ForWrapper::proof_config_for_compression_step(),
                     verification_key: source.get_compression_vk(4).unwrap().into_inner(),
                     _marker: Default::default(),
                 },
@@ -153,7 +148,7 @@ fn get_compression_for_wrapper_circuits(
             CompressionMode5ForWrapperCircuit {
                 witness: None,
                 config: CompressionRecursionConfig {
-                    proof_config: CompressionMode5::proof_config_for_compression_step(),
+                    proof_config: CompressionMode5ForWrapper::proof_config_for_compression_step(),
                     verification_key: source.get_compression_vk(5).unwrap().into_inner(),
                     _marker: Default::default(),
                 },
