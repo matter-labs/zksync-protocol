@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.150.12](https://github.com/matter-labs/zksync-protocol/compare/v0.150.11...v0.150.12) (2024-11-06)
+
+
+### Bug Fixes
+
+* Compression setup generation ([#63](https://github.com/matter-labs/zksync-protocol/issues/63)) ([a17c0c0](https://github.com/matter-labs/zksync-protocol/commit/a17c0c0425e3c3c13f7c546d7c3f58ef264a502a))
+
 ## [0.150.11](https://github.com/matter-labs/zksync-protocol/compare/v0.150.10...v0.150.11) (2024-10-31)
 
 
