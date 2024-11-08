@@ -11,10 +11,15 @@ use circuit_definitions::circuit_definitions::aux_layer::compression::{
     CompressionLayerCircuit, ProofCompressionFunction,
 };
 use circuit_definitions::circuit_definitions::aux_layer::{
-    ZkSyncCompressionForWrapperCircuit, ZkSyncCompressionLayerCircuit,
+    ZkSyncCompressionForWrapperCircuit, ZkSyncCompressionForWrapperVerificationKey,
+    ZkSyncCompressionLayerCircuit, ZkSyncCompressionLayerVerificationKey,
+    ZkSyncCompressionVerificationKey, ZkSyncCompressionVerificationKeyForWrapper,
 };
 use circuit_definitions::circuit_definitions::base_layer::ZkSyncBaseLayerCircuit;
-use circuit_definitions::circuit_definitions::recursion_layer::ZkSyncRecursiveLayerCircuit;
+use circuit_definitions::circuit_definitions::recursion_layer::{
+    ZkSyncRecursionLayerProof, ZkSyncRecursionLayerVerificationKey, ZkSyncRecursionProof,
+    ZkSyncRecursionVerificationKey, ZkSyncRecursiveLayerCircuit,
+};
 use circuit_definitions::ZkSyncDefaultRoundFunction;
 pub use full::*;
 
@@ -334,4 +339,57 @@ fn get_cs_finalization_hint_for_compression_for_wrapper(
             synthesize_inner(inner)
         }
     }
+}
+
+pub fn load_scheduler_vk(path: &str) -> ZkSyncRecursionVerificationKey {
+    let vk_file = std::fs::File::open(format!("{}/scheduler_recursive_vk.json", path)).unwrap();
+    let vk: ZkSyncRecursionLayerVerificationKey = serde_json::from_reader(&vk_file).unwrap();
+    vk.into_inner()
+}
+
+pub fn load_compression_vk(path: &str, mode: usize) -> ZkSyncRecursionVerificationKey {
+    let vk_file = std::fs::File::open(format!("{}/compression_{}_vk.json", path, mode)).unwrap();
+    let vk: ZkSyncRecursionVerificationKey = serde_json::from_reader(&vk_file).unwrap();
+
+    vk
+}
+
+#[test]
+fn test_cs_finalization_hint() {
+    let path = "./data";
+
+    let scheduler_vk_file =
+        std::fs::File::open(format!("{}/scheduler_recursive_vk.json", path)).unwrap();
+    let scheduler_vk: ZkSyncRecursionLayerVerificationKey =
+        serde_json::from_reader(&scheduler_vk_file).unwrap();
+    let circuit =
+        ZkSyncCompressionLayerCircuit::from_witness_and_vk(None, scheduler_vk.into_inner(), 1);
+    assert_eq!(
+        get_cs_finalization_hint_for_compression(circuit.clone()).1,
+        get_cs_finalization_hint_for_compression(circuit).1,
+    );
+    let vk = load_compression_vk(&path, 1);
+    let circuit = ZkSyncCompressionLayerCircuit::from_witness_and_vk(None, vk, 2);
+    assert_eq!(
+        get_cs_finalization_hint_for_compression(circuit.clone()).1,
+        get_cs_finalization_hint_for_compression(circuit).1,
+    );
+    let vk = load_compression_vk(&path, 2);
+    let circuit = ZkSyncCompressionLayerCircuit::from_witness_and_vk(None, vk, 3);
+    assert_eq!(
+        get_cs_finalization_hint_for_compression(circuit.clone()).1,
+        get_cs_finalization_hint_for_compression(circuit).1,
+    );
+    let vk = load_compression_vk(&path, 3);
+    let circuit = ZkSyncCompressionLayerCircuit::from_witness_and_vk(None, vk, 4);
+    assert_eq!(
+        get_cs_finalization_hint_for_compression(circuit.clone()).1,
+        get_cs_finalization_hint_for_compression(circuit).1,
+    );
+    let vk = load_compression_vk(&path, 4);
+    let circuit = ZkSyncCompressionForWrapperCircuit::from_witness_and_vk(None, vk, 5);
+    assert_eq!(
+        get_cs_finalization_hint_for_compression_for_wrapper(circuit.clone()).1,
+        get_cs_finalization_hint_for_compression_for_wrapper(circuit).1,
+    );
 }
