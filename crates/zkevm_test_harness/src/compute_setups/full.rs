@@ -22,6 +22,7 @@ use circuit_definitions::{
 };
 
 use crossbeam::atomic::AtomicCell;
+use geometry_config::ProtocolGeometry;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use rayon::ThreadPoolBuilder;
 
@@ -81,7 +82,7 @@ pub fn generate_circuit_setup_data(
     circuit_type: u8,
     source: &mut dyn SetupDataSource,
 ) -> crate::data_source::SourceResult<CircuitSetupData> {
-    let geometry = crate::geometry_config::get_geometry_config();
+    let geometry = ProtocolGeometry::latest().config();
     let worker = Worker::new();
 
     let (setup_base, setup, vk, setup_tree, vars_hint, wits_hint, finalization_hint) =
@@ -180,7 +181,7 @@ pub fn generate_base_layer_vks<CB: Fn() + Send + Sync>(
     num_threads: Option<usize>,
     cb: CB,
 ) -> crate::data_source::SourceResult<()> {
-    let geometry = crate::geometry_config::get_geometry_config();
+    let geometry = ProtocolGeometry::latest().config();
     let worker = Worker::new();
 
     let num_threads = num_threads.unwrap_or(1);
