@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.150.12](https://github.com/matter-labs/zksync-protocol/compare/v0.150.11...v0.150.12) (2024-11-06)
+
+
+### Bug Fixes
+
+* Compression setup generation ([#63](https://github.com/matter-labs/zksync-protocol/issues/63)) ([a17c0c0](https://github.com/matter-labs/zksync-protocol/commit/a17c0c0425e3c3c13f7c546d7c3f58ef264a502a))
+
+## [0.150.11](https://github.com/matter-labs/zksync-protocol/compare/v0.150.10...v0.150.11) (2024-10-31)
+
+
+### Features
+
+* Generate light setup keys ([#56](https://github.com/matter-labs/zksync-protocol/issues/56)) ([587aaa1](https://github.com/matter-labs/zksync-protocol/commit/587aaa1530e0f44300530865a01777c42a3b1d85))
+
+## [0.150.10](https://github.com/matter-labs/zksync-protocol/compare/v0.150.9...v0.150.10) (2024-10-31)
+
+
+### Miscellaneous Chores
+
+* bump crypto deps ([#59](https://github.com/matter-labs/zksync-protocol/issues/59)) ([e4d42e2](https://github.com/matter-labs/zksync-protocol/commit/e4d42e2ab1ff9c3f7767a1515f8407bb651c106f))
+
 ## [0.150.9](https://github.com/matter-labs/zksync-protocol/compare/v0.150.8...v0.150.9) (2024-10-29)
 
 
