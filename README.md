@@ -13,7 +13,7 @@ The project contains the following crates:
 - [zkevm-assembly](./crates/zkEVM-assembly)
 - [zkevm_circuits](./crates/zkevm_circuits/)
 - [zk_evm](./crates/zk_evm/)
-- [circuit_defintions](./crates/circuit_definitions/)
+- [circuit_definitions](./crates/circuit_definitions/)
 - [circuit_encodings](./crates/circuit_encodings/)
 - [kzg](./crates/kzg/)
 - [zkevm_test_harness](./crates/zkevm_test_harness/)
