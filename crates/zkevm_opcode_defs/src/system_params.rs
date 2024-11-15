@@ -28,6 +28,10 @@ pub const KECCAK256_ROUND_FUNCTION_PRECOMPILE_ADDRESS: u16 = SYSTEM_CONTRACTS_OF
 pub const SHA256_ROUND_FUNCTION_PRECOMPILE_ADDRESS: u16 = 0x02; // as in Ethereum
 pub const ECRECOVER_INNER_FUNCTION_PRECOMPILE_ADDRESS: u16 = 0x01; // as in Ethereum
 pub const SECP256R1_VERIFY_PRECOMPILE_ADDRESS: u16 = 0x100; // As in RIP7212: https://github.com/ethereum/RIPs/blob/master/RIPS/rip-7212.md
+pub const MODEXP_PRECOMPILE_ADDRESS: u16 = 0x05; // as in Ethereum
+pub const ECADD_PRECOMPILE_ADDRESS: u16 = 0x06; // as in Ethereum
+pub const ECMUL_PRECOMPILE_ADDRESS: u16 = 0x07; // as in Ethereum
+pub const ECPAIRING_PRECOMPILE_ADDRESS: u16 = 0x08; // as in Ethereum
 
 pub const MAX_PUBDATA_COST_PER_QUERY: i32 = 65;
 pub const INITIAL_STORAGE_WRITE_PUBDATA_BYTES: usize = 64;
@@ -151,4 +155,12 @@ lazy_static! {
         Address::from_low_u64_be(ECRECOVER_INNER_FUNCTION_PRECOMPILE_ADDRESS as u64);
     pub static ref SECP256R1_VERIFY_INNER_FUNCTION_PRECOMPILE_FORMAL_ADDRESS: Address =
         Address::from_low_u64_be(SECP256R1_VERIFY_PRECOMPILE_ADDRESS as u64);
+    pub static ref MODEXP_PRECOMPILE_FORMAL_ADDRESS: Address =
+        Address::from_low_u64_be(MODEXP_PRECOMPILE_ADDRESS as u64);
+    pub static ref ECADD_PRECOMPILE_FORMAL_ADDRESS: Address =
+        Address::from_low_u64_be(ECADD_PRECOMPILE_ADDRESS as u64);
+    pub static ref ECMUL_PRECOMPILE_FORMAL_ADDRESS: Address =
+        Address::from_low_u64_be(ECMUL_PRECOMPILE_ADDRESS as u64);
+    pub static ref ECPAIRING_PRECOMPILE_FORMAL_ADDRESS: Address =
+        Address::from_low_u64_be(ECPAIRING_PRECOMPILE_ADDRESS as u64);
 }
