@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.150.13](https://github.com/matter-labs/zksync-protocol/compare/v0.150.12...v0.150.13) (2024-11-18)
+
+
+### Miscellaneous Chores
+
+* bump crypto crates to 0.30.7 ([#66](https://github.com/matter-labs/zksync-protocol/issues/66)) ([e7f89fb](https://github.com/matter-labs/zksync-protocol/commit/e7f89fb306d12758ce60da16f3f1f921b7af3b55))
+
 ## [0.150.12](https://github.com/matter-labs/zksync-protocol/compare/v0.150.11...v0.150.12) (2024-11-06)
 
 
