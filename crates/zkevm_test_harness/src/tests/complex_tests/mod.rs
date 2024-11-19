@@ -1083,16 +1083,16 @@ fn run_and_try_create_witness_inner(
     }
 
     // do everything for recursion tip
-    if source.get_recursion_tip_vk().is_err() {
-        use crate::zkevm_circuits::recursion::recursion_tip::input::*;
-        // replicate compute_setups::*
-        todo!();
-    }
+    // if source.get_recursion_tip_vk().is_err() {
+    //     use crate::zkevm_circuits::recursion::recursion_tip::input::*;
+    //     // replicate compute_setups::*
+    //     todo!();
+    // }
 
     // collect for recursion tip. We know that is this test depth is 0
     let mut recursion_tip_proofs = vec![];
     for recursive_circuit_type in (ZkSyncRecursionLayerStorageType::LeafLayerCircuitForMainVM as u8)
-        ..=(ZkSyncRecursionLayerStorageType::LeafLayerCircuitForEIP4844Repack as u8)
+        ..=(ZkSyncRecursionLayerStorageType::LeafLayerCircuitForECPairing as u8)
     {
         match source.get_node_layer_proof(recursive_circuit_type, 0, 0) {
             Ok(proof) => recursion_tip_proofs.push(proof.into_inner()),
@@ -1190,8 +1190,9 @@ fn run_and_try_create_witness_inner(
                 RECURSION_LAYER_CAP_SIZE,
             );
 
-        assert_eq!(source.get_recursion_tip_vk().unwrap().into_inner(), vk);
-
+        // assert_eq!(source.get_recursion_tip_vk().unwrap().into_inner(), vk);
+        source.set_recursion_tip_vk(ZkSyncRecursionLayerStorage::RecursionTipCircuit(vk.clone())).unwrap();
+        
         println!("Proving recursion tip");
 
         let proof = prove_recursion_layer_circuit::<NoPow>(

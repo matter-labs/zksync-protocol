@@ -23,9 +23,7 @@ use serde::{Deserialize, Serialize};
     Derivative,
     CSAllocatable,
     CSSelectable,
-    CSVarLengthEncodable,
     WitnessHookable,
-    WitVarLengthEncodable,
 )]
 #[derivative(Clone, Debug)]
 #[DerivePrettyComparison("true")]
@@ -41,6 +39,80 @@ pub struct EcPairingFunctionFSM<F: SmallField> {
     pub precompile_call_params: EcPairingPrecompileCallParams<F>,
 }
 
+impl<F: SmallField> CircuitVarLengthEncodable<F> for EcPairingFunctionFSM<F> {
+    #[inline(always)]
+    fn encoding_length(&self) -> usize {
+        let mut total_len = 0;
+        total_len += CircuitVarLengthEncodable::<F>::encoding_length(&self.read_precompile_call);
+        total_len += CircuitVarLengthEncodable::<F>::encoding_length(&self.read_words_for_round);
+        total_len += CircuitVarLengthEncodable::<F>::encoding_length(&self.completed);
+        // total_len += CircuitVarLengthEncodable::<F>::encoding_length(&self.pairing_inner_state);
+        total_len +=
+            CircuitVarLengthEncodable::<F>::encoding_length(&self.timestamp_to_use_for_read);
+        total_len +=
+            CircuitVarLengthEncodable::<F>::encoding_length(&self.timestamp_to_use_for_write);
+        total_len += CircuitVarLengthEncodable::<F>::encoding_length(&self.precompile_call_params);
+        total_len
+    }
+    fn encode_to_buffer<CS: ConstraintSystem<F>>(&self, cs: &mut CS, dst: &mut Vec<Variable>) {
+        CircuitVarLengthEncodable::<F>::encode_to_buffer(&self.read_precompile_call, cs, dst);
+        CircuitVarLengthEncodable::<F>::encode_to_buffer(&self.read_words_for_round, cs, dst);
+        CircuitVarLengthEncodable::<F>::encode_to_buffer(&self.completed, cs, dst);
+        // CircuitVarLengthEncodable::<F>::encode_to_buffer(&self.pairing_inner_state, cs, dst);
+        CircuitVarLengthEncodable::<F>::encode_to_buffer(&self.timestamp_to_use_for_read, cs, dst);
+        CircuitVarLengthEncodable::<F>::encode_to_buffer(&self.timestamp_to_use_for_write, cs, dst);
+        CircuitVarLengthEncodable::<F>::encode_to_buffer(&self.precompile_call_params, cs, dst);
+    }
+}
+
+impl<F: SmallField> WitnessVarLengthEncodable<F> for EcPairingFunctionFSM<F> {
+    fn witness_encoding_length(witness: &Self::Witness) -> usize {
+        let mut total_len = 0;
+        total_len += <Boolean<F> as WitnessVarLengthEncodable<F>>::witness_encoding_length(
+            &witness.read_precompile_call,
+        );
+        total_len += <Boolean<F> as WitnessVarLengthEncodable<F>>::witness_encoding_length(
+            &witness.read_words_for_round,
+        );
+        total_len += <Boolean<F> as WitnessVarLengthEncodable<F>>::witness_encoding_length(
+            &witness.completed,
+        );
+        // total_len += <BN256Fq12NNField<F> as WitnessVarLengthEncodable<F>>::witness_encoding_length(&witness. pairing_inner_state);
+        total_len += <UInt32<F> as WitnessVarLengthEncodable<F>>::witness_encoding_length(
+            &witness.timestamp_to_use_for_read,
+        );
+        total_len += <UInt32<F> as WitnessVarLengthEncodable<F>>::witness_encoding_length(
+            &witness.timestamp_to_use_for_write,
+        );
+        total_len += <EcPairingPrecompileCallParams<F> as WitnessVarLengthEncodable<F>>::witness_encoding_length(&witness. precompile_call_params);
+        total_len
+    }
+    fn encode_witness_to_buffer(witness: &Self::Witness, dst: &mut Vec<F>) {
+        <Boolean<F> as WitnessVarLengthEncodable<F>>::encode_witness_to_buffer(
+            &witness.read_precompile_call,
+            dst,
+        );
+        <Boolean<F> as WitnessVarLengthEncodable<F>>::encode_witness_to_buffer(
+            &witness.read_words_for_round,
+            dst,
+        );
+        <Boolean<F> as WitnessVarLengthEncodable<F>>::encode_witness_to_buffer(
+            &witness.completed,
+            dst,
+        );
+        // <BN256Fq12NNField<F> as WitnessVarLengthEncodable<F>>::encode_witness_to_buffer(&witness. pairing_inner_state, dst);
+        <UInt32<F> as WitnessVarLengthEncodable<F>>::encode_witness_to_buffer(
+            &witness.timestamp_to_use_for_read,
+            dst,
+        );
+        <UInt32<F> as WitnessVarLengthEncodable<F>>::encode_witness_to_buffer(
+            &witness.timestamp_to_use_for_write,
+            dst,
+        );
+        <EcPairingPrecompileCallParams<F> as WitnessVarLengthEncodable<F>>::encode_witness_to_buffer(&witness. precompile_call_params, dst);
+    }
+}
+
 impl<F: SmallField> CSPlaceholder<F> for EcPairingFunctionFSM<F> {
     fn placeholder<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self {
         let boolean_false = Boolean::allocated_constant(cs, false);
@@ -51,7 +123,7 @@ impl<F: SmallField> CSPlaceholder<F> for EcPairingFunctionFSM<F> {
             read_precompile_call: boolean_false,
             read_words_for_round: boolean_false,
             completed: boolean_false,
-            pairing_inner_state: BN256Fq12NNField::zero(cs, params),
+            pairing_inner_state: BN256Fq12NNField::one(cs, params),
             timestamp_to_use_for_read: zero_u32,
             timestamp_to_use_for_write: zero_u32,
             precompile_call_params: EcPairingPrecompileCallParams::<F>::placeholder(cs),
