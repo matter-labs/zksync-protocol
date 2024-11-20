@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.150.15](https://github.com/matter-labs/zksync-protocol/compare/v0.150.14...v0.150.15) (2024-11-20)
+
+
+### Performance Improvements
+
+* **circuit_definitions:** adjust proof configs for compression circuits ([#68](https://github.com/matter-labs/zksync-protocol/issues/68)) ([a411952](https://github.com/matter-labs/zksync-protocol/commit/a411952734f7dcac304b387c17a55e9ff1a9556c))
+
 ## [0.150.14](https://github.com/matter-labs/zksync-protocol/compare/v0.150.13...v0.150.14) (2024-11-19)
 
 
