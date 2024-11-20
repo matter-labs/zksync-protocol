@@ -96,11 +96,11 @@ impl ProofCompressionFunction for CompressionMode5ForWrapper {
 
     fn proof_config_for_compression_step() -> ProofConfig {
         ProofConfig {
-            fri_lde_factor: 4096,
+            fri_lde_factor: 512,
             merkle_tree_cap_size: 8,
             fri_folding_schedule: None,
             security_level: crate::L1_SECURITY_BITS,
-            pow_bits: 8,
+            pow_bits: 26,
         }
     }
 
