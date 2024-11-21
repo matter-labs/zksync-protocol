@@ -1161,6 +1161,9 @@ where
     let boolean_false = Boolean::allocated_constant(cs, false);
     new_callstack_entry.is_local_call = boolean_false;
 
+    // stipend
+    new_callstack_entry.stipend = callee_stipend;
+
     let oracle = witness_oracle.clone();
     // we should assemble all the dependencies here, and we will use AllocateExt here
     let mut dependencies = Vec::with_capacity(
