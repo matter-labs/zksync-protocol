@@ -1124,12 +1124,23 @@ where
         cs,
         zkevm_opcode_defs::system_params::NEW_FRAME_MEMORY_STIPEND,
     );
+    let memory_size_stipend_for_evm = UInt32::allocated_constant(
+        cs,
+        zkevm_opcode_defs::system_params::NEW_EVM_FRAME_MEMORY_STIPEND,
+    );
 
     let memory_stipend = UInt32::conditionally_select(
         cs,
         new_callstack_entry.is_kernel_mode,
         &memory_size_stipend_for_kernel,
         &memory_size_stipend_for_userspace,
+    );
+
+    let memory_stipend = UInt32::conditionally_select(
+        cs,
+        versioned_byte_is_evm_bytecode,
+        &memory_size_stipend_for_evm,
+        &memory_stipend,
     );
 
     new_callstack_entry.heap_upper_bound = memory_stipend;
