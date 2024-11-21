@@ -885,15 +885,6 @@ where
         unsafe { UInt32::from_variable_unchecked(extra_ergs_from_caller_to_callee) };
     let callee_stipend = unsafe { UInt32::from_variable_unchecked(callee_stipend) };
 
-    let evm_simulator_stipend =
-        UInt32::allocated_constant(cs, zkevm_opcode_defs::system_params::EVM_SIMULATOR_STIPEND);
-    let callee_stipend = UInt32::conditionally_select(
-        cs,
-        can_call_evm_simulator_without_masking,
-        &evm_simulator_stipend,
-        &callee_stipend,
-    );
-
     if crate::config::CIRCUIT_VERSOBE {
         if execute.witness_hook(&*cs)().unwrap() {
             dbg!(address_low.witness_hook(&*cs)().unwrap());
