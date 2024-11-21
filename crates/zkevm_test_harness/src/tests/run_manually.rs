@@ -204,7 +204,7 @@ impl Default for Options {
             other_contracts: Default::default(),
             cycles_per_vm_snapshot: DEFAULT_CYCLES_PER_VM_SNAPSHOT,
             evm_interpreter: None,
-            other_evm_contracts: Default::default()
+            other_evm_contracts: Default::default(),
         }
     }
 }
@@ -255,7 +255,9 @@ pub(crate) fn run_with_options(entry_point_bytecode: Vec<[u8; 32]>, options: Opt
     let empty_code_hash = U256::from_big_endian(&bytecode_to_code_hash(&[[0; 32]]).unwrap());
 
     let evm_simulator_hash = if options.evm_interpreter.is_some() {
-        U256::from_big_endian(&bytecode_to_code_hash(options.evm_interpreter.as_ref().unwrap()).unwrap())
+        U256::from_big_endian(
+            &bytecode_to_code_hash(options.evm_interpreter.as_ref().unwrap()).unwrap(),
+        )
     } else {
         empty_code_hash
     };
@@ -267,15 +269,13 @@ pub(crate) fn run_with_options(entry_point_bytecode: Vec<[u8; 32]>, options: Opt
         (U256::from_big_endian(&code_hash), code)
     }));
 
-
     let mut storage_impl = InMemoryCustomRefundStorage::new();
 
     let mut tree = ZKSyncTestingTree::empty();
 
     if !options.other_evm_contracts.is_empty() {
         let mut evm_stub_hash = empty_code_hash;
-        let versioned_hash =
-        VersionedHashGeneric::<BlobSha256>::from_digest_and_preimage_length(
+        let versioned_hash = VersionedHashGeneric::<BlobSha256>::from_digest_and_preimage_length(
             evm_stub_hash.into(),
             0,
         );
@@ -283,7 +283,11 @@ pub(crate) fn run_with_options(entry_point_bytecode: Vec<[u8; 32]>, options: Opt
         evm_stub_hash = U256::from_big_endian(&versioned_hash.serialize().unwrap());
         used_bytecodes_and_hashes.insert(evm_stub_hash, vec![[0; 32]]);
 
-        save_predeployed_evm_contract_stubs(&mut storage_impl.storage, &mut tree, &options.other_evm_contracts)
+        save_predeployed_evm_contract_stubs(
+            &mut storage_impl.storage,
+            &mut tree,
+            &options.other_evm_contracts,
+        )
     }
 
     if options.evm_interpreter.is_some() {
