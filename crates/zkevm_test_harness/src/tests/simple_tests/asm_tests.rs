@@ -27,16 +27,18 @@ pub fn run_asm_based_test(
 pub fn run_asm_based_test_with_evm_contracts(
     test_dir: &str,
     additional_contracts_addresses: &[i32],
-    additional_evm_contracts_addresses:  &[i32],
+    additional_evm_contracts_addresses: &[i32],
     mut options: Options,
 ) {
-    let evm_interpreter = compile_additional_contracts(
-        test_dir,
-        &vec![("evm_interpreter".to_owned(), 0)],
-        None
-    )[0].clone().1;
+    let evm_interpreter =
+        compile_additional_contracts(test_dir, &vec![("evm_interpreter".to_owned(), 0)], None)[0]
+            .clone()
+            .1;
 
-    let other_evm_contracts =additional_evm_contracts_addresses.iter().map(|x| Address::from_low_u64_be(*x as u64)).collect();
+    let other_evm_contracts = additional_evm_contracts_addresses
+        .iter()
+        .map(|x| Address::from_low_u64_be(*x as u64))
+        .collect();
 
     options.evm_interpreter = Some(evm_interpreter);
     options.other_evm_contracts = other_evm_contracts;
