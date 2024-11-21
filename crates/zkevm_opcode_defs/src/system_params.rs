@@ -81,6 +81,8 @@ pub const ADDRESS_CODE_ORACLE: u16 = 0x8011;
 pub const BOOTLOADER_MAX_MEMORY: u32 = u32::MAX;
 // 4 KB for new frames is "free"
 pub const NEW_FRAME_MEMORY_STIPEND: u32 = 1u32 << 12;
+// 56 KB for new EVM frames is "free"
+pub const NEW_EVM_FRAME_MEMORY_STIPEND: u32 = 56 * 1u32 << 10;
 // 2 MB for kernel frames, where we can be sure about the behavior.
 // Note, that this number should high enough to allow any bytecode for `decommit` opcode.
 pub const NEW_KERNEL_FRAME_MEMORY_STIPEND: u32 = 1u32 << 21;
