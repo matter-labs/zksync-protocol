@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.150.16](https://github.com/matter-labs/zksync-protocol/compare/v0.150.15...v0.150.16) (2024-11-21)
+
+
+### Features
+
+* Support stable compiler for circuit_sequencer_api ([#58](https://github.com/matter-labs/zksync-protocol/issues/58)) ([f318e65](https://github.com/matter-labs/zksync-protocol/commit/f318e6537a20ef12244fb611a03778b203f986d0))
+
 ## [0.150.15](https://github.com/matter-labs/zksync-protocol/compare/v0.150.14...v0.150.15) (2024-11-20)
 
 
