@@ -10,7 +10,7 @@ use std::time::Instant;
 #[test]
 fn test_base_layer_circuit_synthesis() {
     let test_artifact = read_basic_test_artifact();
-    let geometry = crate::geometry_config::get_geometry_config();
+    let geometry = crate::geometry_config::ProtocolGeometry::latest().config();
     let blobs = std::array::from_fn(|i| {
         if i == 0 {
             Some(vec![0xff; ENCODABLE_BYTES_PER_BLOB])

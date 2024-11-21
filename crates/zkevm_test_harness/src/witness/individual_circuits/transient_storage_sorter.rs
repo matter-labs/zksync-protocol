@@ -30,7 +30,7 @@ pub(crate) fn compute_transient_storage_dedup_and_sort<
     let total_amount_of_queries = transient_storage_queries.len();
 
     let sorted_storage_queries_with_extra_timestamp =
-        sort_transient_storage_access_queries(&transient_storage_queries);
+        sort_transient_storage_access_queries(transient_storage_queries.iter().copied());
 
     let mut sorted_log_simulator_states_accumulator = LastPerCircuitAccumulator::with_flat_capacity(
         per_circuit_capacity,

@@ -28,8 +28,8 @@ use circuit_definitions::zkevm_circuits::recursion::compression::CompressionRecu
 use circuit_definitions::zkevm_circuits::recursion::leaf_layer::input::RecursionLeafParametersWitness;
 use circuit_definitions::zkevm_circuits::recursion::NUM_BASE_LAYER_CIRCUITS;
 use circuit_definitions::zkevm_circuits::scheduler::aux::BaseLayerCircuitType;
-use circuit_sequencer_api::toolset::GeometryConfig;
 use crossbeam::atomic::AtomicCell;
+use geometry_config::GeometryConfig;
 use std::collections::VecDeque;
 use std::sync::Arc;
 

@@ -18,7 +18,7 @@ pub struct ProvingToolset<S: Storage> {
 }
 
 use circuit_definitions::zk_evm::aux_structures::PubdataCost;
-pub use circuit_sequencer_api::toolset::GeometryConfig;
+pub use circuit_sequencer_api::geometry_config::GeometryConfig;
 
 pub fn create_tools<S: Storage>(storage: S, config: &GeometryConfig) -> ProvingToolset<S> {
     let memory = SimpleMemory::new_without_preallocations();
