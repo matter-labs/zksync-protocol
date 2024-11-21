@@ -1,8 +1,8 @@
 use crate::zk_evm::aux_structures::LogQuery;
 use crate::zk_evm::ethereum_types::Address;
 use serde::{Deserialize, Serialize};
-use zkevm_assembly::zkevm_opcode_defs::{BlobSha256, VersionedHashGeneric};
 use std::collections::HashMap;
+use zkevm_assembly::zkevm_opcode_defs::{BlobSha256, VersionedHashGeneric};
 
 use crate::blake2::Blake2s256;
 use crate::ethereum_types::{H160, U256};
@@ -75,8 +75,7 @@ pub fn save_predeployed_evm_contract_stubs(
     sorted_contracts.sort();
 
     let empty_code_hash = U256::from_big_endian(&bytecode_to_code_hash(&[[0; 32]]).unwrap());
-    let versioned_hash =
-    VersionedHashGeneric::<BlobSha256>::from_digest_and_preimage_length(
+    let versioned_hash = VersionedHashGeneric::<BlobSha256>::from_digest_and_preimage_length(
         empty_code_hash.into(),
         0,
     );
@@ -118,7 +117,7 @@ pub fn save_predeployed_evm_contract_stubs(
 fn populate_storage(
     storage: &mut InMemoryStorage,
     tree: &mut impl BinarySparseStorageTree<256, 32, 32, 8, 32, Blake2s256, ZkSyncStorageLeaf>,
-    storage_logs: Vec<(u8, Address, U256, U256)>
+    storage_logs: Vec<(u8, Address, U256, U256)>,
 ) {
     storage.populate(storage_logs.clone());
 
@@ -133,7 +132,7 @@ fn populate_storage(
         leaf.set_value(&buffer);
 
         tree.insert_leaf(&index, leaf);
-    } 
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
