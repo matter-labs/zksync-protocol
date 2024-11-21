@@ -456,11 +456,6 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
                     0
                 };
 
-            if can_call_evm_simulator {
-                assert_eq!(callee_stipend, 0);
-                callee_stipend = 0;
-            }
-
             let (code_memory_page, remaining_ergs_after_decommittment) = if exceptions.is_empty()
                 == false
             {
