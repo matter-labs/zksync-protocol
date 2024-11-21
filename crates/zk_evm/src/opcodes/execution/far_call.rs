@@ -608,7 +608,11 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
         let memory_stipend = if address_is_kernel(&address_for_next) {
             zkevm_opcode_defs::system_params::NEW_KERNEL_FRAME_MEMORY_STIPEND
         } else {
-            zkevm_opcode_defs::system_params::NEW_FRAME_MEMORY_STIPEND
+            if call_to_evm_simulator {
+                zkevm_opcode_defs::system_params::NEW_EVM_FRAME_MEMORY_STIPEND
+            } else {
+                zkevm_opcode_defs::system_params::NEW_FRAME_MEMORY_STIPEND
+            }
         };
 
         let new_stack = CallStackEntry {
