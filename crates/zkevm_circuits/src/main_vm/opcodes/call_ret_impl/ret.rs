@@ -305,7 +305,7 @@ where
 
     // -----------------------------------------
 
-    // we should subtract stipend, but only if we exit local frame
+    // we should subtract stipend, but only if we exit non-local frame
     let stipend_to_subtract = current_callstack_entry
         .stipend
         .mask_negated(cs, is_local_frame);
