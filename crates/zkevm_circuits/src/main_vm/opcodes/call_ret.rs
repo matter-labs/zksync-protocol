@@ -393,7 +393,7 @@ pub(crate) fn apply_calls_and_ret<
             let is_call_like = <bool as WitnessCastable<F, F>>::cast_from_source(inputs[1]);
             let new_depth = <u32 as WitnessCastable<F, F>>::cast_from_source(inputs[2]);
 
-            let mut query =
+            let mut query: [F; <ExecutionContextRecord<F> as CSAllocatableExt<F>>::INTERNAL_STRUCT_LEN] =
                 [F::ZERO; <ExecutionContextRecord<F> as CSAllocatableExt<F>>::INTERNAL_STRUCT_LEN];
             query.copy_from_slice(&inputs[3..]);
             use crate::base_structures::vm_state::saved_context::ExecutionContextRecordWitness;
