@@ -354,7 +354,7 @@ pub(crate) fn apply_log<
         move |inputs: &[F]| {
             let is_write = <bool as WitnessCastable<F, F>>::cast_from_source(inputs[0]);
             let execute = <bool as WitnessCastable<F, F>>::cast_from_source(inputs[1]);
-            let mut log_query =
+            let mut log_query: [F; <LogQuery<F> as CSAllocatableExt<F>>::INTERNAL_STRUCT_LEN] =
                 [F::ZERO; <LogQuery<F> as CSAllocatableExt<F>>::INTERNAL_STRUCT_LEN];
             log_query.copy_from_slice(&inputs[2..]);
             let log_query: LogQueryWitness<F> =
@@ -389,7 +389,7 @@ pub(crate) fn apply_log<
         move |inputs: &[F]| {
             let is_write = <bool as WitnessCastable<F, F>>::cast_from_source(inputs[0]);
             let execute = <bool as WitnessCastable<F, F>>::cast_from_source(inputs[1]);
-            let mut log_query =
+            let mut log_query: [F; <LogQuery<F> as CSAllocatableExt<F>>::INTERNAL_STRUCT_LEN] =
                 [F::ZERO; <LogQuery<F> as CSAllocatableExt<F>>::INTERNAL_STRUCT_LEN];
             log_query.copy_from_slice(&inputs[2..]);
             let log_query: LogQueryWitness<F> =
@@ -503,7 +503,7 @@ pub(crate) fn apply_log<
         move |inputs: &[F]| {
             let is_storage = <bool as WitnessCastable<F, F>>::cast_from_source(inputs[0]);
             let execute = <bool as WitnessCastable<F, F>>::cast_from_source(inputs[1]);
-            let mut log_query =
+            let mut log_query: [F; <LogQuery<F> as CSAllocatableExt<F>>::INTERNAL_STRUCT_LEN] =
                 [F::ZERO; <LogQuery<F> as CSAllocatableExt<F>>::INTERNAL_STRUCT_LEN];
             log_query.copy_from_slice(&inputs[2..]);
             let log_query: LogQueryWitness<F> =
@@ -555,7 +555,7 @@ pub(crate) fn apply_log<
         cs,
         move |inputs: &[F]| {
             let execute_rollback = <bool as WitnessCastable<F, F>>::cast_from_source(inputs[0]);
-            let mut log_query =
+            let mut log_query: [F; <LogQuery<F> as CSAllocatableExt<F>>::INTERNAL_STRUCT_LEN] =
                 [F::ZERO; <LogQuery<F> as CSAllocatableExt<F>>::INTERNAL_STRUCT_LEN];
             log_query.copy_from_slice(&inputs[1..]);
             let log_query: LogQueryWitness<F> =
@@ -621,7 +621,7 @@ pub(crate) fn apply_log<
         move |inputs: &[F]| {
             let should_decommit = <bool as WitnessCastable<F, F>>::cast_from_source(inputs[0]);
 
-            let mut query =
+            let mut query: [F; <DecommitQuery<F> as CSAllocatableExt<F>>::INTERNAL_STRUCT_LEN] =
                 [F::ZERO; <DecommitQuery<F> as CSAllocatableExt<F>>::INTERNAL_STRUCT_LEN];
             query.copy_from_slice(&inputs[1..]);
             let query: DecommitQueryWitness<F> =

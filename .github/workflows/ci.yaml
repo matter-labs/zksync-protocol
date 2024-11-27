@@ -23,8 +23,8 @@ jobs:
         run: |
           rustup set profile minimal
           rustup toolchain install 1.81.0
-          rustup toolchain install nightly-2024-08-01
-          rustup default nightly-2024-08-01
+          rustup toolchain install nightly-2024-11-19
+          rustup default nightly-2024-11-19
           cargo install cargo-nextest
       - name: Compile
         run: cargo build
@@ -45,8 +45,8 @@ jobs:
       - name: Setup rust
         run: |
           rustup set profile minimal
-          rustup toolchain install nightly-2024-08-01
-          rustup default nightly-2024-08-01
+          rustup toolchain install nightly-2024-11-19
+          rustup default nightly-2024-11-19
           cargo install cargo-nextest
       - name: zkevm_test_harness - Main test
         run: cargo nextest run --release --manifest-path crates/zkevm_test_harness/Cargo.toml --test-threads 2
