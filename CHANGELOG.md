@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.150.17](https://github.com/matter-labs/zksync-protocol/compare/v0.150.16...v0.150.17) (2024-12-04)
+
+
+### Bug Fixes
+
+* **zkevm_circuits:** make zkevm_circuits compile with newest nightly rust ([#77](https://github.com/matter-labs/zksync-protocol/issues/77)) ([1aebbbe](https://github.com/matter-labs/zksync-protocol/commit/1aebbbe9e4b186b0539280c5923314f1d6b9973e))
+
 ## [0.150.16](https://github.com/matter-labs/zksync-protocol/compare/v0.150.15...v0.150.16) (2024-11-21)
 
 
