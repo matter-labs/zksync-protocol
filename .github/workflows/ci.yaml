@@ -55,7 +55,7 @@ jobs:
       - name: Api tests
         run: cargo nextest run --release --manifest-path crates/circuit_sequencer_api/Cargo.toml
       - name: Definitions test
-        run: cargo nextest run --release --no-tests --manifest-path crates/circuit_definitions/Cargo.toml
+        run: cargo nextest run --release --no-tests=pass --manifest-path crates/circuit_definitions/Cargo.toml
       - name: Kzg tests
         run: cargo nextest run --release --manifest-path crates/kzg/Cargo.toml
 
