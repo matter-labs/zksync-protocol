@@ -23,8 +23,8 @@ jobs:
         run: |
           rustup set profile minimal
           rustup toolchain install 1.81.0
-          rustup toolchain install nightly-2024-08-01
-          rustup default nightly-2024-08-01
+          rustup toolchain install nightly-2024-11-19
+          rustup default nightly-2024-11-19
           cargo install cargo-nextest
       - name: Compile
         run: cargo build
@@ -45,8 +45,8 @@ jobs:
       - name: Setup rust
         run: |
           rustup set profile minimal
-          rustup toolchain install nightly-2024-08-01
-          rustup default nightly-2024-08-01
+          rustup toolchain install nightly-2024-11-19
+          rustup default nightly-2024-11-19
           cargo install cargo-nextest
       - name: zkevm_test_harness - Main test
         run: cargo nextest run --release --manifest-path crates/zkevm_test_harness/Cargo.toml --test-threads 2
@@ -55,7 +55,7 @@ jobs:
       - name: Api tests
         run: cargo nextest run --release --manifest-path crates/circuit_sequencer_api/Cargo.toml
       - name: Definitions test
-        run: cargo nextest run --release --manifest-path crates/circuit_definitions/Cargo.toml
+        run: cargo nextest run --release --no-tests=pass --manifest-path crates/circuit_definitions/Cargo.toml
       - name: Kzg tests
         run: cargo nextest run --release --manifest-path crates/kzg/Cargo.toml
 
