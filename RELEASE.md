@@ -7,8 +7,7 @@
 
 ## Automatic releases
 
-We use [release-please](https://github.com/googleapis/release-please) to manage releases, as well
-as a custom automation to publish releases on [crates.io](https://crates.io/).
+We use [release-plz](https://release-plz.dev/) to manage and publish releases to [crates.io](https://crates.io/).
 
 Any pull request name must follow [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/)
 specification, and then, based on the PR titles, a release pull request will be created, which
@@ -22,7 +21,7 @@ sure that the change will trigger a release PR, mark the PR as `fix` or `feat`.
 By default, a patch version will be bumped. If you want to bump a minor version, mark the PR as breaking with
 an exclamation point, e.g. `feat!` or `fix!`.
 
-It is recommended that each PR has a component mentioned, e.g. `feat(component): Change added`.
+It is recommended that each PR has a component mentioned, e.g. `feat(component): change added`.
 
 Once release PR is merged, it will be published to `crates.io`, and a notification will be sent to Slack.
 
@@ -31,8 +30,6 @@ Once release PR is merged, it will be published to `crates.io`, and a notificati
 > [!WARNING]  
 > Manual releases are discouraged, and should only be used as a last resort measure.
 > Discuss the manual release with the team beforehand and prepare a plan.
-> It is very likely that manual release will interfere with `release-please` configuration,
-> which will have to be fixed manually as well.
 >
 > Additionally, if the release was created, but wasn't published, you will only need a subset
 > of the actions listed below (e.g. if the it failed due to a transient error, you just need to
