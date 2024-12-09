@@ -106,7 +106,7 @@ impl ProofCompressionFunction for CompressionMode4 {
 
     fn proof_config_for_compression_step() -> ProofConfig {
         ProofConfig {
-            fri_lde_factor: 2048,
+            fri_lde_factor: 1024,
             merkle_tree_cap_size: 256,
             fri_folding_schedule: None,
             security_level: crate::L1_SECURITY_BITS,

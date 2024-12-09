@@ -209,6 +209,6 @@ pub fn generate_eip4844_witness<F: SmallField>(
     (blob_arr, linear_hash, versioned_hash, output_hash)
 }
 
-pub use circuit_sequencer_api::utils::calldata_to_aligned_data;
-pub use circuit_sequencer_api::utils::finalize_queue_state;
-pub use circuit_sequencer_api::utils::finalized_queue_state_as_bytes;
+pub use circuit_encodings::utils::calldata_to_aligned_data;
+pub use circuit_encodings::utils::finalize_queue_state;
+pub use circuit_encodings::utils::finalized_queue_state_as_bytes;

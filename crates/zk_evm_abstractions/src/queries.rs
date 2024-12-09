@@ -68,6 +68,12 @@ impl LogQuery {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct LogQueryWithExtendedEnumeration {
+    pub raw_query: LogQuery,
+    pub extended_timestamp: u32,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct DecommittmentQuery {
     pub header: VersionedHashHeader,
