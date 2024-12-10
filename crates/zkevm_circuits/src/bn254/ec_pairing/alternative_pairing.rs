@@ -1,13 +1,21 @@
+use crate::ecrecover::secp256k1::PointAffine;
+
 use super::*;
+use bn256::{G1Prepared, G2Prepared};
 use boojum::{
-    gadgets::non_native_field::traits::NonNativeField,
-    pairing::{bn256::{Fq, Fq2, Fq6, Fq12, G1Affine, G2Affine, FROBENIUS_COEFF_FQ6_C1, XI_TO_Q_MINUS_1_OVER_2}, ff::Field, GenericCurveAffine},
+    cs::{Place, Witness}, gadgets::{non_native_field::traits::NonNativeField, traits::witnessable::CSWitnessable}, pairing::{bn256::{Fq, Fq12, Fq2, Fq6, G1Affine, G2Affine, FROBENIUS_COEFF_FQ6_C1, XI_TO_Q_MINUS_1_OVER_2}, ff::{Field, PrimeField}, CurveAffine, GenericCurveAffine}
 };
 use itertools::izip;
+use rand::Rng;
+use serde::Serialize;
 use std::iter;
+use boojum::config::CSConfig;
+use boojum::config::CSWitnessEvaluationConfig;
+use boojum::cs::traits::cs::DstBuffer;
 
 
 const NUM_PAIRINGS_IN_MULTIPAIRING: usize = 3;
+const NUM_LIMBS: usize = 17;
 // multipairing circuit logic is the following:
 // by contract design we assume, that input is always padded if necessary on the contract side (by points on infinity), 
 // and hence the number of pairs (G1, G2) in the input is always equal to NUM_PAIRINGS_IN_MULTIPAIRING
@@ -86,17 +94,6 @@ const U_WNAF : [i8; 64] =  [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 ];
-
-
-// todo: substitute correct value later: it is just the result of the Miller Loop of G1 x G2
-// const GEMERATORS_MILLER_LOOP_RESULT : Fq12 = Fq12 {
-//     c0: Fq6 { 
-//         c0: Fq2 {
-//             c0: Fq(FqRepr([0x974bc177a0000006, 0xf13771b2da58a367, 0x51e1a2470908122e, 0x2259d6b14729c0fa])),
-//             c1: Fq(FqRepr([0x974bc177a0000006, 0xf13771b2da58a367, 0x51e1a2470908122e, 0x2259d6b14729c0fa])),
-//         }, c1: (), c2: () },
-//     c1: todo!(),
-// }
 
 
 pub fn allocate_fq2_constant<F: SmallField, CS: ConstraintSystem<F>>(
@@ -225,6 +222,12 @@ impl<F: SmallField> AffinePoint<F> {
         self.x = x_prime;
         self.y = y_prime;
         self.is_in_eval_form = true;
+    }
+
+    fn as_variables_set(&self) -> impl Iterator<Item = Variable> {
+        let vars_for_x = self.x.as_variables_set();
+        let vars_for_y = self.y.as_variables_set();
+        vars_for_x.into_iter().chain(vars_for_y.into_iter())
     }
 }
 
@@ -403,6 +406,14 @@ impl<F: SmallField> TwistedCurvePoint<F> {
         Fp2::enforce_equal(cs, &mut left.x, &mut right.x);
         Fp2::enforce_equal(cs, &mut left.y, &mut right.y);
     }
+
+    fn as_variables_set(&self) -> impl Iterator<Item = Variable> {
+        let vars_for_x_c0 = self.x.c0.as_variables_set();
+        let vars_for_x_c1 = self.x.c1.as_variables_set();
+        let vars_for_y_c0 = self.y.c0.as_variables_set();
+        let vars_for_y_c1 = self.y.c1.as_variables_set();
+        vars_for_x_c0.into_iter().chain(vars_for_x_c1.into_iter()).chain(vars_for_y_c0.into_iter()).chain(vars_for_y_c1.into_iter())
+    }
 }
 
 
@@ -523,7 +534,111 @@ trait WitnessOracle {
     fn get_fp2_witness(&mut self) -> Fq2;
     fn get_bool_witness(&mut self) -> bool;
     fn get_fp12_witness(&mut self) -> Fq12;
+    fn get_line_function_witness(&mut self) -> (Fq2, Fq2);
 }
+
+struct WitnessParser<'a, F: SmallField> {
+    witness: &'a [F],
+    offset: usize
+}
+
+impl<'a, F: SmallField> WitnessParser<'a, F> {
+    fn new(witness: &'a [F]) -> Self {
+        Self { witness, offset: 0 }
+    }
+
+    fn finalize(&self) {
+        assert_eq!(self.offset, self.witness.len())
+    }
+
+    fn parse_fq(&mut self) -> Fq {
+        let values = std::array::from_fn(|i| self.witness[self.offset + i]);
+        self.offset += NUM_LIMBS;
+        Fp::<F>::witness_from_set_of_values(values).get()
+    }
+
+    fn parse_g1_affine(&mut self) -> G1Affine {
+        let x = self.parse_fq();
+        let y = self.parse_fq();
+        G1Affine::from_xy_checked(x, y).unwrap()
+    }
+
+    fn parse_fq2(&mut self) -> Fq2 {
+        let c0 = self.parse_fq();
+        let c1 = self.parse_fq();
+        Fq2 { c0, c1 }
+    }
+
+    fn parse_g2_affine(&mut self) -> G2Affine {
+        let x = self.parse_fq2();
+        let y = self.parse_fq2();
+        G2Affine::from_xy_checked(x, y).unwrap()
+    }
+}
+
+// we are going to use the following hack for Witness Oracle:
+// we create an aritifical variable - tag, which is used to overcome graph of dependecies within cs.set_values_with_dependencies
+struct Oracle {
+    tag: Place,
+    line_functions: Vec<(Fq2, Fq2)>,
+    line_function_idx: usize
+}
+
+impl Oracle {
+    pub fn new<F: SmallField, CS: ConstraintSystem<F>>(cs: &mut CS, pairing_input: &[PairingInput<F>], params: &Arc<RnsParams>) {
+        let tag_witness = cs.alloc_witness_without_value();
+        let tag = Place::from_witness(tag_witness);
+        let mut line_functions = Vec::new();
+
+        if <CS::Config as CSConfig>::WitnessConfig::EVALUATE_WITNESS == true {
+            let outpus = [tag];
+
+            // populate witness inputs
+            let mut inputs = Vec::<Place>::new();
+            for (p, q) in pairing_input.iter() {
+                let p_vars_iter = p.as_variables_set();
+                let q_vars_iter = q.as_variables_set();
+                inputs.extend(p_vars_iter.chain(q_vars_iter).map(|variable| Place::from_variable(variable)));
+            }
+            let num_of_tuples = pairing_input.len();
+
+            let value_fn = move |input: &[F], _dst: &mut DstBuffer<'_, '_, F>| {
+                let mut parser = WitnessParser::new(input);
+                let mut g1_arr = Vec::<G1Affine>::with_capacity(num_of_tuples);
+                let mut g2_arr = Vec::<G2Affine>::with_capacity(num_of_tuples);
+
+                for _ in 0..num_of_tuples {
+                    g1_arr.push(parser.parse_g1_affine());
+                    g2_arr.push(parser.parse_g2_affine());
+                }
+
+                for g2 in g2_arr.into_iter() {
+                    line_functions.extend(prepare_all_line_functions(g2).drain(..));
+                }
+            };
+
+            cs.set_values_with_dependencies_vararg(&[], &outputs, value_fn);
+        }   
+
+        Oracle {
+            tag,
+            line_functions,
+            line_function_idx: 0
+        }     
+    }
+}
+
+impl WitnessOracle for Oracle {
+    fn get_fp2_witness(&mut self) -> Fq2 { unimplemented!(); }
+    fn get_bool_witness(&mut self) -> bool { unimplemented!(); }
+    fn get_fp12_witness(&mut self) -> Fq12 { unimplemented!(); }
+    fn get_line_function_witness(&mut self) -> (Fq2, Fq2) {
+        let res = self.line_functions[self.line_function_idx];
+        self.line_function_idx += 1;
+        res
+    }
+}
+
 
 // y = /lambda * x + /mu
 struct LineObject<F: SmallField> {
@@ -533,8 +648,9 @@ struct LineObject<F: SmallField> {
 
 impl<F: SmallField> LineObject<F> {
     fn allocate<CS: ConstraintSystem<F>, O: WitnessOracle>(cs: &mut CS, oracle: &mut O, params: &Arc<RnsParams>) -> Self {
-        let lambda = Fp2::allocate_from_witness(cs, oracle.get_fp2_witness(), params);
-        let mu = Fp2::allocate_from_witness(cs, oracle.get_fp2_witness(), params);
+        let (lambda_wit, mu_wit) = oracle.get_line_function_witness();
+        let lambda = Fp2::allocate_from_witness(cs, lambda_wit, params);
+        let mu = Fp2::allocate_from_witness(cs, mu_wit, params);
         LineObject { lambda, mu }
     } 
 
@@ -912,64 +1028,141 @@ fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>, O: WitnessOracle>(
 }
 
 
+// fn test_circuit(cs, p: &AffinePoint<F>, q: &TwistedCurvePoint<F>) {
+//     let mut f = Fp12::<F>::zero(cs, &params);
 
+//     // main cycle of Miller loop:
+//     let iter = SIX_U_PLUS_TWO_WNAF.into_iter().rev().skip(1).identify_first_last();
+//     for (is_first, _is_last, bit) in iter {
+//         f = f.square(cs);
+        
+//         for i in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
+//             let line_object = LineObject::allocate(cs, oracle, &params);
+//             let mut t = t_array[i].clone();
+//             let mut p = inputs[i].0.clone();
 
-    
+//             let line_func_eval = line_object.double_and_eval(cs, &mut t, &mut p);
 
+//             if is_first {
+//                 q_doubled_array[i] = t.clone();
+//             }
 
-// // computation of the witness cerificate from the result of Miller Loop:
-// fn get_certificate_witnesses(miller_loop_f: Fq12) {
-//     miller_loop_f.pow(exp)
+//             if is_first && i == 0 {
+//                 f = line_func_eval.convert_into_fp12(cs);
+//             } else {
+//                 line_func_eval.mul_into_fp12(cs, &mut f);
+//             }
+       
+//             let to_add : &mut TwistedCurvePoint<F> = if bit == -1 { &mut q_negated_array[i] } else { &mut inputs[i].1 };
+       
+//             if bit == 1 || bit == -1 {
+//                 let line_object = LineObject::allocate(cs, oracle, &params);
+//                 let line_func_eval = line_object.add_and_eval(cs, &mut t, to_add, &mut p);
+//                 line_func_eval.mul_into_fp12(cs, &mut f);
+//             }
+
+//             t_array[i] = t;
+//             inputs[i].0 = p;
+//         }
+//     }
+
+//     F: SmallField, CS: ConstraintSystem<F>, O: WitnessOracle>(
+//         cs: &mut CS,
+//         inputs: &mut [PairingInput<F>],
+//         oracle: &mut O,
+// }
+
+// use crate::boojum::field::goldilocks::GoldilocksField;
+// use crate::boojum::cs::*;
+// use boojum::cs::cs_builder::*;
+// use boojum::cs::gates::*;
+
+// type F = GoldilocksField;
+// type P = GoldilocksField;
+
+// /// Creates a test constraint system for testing purposes that includes the
+// /// majority (even possibly unneeded) of the gates and tables.
+// pub fn test_alternative_circuit(
+// ) {
+//     let geometry = CSGeometry {
+//         num_columns_under_copy_permutation: 60,
+//         num_witness_columns: 0,
+//         num_constant_columns: 4,
+//         max_allowed_constraint_degree: 4,
+//     };
+
+//     type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
+//     let builder_impl =
+//         CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 18);
+//     let builder = new_builder::<_, F>(builder_impl);
+
+//     let builder = builder.allow_lookup(
+//         LookupParameters::UseSpecializedColumnsWithTableIdAsConstant {
+//             width: 1,
+//             num_repetitions: 10,
+//             share_table_id: true,
+//         },
+//     );
+
+//     let builder = ConstantsAllocatorGate::configure_builder(
+//         builder,
+//         GatePlacementStrategy::,
+//     );
+//     let builder = FmaGateInBaseFieldWithoutConstant::configure_builder(
+//         builder,
+//         GatePlacementStrategy::UseGeneralPurposeColumns,
+//     );
+//     let builder = ReductionGate::<F, 4>::configure_builder(
+//         builder,
+//         GatePlacementStrategy::UseGeneralPurposeColumns,
+//     );
+//     let builder = DotProductGate::<4>::configure_builder(
+//         builder,
+//         GatePlacementStrategy::UseGeneralPurposeColumns,
+//     );
+//     let builder = UIntXAddGate::<16>::configure_builder(
+//         builder,
+//         GatePlacementStrategy::UseGeneralPurposeColumns,
+//     );
+//     let builder = SelectionGate::configure_builder(
+//         builder,
+//         GatePlacementStrategy::UseGeneralPurposeColumns,
+//     );
+//     let builder =
+//         NopGate::configure_builder(builder, GatePlacementStrategy::UseGeneralPurposeColumns);
+
+//     let mut owned_cs = builder.build(CircuitResolverOpts::new(1 << 20));
+
+//     // add tables
+//     let table = create_range_check_16_bits_table();
+//     owned_cs.add_lookup_table::<RangeCheck16BitsTable, 1>(table);
+
+//     let cs = &mut owned_cs;
+
+//     let a_value = Ext::from_str("123").unwrap();
+//     let b_value = Ext::from_str("456").unwrap();
+
+//     let params = Params::create();
+//     let params = std::sync::Arc::new(params);
+
+//     let mut a = NN::allocate_checked(cs, a_value, &params);
+//     let mut b = NN::allocate_checked(cs, b_value, &params);
+
+//     let c = a.mul(cs, &mut b);
+
+//     let mut c_value = a_value;
+//     c_value.mul_assign(&b_value);
+
+//     let witness = c.witness_hook(&*cs)().unwrap().get();
+
+//     assert_eq!(c_value, witness);
+
+//     let worker = Worker::new_with_num_threads(8);
+
+//     drop(cs);
+//     owned_cs.pad_and_shrink();
+//     let mut owned_cs = owned_cs.into_assembly::<Global>();
+//     assert!(owned_cs.check_if_satisfied(&worker));
 // }
 
 
-
-
-
-//(9783115122450100638512690547982431507792126166079612669952755732980124836560*u + 11338001438479956798774934917208773767173747287567736129812394786879783479299)*y
-// this is our 27_root_of_unity
-
-
-
-// q = 21888242871839275222246405745257275088696311157297823662689037894645226208583
-// base_field = GF(q)
-
-// R.<x> = PolynomialRing(base_field)
-// ext2 = base_field.extension(x^2 + 1, 'u')
-
-// # BN256 (v^3 - ξ) where ξ = u + 9
-// epsilon = ext2(x + 9)
-// R.<y> = PolynomialRing(ext2)
-// ext6 = ext2.extension(y^3 - epsilon, 't')
-
-// root_of_unity = ext6(
-//     (ext2(9783115122450100638512690547982431507792126166079612669952755732980124836560*x) + 
-//      ext2(11338001438479956798774934917208773767173747287567736129812394786879783479299))* y
-// )
-
-// r = 21888242871839275222246405745257275088548364400416034343698204186575808495617
-// embedded_degree = 12
-
-
-// def checked_div(nominator, denom):
-//     assert(nominator % denom == 0)
-//     return int(nominator / denom)
-
-    
-
-// h = checked_div(q^embedded_degree - 1, r)
-// l = checked_div(temp, 27)
-// x = 4965661367192848881
-// lmbd = 6 * x + 2 + q - q^2 + q^3
-// m = checked_div(lmbd, r)
-// d = gcd(m, h)
-// assert(d == 3)
-// m_prime = checked_div(m, 3)
-
-// r_prime = inverse_mod(r, h)
-// m_prime2 = inverse_mod(m_prime, q^embedded_degree - 1)
-
-// print(m_prime2)
-
-
-// print("success")
