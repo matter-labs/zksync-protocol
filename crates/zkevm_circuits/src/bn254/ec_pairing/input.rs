@@ -51,7 +51,7 @@ impl<F: SmallField> CSPlaceholder<F> for EcPairingFunctionFSM<F> {
             read_precompile_call: boolean_false,
             read_words_for_round: boolean_false,
             completed: boolean_false,
-            pairing_inner_state: BN256Fq12NNField::zero(cs, params),
+            pairing_inner_state: BN256Fq12NNField::one(cs, params),
             timestamp_to_use_for_read: zero_u32,
             timestamp_to_use_for_write: zero_u32,
             precompile_call_params: EcPairingPrecompileCallParams::<F>::placeholder(cs),
