@@ -1,9 +1,9 @@
-use crate::ecrecover::secp256k1::PointAffine;
+// use crate::ecrecover::secp256k1::PointAffine;
 
 use super::*;
 use bn256::{G1Prepared, G2Prepared};
 use boojum::{
-    cs::{Place, Witness}, gadgets::{non_native_field::traits::NonNativeField, traits::witnessable::CSWitnessable}, pairing::{bn256::{Fq, Fq12, Fq2, Fq6, G1Affine, G2Affine, FROBENIUS_COEFF_FQ6_C1, XI_TO_Q_MINUS_1_OVER_2}, ff::{Field, PrimeField}, CurveAffine, GenericCurveAffine}
+    cs::{Place, Witness}, gadgets::{non_native_field::traits::NonNativeField, traits::witnessable::CSWitnessable}, pairing::{bn256::{Fq, Fq12, Fq2, Fq6, G1Affine, G2Affine, FROBENIUS_COEFF_FQ6_C1, XI_TO_Q_MINUS_1_OVER_2}, ff::{Field, PrimeField}}
 };
 use itertools::izip;
 use rand::Rng;
@@ -12,6 +12,7 @@ use std::iter;
 use boojum::config::CSConfig;
 use boojum::config::CSWitnessEvaluationConfig;
 use boojum::cs::traits::cs::DstBuffer;
+use boojum::pairing::CurveAffine;
 
 
 const NUM_PAIRINGS_IN_MULTIPAIRING: usize = 3;
