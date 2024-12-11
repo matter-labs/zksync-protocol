@@ -133,6 +133,22 @@ impl<F: SmallField> LogDemuxerOutputData<F> {
                 DemuxOutput::TransientStorage,
                 &self.output_queue_states[DemuxOutput::TransientStorage as usize],
             ),
+            (
+                DemuxOutput::Modexp,
+                &self.output_queue_states[DemuxOutput::Modexp as usize],
+            ),
+            (
+                DemuxOutput::ECAdd,
+                &self.output_queue_states[DemuxOutput::ECAdd as usize],
+            ),
+            (
+                DemuxOutput::ECMul,
+                &self.output_queue_states[DemuxOutput::ECMul as usize],
+            ),
+            (
+                DemuxOutput::ECPairing,
+                &self.output_queue_states[DemuxOutput::ECPairing as usize],
+            ),
         ];
         assert_eq!(tuples.len(), NUM_DEMUX_OUTPUTS);
 
