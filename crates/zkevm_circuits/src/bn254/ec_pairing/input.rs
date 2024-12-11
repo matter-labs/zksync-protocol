@@ -19,12 +19,7 @@ use boojum::gadgets::traits::selectable::Selectable;
 use boojum::gadgets::traits::witnessable::WitnessHookable;
 use serde::{Deserialize, Serialize};
 
-#[derive(
-    Derivative,
-    CSAllocatable,
-    CSSelectable,
-    WitnessHookable,
-)]
+#[derive(Derivative, CSAllocatable, CSSelectable, WitnessHookable)]
 #[derivative(Clone, Debug)]
 #[DerivePrettyComparison("true")]
 pub struct EcPairingFunctionFSM<F: SmallField> {

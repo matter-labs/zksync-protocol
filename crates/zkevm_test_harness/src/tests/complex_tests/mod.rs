@@ -1191,8 +1191,10 @@ fn run_and_try_create_witness_inner(
             );
 
         // assert_eq!(source.get_recursion_tip_vk().unwrap().into_inner(), vk);
-        source.set_recursion_tip_vk(ZkSyncRecursionLayerStorage::RecursionTipCircuit(vk.clone())).unwrap();
-        
+        source
+            .set_recursion_tip_vk(ZkSyncRecursionLayerStorage::RecursionTipCircuit(vk.clone()))
+            .unwrap();
+
         println!("Proving recursion tip");
 
         let proof = prove_recursion_layer_circuit::<NoPow>(
