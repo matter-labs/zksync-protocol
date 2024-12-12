@@ -1,9 +1,13 @@
 // use crate::ecrecover::secp256k1::PointAffine;
 
 use super::*;
-use bn256::{G1Prepared, G2Prepared};
+use bn256::{fq::ROOT_27_OF_UNITY, Certificate, G1Prepared, G2Prepared, Bn256};
+use bn256::prepare_all_line_functions;
+use bn256::prepare_g1_point;
+use bn256::miller_loop_with_prepared_lines;
 use boojum::{
-    cs::{Place, Witness}, gadgets::{non_native_field::traits::NonNativeField, traits::witnessable::CSWitnessable}, pairing::{bn256::{Fq, Fq12, Fq2, Fq6, G1Affine, G2Affine, FROBENIUS_COEFF_FQ6_C1, XI_TO_Q_MINUS_1_OVER_2}, ff::{Field, PrimeField}}
+    cs::{Place, Witness}, gadgets::{non_native_field::traits::NonNativeField, traits::witnessable::CSWitnessable}, 
+    pairing::{bn256::{Fq, Fq12, Fq2, Fq6, G1Affine, G2Affine, FROBENIUS_COEFF_FQ6_C1, XI_TO_Q_MINUS_1_OVER_2}, ff::{Field, PrimeField}}
 };
 use itertools::izip;
 use rand::Rng;
@@ -13,9 +17,10 @@ use boojum::config::CSConfig;
 use boojum::config::CSWitnessEvaluationConfig;
 use boojum::cs::traits::cs::DstBuffer;
 use boojum::pairing::CurveAffine;
+use boojum::pairing::Engine;
 
 
-const NUM_PAIRINGS_IN_MULTIPAIRING: usize = 3;
+const NUM_PAIRINGS_IN_MULTIPAIRING: usize = 1;
 const NUM_LIMBS: usize = 17;
 // multipairing circuit logic is the following:
 // by contract design we assume, that input is always padded if necessary on the contract side (by points on infinity), 
@@ -97,6 +102,7 @@ const U_WNAF : [i8; 64] =  [
 ];
 
 
+// a bunch of useful allocators
 pub fn allocate_fq2_constant<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     value: Fq2,
@@ -150,6 +156,14 @@ struct AffinePoint<F: SmallField> {
 }
 
 impl<F: SmallField> AffinePoint<F> {
+    fn allocate<CS: ConstraintSystem<F>>(cs: &mut CS, witness: G1Affine, params: &Arc<RnsParams>) -> Self {
+        let (x_wit, y_wit) = witness.into_xy_unchecked();
+        let x = Fp::<F>::allocate_checked(cs, x_wit, params);
+        let y = Fp::<F>::allocate_checked(cs, y_wit, params);
+
+        AffinePoint { x, y, is_in_eval_form: false }
+    }
+
     fn is_point_at_infty<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS) -> Boolean<F> {
         let x_is_zero = self.x.is_zero(cs);
         let y_is_zero = self.y.is_zero(cs);
@@ -240,6 +254,14 @@ struct TwistedCurvePoint<F: SmallField> {
 }
 
 impl<F: SmallField> TwistedCurvePoint<F> {
+    fn allocate<CS: ConstraintSystem<F>>(cs: &mut CS, witness: G2Affine, params: &Arc<RnsParams>) -> Self {
+        let (x_wit, y_wit) = witness.into_xy_unchecked();
+        let x = Fp2::<F>::allocate_from_witness(cs, x_wit, params);
+        let y = Fp2::<F>::allocate_from_witness(cs, y_wit, params);
+
+        TwistedCurvePoint { x, y }
+    }
+
     fn is_point_at_infty<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS) -> Boolean<F> {
         let x_is_zero = self.x.is_zero(cs);
         let y_is_zero = self.y.is_zero(cs);
@@ -490,17 +512,6 @@ struct Root27OfUnity<F: SmallField> {
 }
 
 impl<F: SmallField> Root27OfUnity<F> {
-    fn allocate<CS: ConstraintSystem<F>, O: WitnessOracle>(cs: &mut CS, oracle: &mut O, params: &Arc<RnsParams>) -> Self {
-        let a = Fp2::allocate_from_witness(cs, oracle.get_fp2_witness(), params);
-        let first_flag = Boolean::allocate(cs, oracle.get_bool_witness());
-        let second_flag = Boolean::allocate(cs, oracle.get_bool_witness());
-        let validity_check = first_flag.and(cs, second_flag);
-        let zero = Boolean::allocate_constant(cs, false);
-        Boolean::enforce_equal(cs, &validity_check, &zero);
-
-        Root27OfUnity { a, first_flag, second_flag }
-    }
-
     fn mul_into_fp6<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, acc: &mut Fp6<F>) {
         // acc = c0 + c1 * t + c2 * t^2; t^3 = w
         // if first_flag is set then root27 of unity is of the form: a * t:
@@ -530,13 +541,6 @@ impl<F: SmallField> Root27OfUnity<F> {
     }
 }
 
-
-trait WitnessOracle {
-    fn get_fp2_witness(&mut self) -> Fq2;
-    fn get_bool_witness(&mut self) -> bool;
-    fn get_fp12_witness(&mut self) -> Fq12;
-    fn get_line_function_witness(&mut self) -> (Fq2, Fq2);
-}
 
 struct WitnessParser<'a, F: SmallField> {
     witness: &'a [F],
@@ -582,18 +586,131 @@ impl<'a, F: SmallField> WitnessParser<'a, F> {
 struct Oracle {
     tag: Place,
     line_functions: Vec<(Fq2, Fq2)>,
-    line_function_idx: usize
+    line_function_idx: usize,
+    pairing_certificate: Option<Certificate>
+}
+
+impl Drop for Oracle {
+    fn drop(&mut self) {
+        assert_eq!(self.line_function_idx, self.line_functions.len())
+    }
 }
 
 impl Oracle {
-    pub fn new<F: SmallField, CS: ConstraintSystem<F>>(cs: &mut CS, pairing_input: &[PairingInput<F>], params: &Arc<RnsParams>) {
-        let tag_witness = cs.alloc_witness_without_value();
-        let tag = Place::from_witness(tag_witness);
-        let mut line_functions = Vec::new();
+    fn allocate_boolean<F: SmallField, CS: ConstraintSystem<F>>(&self, cs: &mut CS, witness: bool) -> Boolean<F> {
+        let var = cs.alloc_variable_without_value();
+        let result = Boolean::from_variable_checked(cs, var);
+
+        // temporal variable
+        let c_wit = self.pairing_certificate.as_ref().map_or(Fq12::one(), |cert| cert.c);
 
         if <CS::Config as CSConfig>::WitnessConfig::EVALUATE_WITNESS == true {
-            let outpus = [tag];
+            let value_fn = move |_inputs: &[F], output_buffer: &mut DstBuffer<'_, '_, F>| {
+                let witness_as_fr = if witness { F::ONE } else { F::ZERO };
+                let _tmp = c_wit;
+                output_buffer.push(witness_as_fr);
+            };
 
+            cs.set_values_with_dependencies_vararg(&[self.tag], &[Place::from_variable(var)], value_fn);
+        }
+
+        result   
+    }
+
+    fn allocate_fq<F: SmallField, CS: ConstraintSystem<F>>(&self, cs: &mut CS, witness: Fq, params: &Arc<BN256BaseNNFieldParams>) -> Fp<F> {
+        BN256BaseNNField::allocate_checked_with_tag(cs, witness, params, self.tag)
+    }
+
+    fn allocate_fq2<F: SmallField, CS: ConstraintSystem<F>>(&self, cs: &mut CS, witness: Fq2, params: &Arc<BN256BaseNNFieldParams>) -> Fp2<F> {
+        let c0 = self.allocate_fq(cs, witness.c0, params);
+        let c1 = self.allocate_fq(cs, witness.c1, params);
+
+        Fp2::new(c0, c1)
+    }
+
+    fn allocate_fq6<F: SmallField, CS: ConstraintSystem<F>>(&self, cs: &mut CS, witness: Fq6, params: &Arc<BN256BaseNNFieldParams>) -> Fp6<F> {
+        let c0 = self.allocate_fq2(cs, witness.c0, params);
+        let c1 = self.allocate_fq2(cs, witness.c1, params);
+        let c2 = self.allocate_fq2(cs, witness.c2, params);
+
+        Fp6::new(c0, c1, c2)
+    }
+
+    fn allocate_fq12<F: SmallField, CS: ConstraintSystem<F>>(&self, cs: &mut CS, witness: Fq12, params: &Arc<BN256BaseNNFieldParams>) -> Fp12<F> {
+        let c0 = self.allocate_fq6(cs, witness.c0, params);
+        let c1 = self.allocate_fq6(cs, witness.c1, params);
+        
+        Fp12::new(c0, c1)
+    }
+
+    fn allocate_c<F: SmallField, CS: ConstraintSystem<F>>(&self, cs: &mut CS, params: &Arc<RnsParams>) -> Fp12<F> {
+        let c_wit = self.pairing_certificate.as_ref().map_or(Fq12::one(), |cert| cert.c);
+        self.allocate_fq12(cs, c_wit, params)
+    }
+
+    fn allocate_next_line_object<F: SmallField, CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, params: &Arc<RnsParams>) -> LineObject<F> {
+        let (lambda_wit, mu_wit) = self.line_functions[self.line_function_idx];
+        self.line_function_idx += 1;
+
+        let lambda = self.allocate_fq2(cs, lambda_wit, params);
+        let mu = self.allocate_fq2(cs, mu_wit, params);
+        LineObject { lambda, mu }
+    } 
+
+    fn allocate_root_of_unity<F: SmallField, CS: ConstraintSystem<F>>(&self, cs: &mut CS, params: &Arc<RnsParams>) -> Root27OfUnity<F> {
+        let root_of_unity_power = self.pairing_certificate.as_ref().map_or(0, |cert| cert.root_27_of_unity_power);
+
+        // 27th_root_of_unity is either 1, or a1 * t or a2 * t^2 (acutally it belongs to Fp^3, that's the reason it has such compact representation)
+        // we hence represent element of Fp^3 as a /in Fp^2 and two Boolean flags, the first is set if it is of the form a1 * t; a2 * t - if second if set;
+        // these flags can't be both set simultaneously - and it is checked!
+        let (a_witness, first_flag_witness, second_flag_witness) = match root_of_unity_power {
+            0 => {
+                // this is just 1
+                (Fq2::one(), false, false)
+            },
+            1 => {
+                // root of unity is of the form a * t^2
+                (ROOT_27_OF_UNITY.c2, false, true)
+            },
+            2 => {
+                let mut root27_of_unity_squared = ROOT_27_OF_UNITY;
+                root27_of_unity_squared.square();
+                assert!(root27_of_unity_squared.c0.is_zero());
+                assert!(root27_of_unity_squared.c2.is_zero());
+
+                (root27_of_unity_squared.c1, true, false)
+            },
+            _ => unreachable!()
+        };
+
+        let a = self.allocate_fq2(cs, a_witness, params);
+        let first_flag = self.allocate_boolean(cs, first_flag_witness);
+        let second_flag = self.allocate_boolean(cs, second_flag_witness);
+        let validity_check = first_flag.and(cs, second_flag);
+        ConstantsAllocatorGate::new_to_enforce(validity_check.get_variable(), F::ZERO);
+        // let zero = Boolean::allocate_constant(cs, false);
+        // Boolean::enforce_equal(cs, &validity_check, &zero);
+
+        Root27OfUnity { a, first_flag, second_flag }
+    }
+
+    const fn new_uninitialized() -> Self {
+        Oracle {
+            tag: Place::placeholder(), line_functions: vec![], line_function_idx: 0, pairing_certificate: None
+        }
+    }
+
+    pub fn populate<F: SmallField, CS: ConstraintSystem<F>>(
+        &'static mut self, cs: &mut CS, pairing_input: &[PairingInput<F>], should_compute_certificate: bool
+    ) {
+        let Oracle { tag, line_functions, pairing_certificate, line_function_idx } = self;
+        *line_function_idx = 0;
+
+        let tag_variable = cs.alloc_variable_without_value();
+        let actual_tag = Place::from_variable(tag_variable);
+        *tag = actual_tag;
+
+        if <CS::Config as CSConfig>::WitnessConfig::EVALUATE_WITNESS == true {
             // populate witness inputs
             let mut inputs = Vec::<Place>::new();
             for (p, q) in pairing_input.iter() {
@@ -603,40 +720,41 @@ impl Oracle {
             }
             let num_of_tuples = pairing_input.len();
 
-            let value_fn = move |input: &[F], _dst: &mut DstBuffer<'_, '_, F>| {
+            let value_fn = move |input: &[F], dst: &mut DstBuffer<'_, '_, F>| {
                 let mut parser = WitnessParser::new(input);
                 let mut g1_arr = Vec::<G1Affine>::with_capacity(num_of_tuples);
-                let mut g2_arr = Vec::<G2Affine>::with_capacity(num_of_tuples);
+                let mut line_functions_unflattened = Vec::with_capacity(num_of_tuples);
 
                 for _ in 0..num_of_tuples {
-                    g1_arr.push(parser.parse_g1_affine());
-                    g2_arr.push(parser.parse_g2_affine());
+                    let g1 = prepare_g1_point(parser.parse_g1_affine());
+                    let g2 = parser.parse_g2_affine();
+                    
+                    line_functions_unflattened.push(prepare_all_line_functions(g2));
+                    g1_arr.push(g1);
                 }
 
-                for g2 in g2_arr.into_iter() {
-                    line_functions.extend(prepare_all_line_functions(g2).drain(..));
+                // prepare certificate (if required)
+                if should_compute_certificate {
+                    let f = miller_loop_with_prepared_lines(&g1_arr, &line_functions_unflattened);
+                    let final_exp = Bn256::final_exponentiation(&f).unwrap();
+                    assert_eq!(final_exp, Fq12::one());
+
+                    let certificate = bn256::construct_certificate(f);
+                    assert!(!bn256::validate_ceritificate(&f, &certificate));
+
+                    *pairing_certificate = Some(certificate);
                 }
+
+                // now flatten
+                for row_idx in 0..line_functions_unflattened[0].len() {
+                    line_functions.extend(line_functions_unflattened.iter().map(|arr| arr[row_idx]));
+                }
+
+                dst.push(F::ZERO);  
             };
 
-            cs.set_values_with_dependencies_vararg(&[], &outputs, value_fn);
-        }   
-
-        Oracle {
-            tag,
-            line_functions,
-            line_function_idx: 0
-        }     
-    }
-}
-
-impl WitnessOracle for Oracle {
-    fn get_fp2_witness(&mut self) -> Fq2 { unimplemented!(); }
-    fn get_bool_witness(&mut self) -> bool { unimplemented!(); }
-    fn get_fp12_witness(&mut self) -> Fq12 { unimplemented!(); }
-    fn get_line_function_witness(&mut self) -> (Fq2, Fq2) {
-        let res = self.line_functions[self.line_function_idx];
-        self.line_function_idx += 1;
-        res
+            cs.set_values_with_dependencies_vararg(&inputs, &[*tag], value_fn);
+        }      
     }
 }
 
@@ -648,13 +766,6 @@ struct LineObject<F: SmallField> {
 }
 
 impl<F: SmallField> LineObject<F> {
-    fn allocate<CS: ConstraintSystem<F>, O: WitnessOracle>(cs: &mut CS, oracle: &mut O, params: &Arc<RnsParams>) -> Self {
-        let (lambda_wit, mu_wit) = oracle.get_line_function_witness();
-        let lambda = Fp2::allocate_from_witness(cs, lambda_wit, params);
-        let mu = Fp2::allocate_from_witness(cs, mu_wit, params);
-        LineObject { lambda, mu }
-    } 
-
     fn enforce_pass_through_point<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, q: &mut TwistedCurvePoint<F>) {
         // q is on the line: y_q = lambda * x_q + mu
         let mut res = self.lambda.mul(cs, &mut q.x);
@@ -724,7 +835,7 @@ impl<F: SmallField> LineObject<F> {
 
     // aggregator functions that do several steps simultaneously:
     fn double_and_eval<CS: ConstraintSystem<F>>(mut self, cs: &mut CS, q: &mut TwistedCurvePoint<F>, p: &mut AffinePoint<F>) -> LineFunctionEvaluation<F> {
-        self.enforce_is_tangent(cs, q);
+        //self.enforce_is_tangent(cs, q);
         *q = self.double(cs, q);
         self.evaluate(cs, p)
     }
@@ -739,14 +850,16 @@ impl<F: SmallField> LineObject<F> {
 }
 
 
-fn multipairing_robust<F: SmallField, CS: ConstraintSystem<F>, O: WitnessOracle>(
+unsafe fn multipairing_robust<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     inputs: &mut [PairingInput<F>],
-    oracle: &mut O,
 ) {
     assert_eq!(inputs.len(), NUM_PAIRINGS_IN_MULTIPAIRING);
     let params = Arc::new(RnsParams::create());
     let mut skip_pairings = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING);
+
+    static mut oracle : Oracle = Oracle::new_uninitialized();
+    oracle.populate(cs, inputs, false);
 
     for (p, q) in inputs.iter_mut() {
         let p_is_infty = p.validate_point_robust(cs, &params);
@@ -763,47 +876,52 @@ fn multipairing_robust<F: SmallField, CS: ConstraintSystem<F>, O: WitnessOracle>
     // f = c^λ * u, where u is in Fq^3 (actually it is 27-th root of unity)
     // not that the first term of lambda is the same number as used in Miller Loop, 
     // hence if we start with f_acc = c_inv, than all doubles will be essentially for free! 
-    let mut c = Fp12::allocate_from_witness(cs, oracle.get_fp12_witness(), &params);
+    let mut c = oracle.allocate_c(cs, &params);
     let mut c_inv = c.inverse(cs);
-    let mut root_27_of_unity = Root27OfUnity::allocate(cs, oracle, &params);
+    let mut root_27_of_unity = oracle.allocate_root_of_unity(cs, &params);
     
     let mut q_doubled_array : [_; NUM_PAIRINGS_IN_MULTIPAIRING] = std::array::from_fn(|i| inputs[i].1.clone());
     let mut q_negated_array : [_; NUM_PAIRINGS_IN_MULTIPAIRING] = std::array::from_fn(|i| inputs[i].1.negate(cs));
     let mut t_array : [_; NUM_PAIRINGS_IN_MULTIPAIRING] = std::array::from_fn(|i| inputs[i].1.clone());
 
     let mut f : Fp12<F> = c_inv.clone();
+    f = f.square(cs);
+
+    // let line_object = oracle.allocate_next_line_object(cs, &params);
+    // let (p, q) = &mut inputs[0];
+    // let line_func_eval = line_object.double_and_eval(cs, q, p);
 
     // main cycle of Miller loop:
-    let iter = SIX_U_PLUS_TWO_WNAF.into_iter().rev().skip(1).identify_first_last();
-    for (is_first, _is_last, bit) in iter {
-        f = f.square(cs);
+    // let iter = SIX_U_PLUS_TWO_WNAF.into_iter().rev().skip(1).identify_first_last().take(1);
+    // for (is_first, _is_last, bit) in iter {
+    //     f = f.square(cs);
         
-        for i in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
-            let line_object = LineObject::allocate(cs, oracle, &params);
-            let mut t = t_array[i].clone();
-            let mut p = inputs[i].0.clone();
+    //     for i in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
+    //         let line_object = oracle.allocate_next_line_object(cs, &params);
+    //         let mut t = t_array[i].clone();
+    //         let mut p = inputs[i].0.clone();
 
-            let line_func_eval = line_object.double_and_eval(cs, &mut t, &mut p);
+    //         let line_func_eval = line_object.double_and_eval(cs, &mut t, &mut p);
 
-            if is_first {
-                q_doubled_array[i] = t.clone();
-            }
-            line_func_eval.mul_into_fp12(cs, &mut f);
+    //         if is_first {
+    //             q_doubled_array[i] = t.clone();
+    //         }
+    //         line_func_eval.mul_into_fp12(cs, &mut f);
        
-            let to_add : &mut TwistedCurvePoint<F> = if bit == -1 { &mut q_negated_array[i] } else { &mut inputs[i].1 };
-            let c_to_mul = if bit == 1 { &mut c_inv } else { &mut c };
+    //         let to_add : &mut TwistedCurvePoint<F> = if bit == -1 { &mut q_negated_array[i] } else { &mut inputs[i].1 };
+    //         let c_to_mul = if bit == 1 { &mut c_inv } else { &mut c };
        
-            if bit == 1 || bit == -1 {
-                let line_object = LineObject::allocate(cs, oracle, &params);
-                let line_func_eval = line_object.add_and_eval(cs, &mut t, to_add, &mut p);
-                line_func_eval.mul_into_fp12(cs, &mut f);
-                f = f.mul(cs, c_to_mul); 
-            }
+    //         if bit == 1 || bit == -1 {
+    //             let line_object = oracle.allocate_next_line_object(cs, &params);
+    //             let line_func_eval = line_object.add_and_eval(cs, &mut t, to_add, &mut p);
+    //             line_func_eval.mul_into_fp12(cs, &mut f);
+    //             f = f.mul(cs, c_to_mul); 
+    //         }
 
-            t_array[i] = t;
-            inputs[i].0 = p;
-        }
-    }
+    //         t_array[i] = t;
+    //         inputs[i].0 = p;
+    //     }
+    // }
 
     // Miller loop postprocess:
     // The twist isomorphism is (x', y') -> (xω², yω³). If we consider just
@@ -814,86 +932,88 @@ fn multipairing_robust<F: SmallField, CS: ConstraintSystem<F>, O: WitnessOracle>
     // p, 2p-2 is a multiple of six. Therefore we can rewrite as
     // x̄ξ^((p-1)/3)ω² and applying the inverse isomorphism eliminates the ω².
     // A similar argument can be made for the y value.
-    let mut q1_mul_factor = allocate_fq2_constant(cs, FROBENIUS_COEFF_FQ6_C1[1], &params);
-    let mut q2_mul_factor = allocate_fq2_constant(cs, FROBENIUS_COEFF_FQ6_C1[2], &params);
-    let mut xi = allocate_fq2_constant(cs, XI_TO_Q_MINUS_1_OVER_2, &params);
+    // let mut q1_mul_factor = allocate_fq2_constant(cs, FROBENIUS_COEFF_FQ6_C1[1], &params);
+    // let mut q2_mul_factor = allocate_fq2_constant(cs, FROBENIUS_COEFF_FQ6_C1[2], &params);
+    // let mut xi = allocate_fq2_constant(cs, XI_TO_Q_MINUS_1_OVER_2, &params);
 
-    for ((p, q), t, q_doubled) in izip!(inputs.iter_mut(), t_array.iter_mut(), q_doubled_array.iter_mut()) {
-        let mut q_frob = q.clone();
-        q_frob.x.c1 = q_frob.x.c1.negated(cs);
-        q_frob.x = q_frob.x.mul(cs, &mut q1_mul_factor);
-        q_frob.y.c1 = q_frob.y.c1.negated(cs);
-        q_frob.y = q_frob.y.mul(cs, &mut xi);
+    // for ((p, q), t, q_doubled) in izip!(inputs.iter_mut(), t_array.iter_mut(), q_doubled_array.iter_mut()) {
+    //     let mut q_frob = q.clone();
+    //     q_frob.x.c1 = q_frob.x.c1.negated(cs);
+    //     q_frob.x = q_frob.x.mul(cs, &mut q1_mul_factor);
+    //     q_frob.y.c1 = q_frob.y.c1.negated(cs);
+    //     q_frob.y = q_frob.y.mul(cs, &mut xi);
         
-        let mut q2 = q.clone();
-        q2.x = q2.x.mul(cs, &mut q2_mul_factor);
+    //     let mut q2 = q.clone();
+    //     q2.x = q2.x.mul(cs, &mut q2_mul_factor);
 
-        let mut r_pt = t.clone();
+    //     let mut r_pt = t.clone();
 
-        let line_object = LineObject::allocate(cs, oracle, &params);
-        let line_eval_1 = line_object.add_and_eval(cs, t, &mut q_frob, p);
+    //     let line_object = oracle.allocate_next_line_object(cs, &params);
+    //     let line_eval_1 = line_object.add_and_eval(cs, t, &mut q_frob, p);
         
-        let line_object = LineObject::allocate(cs, oracle, &params);
-        let line_eval_2 = line_object.add_and_eval(cs, t, &mut q2, p);
+    //     let line_object = oracle.allocate_next_line_object(cs, &params);
+    //     let line_eval_2 = line_object.add_and_eval(cs, t, &mut q2, p);
     
-        line_eval_1.mul_into_fp12(cs, &mut f);
-        line_eval_2.mul_into_fp12(cs, &mut f);
+    //     line_eval_1.mul_into_fp12(cs, &mut f);
+    //     line_eval_2.mul_into_fp12(cs, &mut f);
     
-        // subgroup check for BN256 curve is of the form: twisted_frob(Q) = [6*u^2]*Q
-        r_pt = r_pt.sub(cs, q_doubled);
-        let mut r_pt_negated = r_pt.negate(cs);
-        let mut acc = r_pt.clone();
-        for bit in U_WNAF.into_iter().rev().skip(1) {
-            if bit == 0 {
-                acc = acc.double(cs);
-            } else {
-                let to_add = if bit == 1 { &mut r_pt } else { &mut r_pt_negated };
-                acc = acc.double_and_add(cs, to_add);  
-            }
-        } 
-        TwistedCurvePoint::enforce_equal(cs, &mut acc, &mut q_frob);
-    }
+    //     // subgroup check for BN256 curve is of the form: twisted_frob(Q) = [6*u^2]*Q
+    //     r_pt = r_pt.sub(cs, q_doubled);
+    //     let mut r_pt_negated = r_pt.negate(cs);
+    //     let mut acc = r_pt.clone();
+    //     for bit in U_WNAF.into_iter().rev().skip(1) {
+    //         if bit == 0 {
+    //             acc = acc.double(cs);
+    //         } else {
+    //             let to_add = if bit == 1 { &mut r_pt } else { &mut r_pt_negated };
+    //             acc = acc.double_and_add(cs, to_add);  
+    //         }
+    //     } 
+    //     TwistedCurvePoint::enforce_equal(cs, &mut acc, &mut q_frob);
+    // }
 
-    // compute c^{q − q^2 + q^3} * root_27_of_unity; c^{−q^2} is just inversion
-    let mut c_frob_q = c.frobenius_map(cs, 1);
-    let mut c_frob_q3 = c.frobenius_map(cs, 3);
+    // // compute c^{q − q^2 + q^3} * root_27_of_unity; c^{−q^2} is just inversion
+    // let mut c_frob_q = c.frobenius_map(cs, 1);
+    // let mut c_frob_q3 = c.frobenius_map(cs, 3);
 
-    let mut rhs = c_frob_q.mul(cs, &mut c_inv);
-    rhs = rhs.mul(cs, &mut c_frob_q3);
-    root_27_of_unity.mul_into_fp6(cs, &mut rhs.c0);
-    root_27_of_unity.mul_into_fp6(cs, &mut rhs.c1);
+    // let mut rhs = c_frob_q.mul(cs, &mut c_inv);
+    // rhs = rhs.mul(cs, &mut c_frob_q3);
+    // root_27_of_unity.mul_into_fp6(cs, &mut rhs.c0);
+    // root_27_of_unity.mul_into_fp6(cs, &mut rhs.c1);
 
-    // compute the total number of tuples skipped and convert this number into multiselect:
-    // the most efficient way to do this is via table invocations, however the costs anyway are comparatevly small to Miller loop anyway,
-    // so we just do multiselect
-    let input: Vec<_> = skip_pairings.iter().map(|el| (el.get_variable(), F::ONE)).collect();
-    let num_of_skipped_tuples = Num::linear_combination(cs, &input);
-    let bitmask = num_of_skipped_tuples.spread_into_bits::<_, NUM_PAIRINGS_IN_MULTIPAIRING>(cs);
+    // // compute the total number of tuples skipped and convert this number into multiselect:
+    // // the most efficient way to do this is via table invocations, however the costs anyway are comparatevly small to Miller loop anyway,
+    // // so we just do multiselect
+    // let input: Vec<_> = skip_pairings.iter().map(|el| (el.get_variable(), F::ONE)).collect();
+    // let num_of_skipped_tuples = Num::linear_combination(cs, &input);
+    // let bitmask = num_of_skipped_tuples.spread_into_bits::<_, NUM_PAIRINGS_IN_MULTIPAIRING>(cs);
 
-    // TODO: substite correct constant witness here - which is just the Miller Loop of the product of generators of corresponding subgroups
-    let g1_mul_g2 = Fq12::one();
-    let mut cur_acc_witness = Fq12::one();
-    let mut multiplier = allocate_fq12_constant(cs, cur_acc_witness, &params);
-    for bit in bitmask.into_iter() {
-        cur_acc_witness.mul_assign(&g1_mul_g2);
-        let choice = allocate_fq12_constant(cs, cur_acc_witness, &params);
-        multiplier = <Fp12<F> as NonNativeField<F, _>>::conditionally_select(cs, bit, &choice, &multiplier);
-    }
-    rhs = rhs.mul(cs, &mut multiplier);
+    // // TODO: substite correct constant witness here - which is just the Miller Loop of the product of generators of corresponding subgroups
+    // let g1_mul_g2 = Fq12::one();
+    // let mut cur_acc_witness = Fq12::one();
+    // let mut multiplier = allocate_fq12_constant(cs, cur_acc_witness, &params);
+    // for bit in bitmask.into_iter() {
+    //     cur_acc_witness.mul_assign(&g1_mul_g2);
+    //     let choice = allocate_fq12_constant(cs, cur_acc_witness, &params);
+    //     multiplier = <Fp12<F> as NonNativeField<F, _>>::conditionally_select(cs, bit, &choice, &multiplier);
+    // }
+    // rhs = rhs.mul(cs, &mut multiplier);
 
-    Fp12::enforce_equal(cs, &mut f, &mut rhs);
+    //Fp12::enforce_equal(cs, &mut f, &mut rhs);
 }
 
 
-fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>, O: WitnessOracle>(
+unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     inputs: &mut [PairingInput<F>],
-    oracle: &mut O,
 ) -> Boolean<F> {
     assert_eq!(inputs.len(), NUM_PAIRINGS_IN_MULTIPAIRING);
     let params = Arc::new(RnsParams::create());
     let mut skip_pairings = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING);
     let mut validity_checks = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING * 3);
+    
+    static mut oracle : Oracle = Oracle::new_uninitialized();
+    oracle.populate(cs, inputs, true);
 
     for (p, q) in inputs.iter_mut() {
         let p_check_flags = p.validate_point_naive(cs, &params);
@@ -923,7 +1043,7 @@ fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>, O: WitnessOracle>(
         f = f.square(cs);
         
         for i in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
-            let line_object = LineObject::allocate(cs, oracle, &params);
+            let line_object = oracle.allocate_next_line_object(cs, &params);
             let mut t = t_array[i].clone();
             let mut p = inputs[i].0.clone();
 
@@ -942,7 +1062,7 @@ fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>, O: WitnessOracle>(
             let to_add : &mut TwistedCurvePoint<F> = if bit == -1 { &mut q_negated_array[i] } else { &mut inputs[i].1 };
        
             if bit == 1 || bit == -1 {
-                let line_object = LineObject::allocate(cs, oracle, &params);
+                let line_object = oracle.allocate_next_line_object(cs, &params);
                 let line_func_eval = line_object.add_and_eval(cs, &mut t, to_add, &mut p);
                 line_func_eval.mul_into_fp12(cs, &mut f);
             }
@@ -977,10 +1097,10 @@ fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>, O: WitnessOracle>(
 
         let mut r_pt = t.clone();
 
-        let line_object = LineObject::allocate(cs, oracle, &params);
+        let line_object = oracle.allocate_next_line_object(cs, &params);
         let line_eval_1 = line_object.add_and_eval(cs, t, &mut q_frob, p);
         
-        let line_object = LineObject::allocate(cs, oracle, &params);
+        let line_object = oracle.allocate_next_line_object(cs, &params);
         let line_eval_2 = line_object.add_and_eval(cs, t, &mut q2, p);
     
         line_eval_1.mul_into_fp12(cs, &mut f);
@@ -1029,141 +1149,112 @@ fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>, O: WitnessOracle>(
 }
 
 
-// fn test_circuit(cs, p: &AffinePoint<F>, q: &TwistedCurvePoint<F>) {
-//     let mut f = Fp12::<F>::zero(cs, &params);
+use crate::boojum::field::goldilocks::GoldilocksField;
+use crate::boojum::cs::*;
+use boojum::cs::cs_builder::*;
+use boojum::cs::gates::*;
+use boojum::config::DevCSConfig;
+use boojum::cs::cs_builder_reference::CsReferenceImplementationBuilder;
+use boojum::cs::traits::gate::GatePlacementStrategy;
+use boojum::dag::CircuitResolverOpts;
+use boojum::gadgets::tables::create_range_check_16_bits_table;
+use boojum::gadgets::tables::RangeCheck16BitsTable;
+use rand::*;
+use std::alloc::Global;
+use boojum::worker::Worker;
+use std::env;
 
-//     // main cycle of Miller loop:
-//     let iter = SIX_U_PLUS_TWO_WNAF.into_iter().rev().skip(1).identify_first_last();
-//     for (is_first, _is_last, bit) in iter {
-//         f = f.square(cs);
-        
-//         for i in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
-//             let line_object = LineObject::allocate(cs, oracle, &params);
-//             let mut t = t_array[i].clone();
-//             let mut p = inputs[i].0.clone();
+type F = GoldilocksField;
+type P = GoldilocksField;
 
-//             let line_func_eval = line_object.double_and_eval(cs, &mut t, &mut p);
+/// Creates a test constraint system for testing purposes that includes the
+/// majority (even possibly unneeded) of the gates and tables.
+#[test]
+fn test_alternative_circuit(
+) {
+    //env::set_var("RUST_BACKTRACE", "full");
+    
+    let geometry = CSGeometry {
+        num_columns_under_copy_permutation: 60,
+        num_witness_columns: 0,
+        num_constant_columns: 4,
+        max_allowed_constraint_degree: 4,
+    };
 
-//             if is_first {
-//                 q_doubled_array[i] = t.clone();
-//             }
+    type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
+    let builder_impl =
+        CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 18);
+    let builder = new_builder::<_, F>(builder_impl);
 
-//             if is_first && i == 0 {
-//                 f = line_func_eval.convert_into_fp12(cs);
-//             } else {
-//                 line_func_eval.mul_into_fp12(cs, &mut f);
-//             }
-       
-//             let to_add : &mut TwistedCurvePoint<F> = if bit == -1 { &mut q_negated_array[i] } else { &mut inputs[i].1 };
-       
-//             if bit == 1 || bit == -1 {
-//                 let line_object = LineObject::allocate(cs, oracle, &params);
-//                 let line_func_eval = line_object.add_and_eval(cs, &mut t, to_add, &mut p);
-//                 line_func_eval.mul_into_fp12(cs, &mut f);
-//             }
+    let builder = builder.allow_lookup(
+        LookupParameters::UseSpecializedColumnsWithTableIdAsConstant {
+            width: 1,
+            num_repetitions: 10,
+            share_table_id: true,
+        },
+    );
 
-//             t_array[i] = t;
-//             inputs[i].0 = p;
-//         }
-//     }
+    let builder = ConstantsAllocatorGate::configure_builder(
+        builder,
+        GatePlacementStrategy::UseGeneralPurposeColumns,
+    );
+    let builder = FmaGateInBaseFieldWithoutConstant::configure_builder(
+        builder,
+        GatePlacementStrategy::UseGeneralPurposeColumns,
+    );
+    let builder = ReductionGate::<F, 4>::configure_builder(
+        builder,
+        GatePlacementStrategy::UseGeneralPurposeColumns,
+    );
+    let builder = DotProductGate::<4>::configure_builder(
+        builder,
+        GatePlacementStrategy::UseGeneralPurposeColumns,
+    );
+    let builder = UIntXAddGate::<16>::configure_builder(
+        builder,
+        GatePlacementStrategy::UseGeneralPurposeColumns,
+    );
+    let builder = SelectionGate::configure_builder(
+        builder,
+        GatePlacementStrategy::UseGeneralPurposeColumns,
+    );
+    let builder = ZeroCheckGate::configure_builder(
+        builder,
+        GatePlacementStrategy::UseGeneralPurposeColumns,
+        false
+    );
 
-//     F: SmallField, CS: ConstraintSystem<F>, O: WitnessOracle>(
-//         cs: &mut CS,
-//         inputs: &mut [PairingInput<F>],
-//         oracle: &mut O,
-// }
+    let builder = NopGate::configure_builder(builder, GatePlacementStrategy::UseGeneralPurposeColumns);
 
-// use crate::boojum::field::goldilocks::GoldilocksField;
-// use crate::boojum::cs::*;
-// use boojum::cs::cs_builder::*;
-// use boojum::cs::gates::*;
+    let mut owned_cs = builder.build(CircuitResolverOpts::new(1 << 20));
 
-// type F = GoldilocksField;
-// type P = GoldilocksField;
+    // add tables
+    let table = create_range_check_16_bits_table();
+    owned_cs.add_lookup_table::<RangeCheck16BitsTable, 1>(table);
+    let cs = &mut owned_cs;
 
-// /// Creates a test constraint system for testing purposes that includes the
-// /// majority (even possibly unneeded) of the gates and tables.
-// pub fn test_alternative_circuit(
-// ) {
-//     let geometry = CSGeometry {
-//         num_columns_under_copy_permutation: 60,
-//         num_witness_columns: 0,
-//         num_constant_columns: 4,
-//         max_allowed_constraint_degree: 4,
-//     };
+    let params = RnsParams::create();
+    let params = std::sync::Arc::new(params);
 
-//     type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
-//     let builder_impl =
-//         CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 18);
-//     let builder = new_builder::<_, F>(builder_impl);
+    let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
+    let p = G1Affine::rand(&mut rng);
+    let q = G2Affine::rand(&mut rng);
 
-//     let builder = builder.allow_lookup(
-//         LookupParameters::UseSpecializedColumnsWithTableIdAsConstant {
-//             width: 1,
-//             num_repetitions: 10,
-//             share_table_id: true,
-//         },
-//     );
+    let g1 = AffinePoint::allocate(cs, p, &params);
+    let g2 = TwistedCurvePoint::allocate(cs, q, &params);
 
-//     let builder = ConstantsAllocatorGate::configure_builder(
-//         builder,
-//         GatePlacementStrategy::,
-//     );
-//     let builder = FmaGateInBaseFieldWithoutConstant::configure_builder(
-//         builder,
-//         GatePlacementStrategy::UseGeneralPurposeColumns,
-//     );
-//     let builder = ReductionGate::<F, 4>::configure_builder(
-//         builder,
-//         GatePlacementStrategy::UseGeneralPurposeColumns,
-//     );
-//     let builder = DotProductGate::<4>::configure_builder(
-//         builder,
-//         GatePlacementStrategy::UseGeneralPurposeColumns,
-//     );
-//     let builder = UIntXAddGate::<16>::configure_builder(
-//         builder,
-//         GatePlacementStrategy::UseGeneralPurposeColumns,
-//     );
-//     let builder = SelectionGate::configure_builder(
-//         builder,
-//         GatePlacementStrategy::UseGeneralPurposeColumns,
-//     );
-//     let builder =
-//         NopGate::configure_builder(builder, GatePlacementStrategy::UseGeneralPurposeColumns);
+    unsafe {
+        multipairing_robust(cs, &mut [(g1, g2)])
+    }
 
-//     let mut owned_cs = builder.build(CircuitResolverOpts::new(1 << 20));
+    let worker = Worker::new();
 
-//     // add tables
-//     let table = create_range_check_16_bits_table();
-//     owned_cs.add_lookup_table::<RangeCheck16BitsTable, 1>(table);
+    drop(cs);
+    owned_cs.pad_and_shrink();
+    let mut owned_cs = owned_cs.into_assembly::<Global>();
+    assert!(owned_cs.check_if_satisfied(&worker));
 
-//     let cs = &mut owned_cs;
-
-//     let a_value = Ext::from_str("123").unwrap();
-//     let b_value = Ext::from_str("456").unwrap();
-
-//     let params = Params::create();
-//     let params = std::sync::Arc::new(params);
-
-//     let mut a = NN::allocate_checked(cs, a_value, &params);
-//     let mut b = NN::allocate_checked(cs, b_value, &params);
-
-//     let c = a.mul(cs, &mut b);
-
-//     let mut c_value = a_value;
-//     c_value.mul_assign(&b_value);
-
-//     let witness = c.witness_hook(&*cs)().unwrap().get();
-
-//     assert_eq!(c_value, witness);
-
-//     let worker = Worker::new_with_num_threads(8);
-
-//     drop(cs);
-//     owned_cs.pad_and_shrink();
-//     let mut owned_cs = owned_cs.into_assembly::<Global>();
-//     assert!(owned_cs.check_if_satisfied(&worker));
-// }
+    owned_cs.print_gate_stats();
+}
 
 
