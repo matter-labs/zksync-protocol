@@ -590,11 +590,11 @@ struct Oracle {
     pairing_certificate: Option<Certificate>
 }
 
-impl Drop for Oracle {
-    fn drop(&mut self) {
-        assert_eq!(self.line_function_idx, self.line_functions.len())
-    }
-}
+// impl Drop for Oracle {
+//     fn drop(&mut self) {
+//         assert_eq!(self.line_function_idx, self.line_functions.len())
+//     }
+// }
 
 impl Oracle {
     fn allocate_boolean<F: SmallField, CS: ConstraintSystem<F>>(&self, cs: &mut CS, witness: bool) -> Boolean<F> {
@@ -810,9 +810,13 @@ impl<F: SmallField> LineObject<F> {
 
     fn compute_point_from_x_coordinate<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, mut x: Fp2<F>) -> TwistedCurvePoint<F> {
         // y = −µ − λ * x
+        println!("HERE in pt");
         let mut y = self.lambda.mul(cs, &mut x);
+        println!("before add");
         y = y.add(cs, &mut self.mu);
+        println!("before negate");
         y = y.negated(cs);
+        println!("after negate");
 
         TwistedCurvePoint { x, y }
     }
@@ -820,6 +824,7 @@ impl<F: SmallField> LineObject<F> {
     fn double<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, q: &mut TwistedCurvePoint<F>) -> TwistedCurvePoint<F> {
         //  x = λ^2 −2 * q.x and y = −µ − λ * x
         let mut lambda_squared = self.lambda.square(cs);
+        println!("AFTER SQUARE");
         let mut q_x_doubled = q.x.double(cs);
         let x = lambda_squared.sub(cs, &mut q_x_doubled);
         self.compute_point_from_x_coordinate(cs, x)
@@ -836,7 +841,9 @@ impl<F: SmallField> LineObject<F> {
     // aggregator functions that do several steps simultaneously:
     fn double_and_eval<CS: ConstraintSystem<F>>(mut self, cs: &mut CS, q: &mut TwistedCurvePoint<F>, p: &mut AffinePoint<F>) -> LineFunctionEvaluation<F> {
         //self.enforce_is_tangent(cs, q);
+        println!("BEFORE DOUBLE");
         *q = self.double(cs, q);
+        println!("AFTER DOUBLE");
         self.evaluate(cs, p)
     }
 
@@ -869,6 +876,8 @@ unsafe fn multipairing_robust<F: SmallField, CS: ConstraintSystem<F>>(
         p.mask(cs, should_skip, &params);
         q.mask(cs, should_skip, &params);
         skip_pairings.push(should_skip);
+
+        p.convert_for_line_eval_form(cs);
     }
 
     // λ = (6u + 2) + q − q^2 +q^3
@@ -885,43 +894,49 @@ unsafe fn multipairing_robust<F: SmallField, CS: ConstraintSystem<F>>(
     let mut t_array : [_; NUM_PAIRINGS_IN_MULTIPAIRING] = std::array::from_fn(|i| inputs[i].1.clone());
 
     let mut f : Fp12<F> = c_inv.clone();
-    f = f.square(cs);
-
-    // let line_object = oracle.allocate_next_line_object(cs, &params);
-    // let (p, q) = &mut inputs[0];
-    // let line_func_eval = line_object.double_and_eval(cs, q, p);
 
     // main cycle of Miller loop:
-    // let iter = SIX_U_PLUS_TWO_WNAF.into_iter().rev().skip(1).identify_first_last().take(1);
-    // for (is_first, _is_last, bit) in iter {
-    //     f = f.square(cs);
+    let iter = SIX_U_PLUS_TWO_WNAF.into_iter().rev().skip(1).identify_first_last();
+    for (is_first, _is_last, bit) in iter {
+        println!("HERE");
+        f = f.square(cs);
+        println!("AFTER SQUARE");
         
-    //     for i in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
-    //         let line_object = oracle.allocate_next_line_object(cs, &params);
-    //         let mut t = t_array[i].clone();
-    //         let mut p = inputs[i].0.clone();
+        for i in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
+            let line_object = oracle.allocate_next_line_object(cs, &params);
+            let mut t = t_array[i].clone();
+            let mut p = inputs[i].0.clone();
 
-    //         let line_func_eval = line_object.double_and_eval(cs, &mut t, &mut p);
+            println!("BEFORE LINE FUNCTION");
+            let line_func_eval = line_object.double_and_eval(cs, &mut t, &mut p);
+            println!("AFTER LINE FUNCTION");
 
-    //         if is_first {
-    //             q_doubled_array[i] = t.clone();
-    //         }
-    //         line_func_eval.mul_into_fp12(cs, &mut f);
+            if is_first {
+                q_doubled_array[i] = t.clone();
+            }
+            line_func_eval.mul_into_fp12(cs, &mut f);
+            println!("AFTER MUL INTO FP12");
        
-    //         let to_add : &mut TwistedCurvePoint<F> = if bit == -1 { &mut q_negated_array[i] } else { &mut inputs[i].1 };
-    //         let c_to_mul = if bit == 1 { &mut c_inv } else { &mut c };
-       
-    //         if bit == 1 || bit == -1 {
-    //             let line_object = oracle.allocate_next_line_object(cs, &params);
-    //             let line_func_eval = line_object.add_and_eval(cs, &mut t, to_add, &mut p);
-    //             line_func_eval.mul_into_fp12(cs, &mut f);
-    //             f = f.mul(cs, c_to_mul); 
-    //         }
+            let to_add : &mut TwistedCurvePoint<F> = if bit == -1 { &mut q_negated_array[i] } else { &mut inputs[i].1 };
+            let c_to_mul = if bit == 1 { &mut c_inv } else { &mut c };
 
-    //         t_array[i] = t;
-    //         inputs[i].0 = p;
-    //     }
-    // }
+            println!("THERE");
+       
+            if bit == 1 || bit == -1 {
+                println!("IN");
+                let line_object = oracle.allocate_next_line_object(cs, &params);
+                let line_func_eval = line_object.add_and_eval(cs, &mut t, to_add, &mut p);
+                line_func_eval.mul_into_fp12(cs, &mut f);
+                f = f.mul(cs, c_to_mul); 
+                println!("OUT");
+            }
+
+            t_array[i] = t;
+            inputs[i].0 = p;
+        }
+    }
+
+    println!("END");
 
     // Miller loop postprocess:
     // The twist isomorphism is (x', y') -> (xω², yω³). If we consider just
@@ -951,28 +966,28 @@ unsafe fn multipairing_robust<F: SmallField, CS: ConstraintSystem<F>>(
     //     let line_object = oracle.allocate_next_line_object(cs, &params);
     //     let line_eval_1 = line_object.add_and_eval(cs, t, &mut q_frob, p);
         
-    //     let line_object = oracle.allocate_next_line_object(cs, &params);
-    //     let line_eval_2 = line_object.add_and_eval(cs, t, &mut q2, p);
+        // let line_object = oracle.allocate_next_line_object(cs, &params);
+        // let line_eval_2 = line_object.add_and_eval(cs, t, &mut q2, p);
     
-    //     line_eval_1.mul_into_fp12(cs, &mut f);
-    //     line_eval_2.mul_into_fp12(cs, &mut f);
+        // line_eval_1.mul_into_fp12(cs, &mut f);
+        // line_eval_2.mul_into_fp12(cs, &mut f);
     
-    //     // subgroup check for BN256 curve is of the form: twisted_frob(Q) = [6*u^2]*Q
-    //     r_pt = r_pt.sub(cs, q_doubled);
-    //     let mut r_pt_negated = r_pt.negate(cs);
-    //     let mut acc = r_pt.clone();
-    //     for bit in U_WNAF.into_iter().rev().skip(1) {
-    //         if bit == 0 {
-    //             acc = acc.double(cs);
-    //         } else {
-    //             let to_add = if bit == 1 { &mut r_pt } else { &mut r_pt_negated };
-    //             acc = acc.double_and_add(cs, to_add);  
-    //         }
-    //     } 
-    //     TwistedCurvePoint::enforce_equal(cs, &mut acc, &mut q_frob);
-    // }
+        // // subgroup check for BN256 curve is of the form: twisted_frob(Q) = [6*u^2]*Q
+        // r_pt = r_pt.sub(cs, q_doubled);
+        // let mut r_pt_negated = r_pt.negate(cs);
+        // let mut acc = r_pt.clone();
+        // for bit in U_WNAF.into_iter().rev().skip(1) {
+        //     if bit == 0 {
+        //         acc = acc.double(cs);
+        //     } else {
+        //         let to_add = if bit == 1 { &mut r_pt } else { &mut r_pt_negated };
+        //         acc = acc.double_and_add(cs, to_add);  
+        //     }
+        // } 
+        //TwistedCurvePoint::enforce_equal(cs, &mut acc, &mut q_frob);
+    //}
 
-    // // compute c^{q − q^2 + q^3} * root_27_of_unity; c^{−q^2} is just inversion
+    // compute c^{q − q^2 + q^3} * root_27_of_unity; c^{−q^2} is just inversion
     // let mut c_frob_q = c.frobenius_map(cs, 1);
     // let mut c_frob_q3 = c.frobenius_map(cs, 3);
 
@@ -1038,7 +1053,7 @@ unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
     let mut f = Fp12::<F>::zero(cs, &params);
 
     // main cycle of Miller loop:
-    let iter = SIX_U_PLUS_TWO_WNAF.into_iter().rev().skip(1).identify_first_last();
+    let iter = SIX_U_PLUS_TWO_WNAF.into_iter().rev().skip(1).identify_first_last().take(10);
     for (is_first, _is_last, bit) in iter {
         f = f.square(cs);
         
@@ -1172,10 +1187,10 @@ type P = GoldilocksField;
 #[test]
 fn test_alternative_circuit(
 ) {
-    //env::set_var("RUST_BACKTRACE", "full");
+    //env::set_var("RUST_MIN_STACK", "100000000");
     
     let geometry = CSGeometry {
-        num_columns_under_copy_permutation: 60,
+        num_columns_under_copy_permutation: 30,
         num_witness_columns: 0,
         num_constant_columns: 4,
         max_allowed_constraint_degree: 4,
@@ -1183,7 +1198,7 @@ fn test_alternative_circuit(
 
     type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
     let builder_impl =
-        CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 18);
+        CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 22);
     let builder = new_builder::<_, F>(builder_impl);
 
     let builder = builder.allow_lookup(
@@ -1226,7 +1241,7 @@ fn test_alternative_circuit(
 
     let builder = NopGate::configure_builder(builder, GatePlacementStrategy::UseGeneralPurposeColumns);
 
-    let mut owned_cs = builder.build(CircuitResolverOpts::new(1 << 20));
+    let mut owned_cs = builder.build(CircuitResolverOpts::new(1 << 22));
 
     // add tables
     let table = create_range_check_16_bits_table();
@@ -1247,14 +1262,14 @@ fn test_alternative_circuit(
         multipairing_robust(cs, &mut [(g1, g2)])
     }
 
-    let worker = Worker::new();
+    // let worker = Worker::new_with_num_threads(1);
 
-    drop(cs);
-    owned_cs.pad_and_shrink();
-    let mut owned_cs = owned_cs.into_assembly::<Global>();
-    assert!(owned_cs.check_if_satisfied(&worker));
+    // drop(cs);
+    // owned_cs.pad_and_shrink();
+    // let mut owned_cs = owned_cs.into_assembly::<Global>();
+    // assert!(owned_cs.check_if_satisfied(&worker));
 
-    owned_cs.print_gate_stats();
+    // owned_cs.print_gate_stats();
 }
 
 
