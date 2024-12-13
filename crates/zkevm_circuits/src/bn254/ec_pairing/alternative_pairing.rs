@@ -20,7 +20,7 @@ use boojum::pairing::CurveAffine;
 use boojum::pairing::Engine;
 
 
-const NUM_PAIRINGS_IN_MULTIPAIRING: usize = 1;
+const NUM_PAIRINGS_IN_MULTIPAIRING: usize = 2;
 const NUM_LIMBS: usize = 17;
 // multipairing circuit logic is the following:
 // by contract design we assume, that input is always padded if necessary on the contract side (by points on infinity), 
@@ -95,10 +95,9 @@ const SIX_U_PLUS_TWO_WNAF: [i8; 65] = [
     0, 1, 0, 1, 1,
 ];
 
-const U_WNAF : [i8; 64] =  [
-    1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+const U_WNAF : [i8; 63] =  [
+    1, 0, 0, 0, 1, 0, 1, 0, 0, -1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 
+    1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, -1, 0, 0, 0, 1
 ];
 
 
@@ -237,6 +236,9 @@ impl<F: SmallField> AffinePoint<F> {
         self.x = x_prime;
         self.y = y_prime;
         self.is_in_eval_form = true;
+
+        self.x.normalize(cs);
+        self.y.normalize(cs);
     }
 
     fn as_variables_set(&self) -> impl Iterator<Item = Variable> {
@@ -490,6 +492,8 @@ impl<F: SmallField> LineFunctionEvaluation<F> {
 
         fp12.c0 = new_c0;
         fp12.c1 = new_c1;
+
+        // NonNativeField::normalize(fp12, cs);
     }
 
     fn conditionally_mul_into_fp12<CS: ConstraintSystem<F>>(mut self, cs: &mut CS, skip_flag: Boolean<F>, fp12: &mut Fp12<F>) {
@@ -740,12 +744,12 @@ impl Oracle {
                     assert_eq!(final_exp, Fq12::one());
 
                     let certificate = bn256::construct_certificate(f);
-                    assert!(!bn256::validate_ceritificate(&f, &certificate));
+                    assert!(bn256::validate_ceritificate(&f, &certificate));
 
                     *pairing_certificate = Some(certificate);
                 }
 
-                // now flatten
+                // now flatten in the right order!
                 for row_idx in 0..line_functions_unflattened[0].len() {
                     line_functions.extend(line_functions_unflattened.iter().map(|arr| arr[row_idx]));
                 }
@@ -775,15 +779,16 @@ impl<F: SmallField> LineObject<F> {
 
     fn enforce_is_tangent<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, q: &mut TwistedCurvePoint<F>) {
         // q is on the line: y_q = lambda * x_q + mu
-        // line is tangent:  2 * λ * y_q = 3 * x_q
+        // line is tangent:  2 * λ * y_q = 3 * x_q^2
         self.enforce_pass_through_point(cs, q);
         let mut lhs = self.lambda.double(cs);
         lhs = lhs.mul(cs, &mut q.y);
 
         //let mut three = Fp::allocated_constant(cs, Fq::from_str("3").unwrap(), q.x.get_params());
         // let mut rhs = q.x.mul_c0(cs, &mut three);
-        let mut rhs = q.x.double(cs);
-        rhs = rhs.add(cs, &mut q.x);
+        let mut x_squared = q.x.square(cs);
+        let mut rhs = x_squared.double(cs);
+        rhs = rhs.add(cs, &mut x_squared);
 
         Fp2::enforce_equal(cs, &mut lhs, &mut rhs);
     }
@@ -810,13 +815,10 @@ impl<F: SmallField> LineObject<F> {
 
     fn compute_point_from_x_coordinate<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, mut x: Fp2<F>) -> TwistedCurvePoint<F> {
         // y = −µ − λ * x
-        println!("HERE in pt");
+        x.normalize(cs);
         let mut y = self.lambda.mul(cs, &mut x);
-        println!("before add");
         y = y.add(cs, &mut self.mu);
-        println!("before negate");
         y = y.negated(cs);
-        println!("after negate");
 
         TwistedCurvePoint { x, y }
     }
@@ -824,7 +826,6 @@ impl<F: SmallField> LineObject<F> {
     fn double<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, q: &mut TwistedCurvePoint<F>) -> TwistedCurvePoint<F> {
         //  x = λ^2 −2 * q.x and y = −µ − λ * x
         let mut lambda_squared = self.lambda.square(cs);
-        println!("AFTER SQUARE");
         let mut q_x_doubled = q.x.double(cs);
         let x = lambda_squared.sub(cs, &mut q_x_doubled);
         self.compute_point_from_x_coordinate(cs, x)
@@ -840,10 +841,8 @@ impl<F: SmallField> LineObject<F> {
 
     // aggregator functions that do several steps simultaneously:
     fn double_and_eval<CS: ConstraintSystem<F>>(mut self, cs: &mut CS, q: &mut TwistedCurvePoint<F>, p: &mut AffinePoint<F>) -> LineFunctionEvaluation<F> {
-        //self.enforce_is_tangent(cs, q);
-        println!("BEFORE DOUBLE");
+        self.enforce_is_tangent(cs, q);
         *q = self.double(cs, q);
-        println!("AFTER DOUBLE");
         self.evaluate(cs, p)
     }
 
@@ -866,7 +865,7 @@ unsafe fn multipairing_robust<F: SmallField, CS: ConstraintSystem<F>>(
     let mut skip_pairings = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING);
 
     static mut oracle : Oracle = Oracle::new_uninitialized();
-    oracle.populate(cs, inputs, false);
+    oracle.populate(cs, inputs, true);
 
     for (p, q) in inputs.iter_mut() {
         let p_is_infty = p.validate_point_robust(cs, &params);
@@ -887,6 +886,7 @@ unsafe fn multipairing_robust<F: SmallField, CS: ConstraintSystem<F>>(
     // hence if we start with f_acc = c_inv, than all doubles will be essentially for free! 
     let mut c = oracle.allocate_c(cs, &params);
     let mut c_inv = c.inverse(cs);
+    c_inv.normalize(cs);
     let mut root_27_of_unity = oracle.allocate_root_of_unity(cs, &params);
     
     let mut q_doubled_array : [_; NUM_PAIRINGS_IN_MULTIPAIRING] = std::array::from_fn(|i| inputs[i].1.clone());
@@ -898,45 +898,34 @@ unsafe fn multipairing_robust<F: SmallField, CS: ConstraintSystem<F>>(
     // main cycle of Miller loop:
     let iter = SIX_U_PLUS_TWO_WNAF.into_iter().rev().skip(1).identify_first_last();
     for (is_first, _is_last, bit) in iter {
-        println!("HERE");
         f = f.square(cs);
-        println!("AFTER SQUARE");
         
         for i in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
             let line_object = oracle.allocate_next_line_object(cs, &params);
             let mut t = t_array[i].clone();
             let mut p = inputs[i].0.clone();
 
-            println!("BEFORE LINE FUNCTION");
             let line_func_eval = line_object.double_and_eval(cs, &mut t, &mut p);
-            println!("AFTER LINE FUNCTION");
-
             if is_first {
                 q_doubled_array[i] = t.clone();
             }
             line_func_eval.mul_into_fp12(cs, &mut f);
-            println!("AFTER MUL INTO FP12");
        
             let to_add : &mut TwistedCurvePoint<F> = if bit == -1 { &mut q_negated_array[i] } else { &mut inputs[i].1 };
             let c_to_mul = if bit == 1 { &mut c_inv } else { &mut c };
 
-            println!("THERE");
-       
             if bit == 1 || bit == -1 {
-                println!("IN");
                 let line_object = oracle.allocate_next_line_object(cs, &params);
                 let line_func_eval = line_object.add_and_eval(cs, &mut t, to_add, &mut p);
                 line_func_eval.mul_into_fp12(cs, &mut f);
                 f = f.mul(cs, c_to_mul); 
-                println!("OUT");
             }
+            f.normalize(cs);
 
             t_array[i] = t;
             inputs[i].0 = p;
         }
     }
-
-    println!("END");
 
     // Miller loop postprocess:
     // The twist isomorphism is (x', y') -> (xω², yω³). If we consider just
@@ -947,9 +936,9 @@ unsafe fn multipairing_robust<F: SmallField, CS: ConstraintSystem<F>>(
     // p, 2p-2 is a multiple of six. Therefore we can rewrite as
     // x̄ξ^((p-1)/3)ω² and applying the inverse isomorphism eliminates the ω².
     // A similar argument can be made for the y value.
-    // let mut q1_mul_factor = allocate_fq2_constant(cs, FROBENIUS_COEFF_FQ6_C1[1], &params);
-    // let mut q2_mul_factor = allocate_fq2_constant(cs, FROBENIUS_COEFF_FQ6_C1[2], &params);
-    // let mut xi = allocate_fq2_constant(cs, XI_TO_Q_MINUS_1_OVER_2, &params);
+    let mut q1_mul_factor = allocate_fq2_constant(cs, FROBENIUS_COEFF_FQ6_C1[1], &params);
+    let mut q2_mul_factor = allocate_fq2_constant(cs, FROBENIUS_COEFF_FQ6_C1[2], &params);
+    let mut xi = allocate_fq2_constant(cs, XI_TO_Q_MINUS_1_OVER_2, &params);
 
     // for ((p, q), t, q_doubled) in izip!(inputs.iter_mut(), t_array.iter_mut(), q_doubled_array.iter_mut()) {
     //     let mut q_frob = q.clone();
@@ -966,26 +955,34 @@ unsafe fn multipairing_robust<F: SmallField, CS: ConstraintSystem<F>>(
     //     let line_object = oracle.allocate_next_line_object(cs, &params);
     //     let line_eval_1 = line_object.add_and_eval(cs, t, &mut q_frob, p);
         
-        // let line_object = oracle.allocate_next_line_object(cs, &params);
-        // let line_eval_2 = line_object.add_and_eval(cs, t, &mut q2, p);
+    //     let line_object = oracle.allocate_next_line_object(cs, &params);
+    //     let line_eval_2 = line_object.add_and_eval(cs, t, &mut q2, p);
+        
+    //     line_eval_1.mul_into_fp12(cs, &mut f);
+    //     line_eval_2.mul_into_fp12(cs, &mut f);
     
-        // line_eval_1.mul_into_fp12(cs, &mut f);
-        // line_eval_2.mul_into_fp12(cs, &mut f);
-    
-        // // subgroup check for BN256 curve is of the form: twisted_frob(Q) = [6*u^2]*Q
-        // r_pt = r_pt.sub(cs, q_doubled);
-        // let mut r_pt_negated = r_pt.negate(cs);
-        // let mut acc = r_pt.clone();
-        // for bit in U_WNAF.into_iter().rev().skip(1) {
-        //     if bit == 0 {
-        //         acc = acc.double(cs);
-        //     } else {
-        //         let to_add = if bit == 1 { &mut r_pt } else { &mut r_pt_negated };
-        //         acc = acc.double_and_add(cs, to_add);  
-        //     }
-        // } 
-        //TwistedCurvePoint::enforce_equal(cs, &mut acc, &mut q_frob);
-    //}
+    //     // subgroup check for BN256 curve is of the form: twisted_frob(Q) = [6*u^2]*Q
+    //     r_pt = r_pt.sub(cs, q_doubled);
+    //     // r_pt.x.normalize(cs);
+    //     // r_pt.y.normalize(cs);
+        
+    //     let mut r_pt_negated = r_pt.negate(cs);
+    //     // r_pt_negated.x.normalize(cs);
+    //     // r_pt_negated.y.normalize(cs);
+
+    //     let mut acc = r_pt.clone();
+    //     for bit in U_WNAF.into_iter().skip(1) {
+    //         if bit == 0 {
+    //             acc = acc.double(cs);
+    //         } else {
+    //             let to_add = if bit == 1 { &mut r_pt } else { &mut r_pt_negated };
+    //             acc = acc.double_and_add(cs, to_add);  
+    //         }
+    //         acc.x.normalize(cs);
+    //         acc.y.normalize(cs);
+    //     } 
+    //     TwistedCurvePoint::enforce_equal(cs, &mut acc, &mut q_frob);
+    // }
 
     // compute c^{q − q^2 + q^3} * root_27_of_unity; c^{−q^2} is just inversion
     // let mut c_frob_q = c.frobenius_map(cs, 1);
@@ -1241,7 +1238,7 @@ fn test_alternative_circuit(
 
     let builder = NopGate::configure_builder(builder, GatePlacementStrategy::UseGeneralPurposeColumns);
 
-    let mut owned_cs = builder.build(CircuitResolverOpts::new(1 << 22));
+    let mut owned_cs = builder.build(CircuitResolverOpts::new(1 << 26));
 
     // add tables
     let table = create_range_check_16_bits_table();
@@ -1254,22 +1251,46 @@ fn test_alternative_circuit(
     let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
     let p = G1Affine::rand(&mut rng);
     let q = G2Affine::rand(&mut rng);
+    let mut p_negated = p.clone();
+    p_negated.negate();
 
     let g1 = AffinePoint::allocate(cs, p, &params);
     let g2 = TwistedCurvePoint::allocate(cs, q, &params);
+    let g1_negated = AffinePoint::allocate(cs, p_negated, &params);
 
-    unsafe {
-        multipairing_robust(cs, &mut [(g1, g2)])
-    }
+     unsafe {
+        multipairing_robust(cs, &mut [(g1, g2.clone()), (g1_negated, g2)])
+    };
+    // let candidate_witness = candidate_acc.witness_hook(cs);
 
-    // let worker = Worker::new_with_num_threads(1);
+    let worker = Worker::new_with_num_threads(8);
 
-    // drop(cs);
-    // owned_cs.pad_and_shrink();
-    // let mut owned_cs = owned_cs.into_assembly::<Global>();
-    // assert!(owned_cs.check_if_satisfied(&worker));
-
+    drop(cs);
+    owned_cs.pad_and_shrink();
+    let mut owned_cs = owned_cs.into_assembly::<Global>();
+    assert!(owned_cs.check_if_satisfied(&worker));
     // owned_cs.print_gate_stats();
+
+    // let lines = prepare_all_line_functions(q);
+    // let p_prepared = prepare_g1_point(p);
+    // let actual_miller_loop_f = miller_loop_with_prepared_lines(&[p_prepared], &[lines]);
+
+    // // unwrap candidate witness
+    // let candidate_witness_wrapper = candidate_witness().unwrap();
+    // let candidate_miller_loop_f = Fq12 {
+    //     c0: Fq6 {
+    //         c0: Fq2 { c0: candidate_witness_wrapper.0.0.0.get(), c1: candidate_witness_wrapper.0.0.1.get() },
+    //         c1: Fq2 { c0: candidate_witness_wrapper.0.1.0.get(), c1: candidate_witness_wrapper.0.1.1.get() },
+    //         c2: Fq2 { c0: candidate_witness_wrapper.0.2.0.get(), c1: candidate_witness_wrapper.0.2.1.get() },
+    //     },
+    //     c1: Fq6 {
+    //         c0: Fq2 { c0: candidate_witness_wrapper.1.0.0.get(), c1: candidate_witness_wrapper.1.0.1.get() },
+    //         c1: Fq2 { c0: candidate_witness_wrapper.1.1.0.get(), c1: candidate_witness_wrapper.1.1.1.get() },
+    //         c2: Fq2 { c0: candidate_witness_wrapper.1.2.0.get(), c1: candidate_witness_wrapper.1.2.1.get() },
+    //     },
+    // };
+
+    // assert_eq!(actual_miller_loop_f, candidate_miller_loop_f);
 }
 
 

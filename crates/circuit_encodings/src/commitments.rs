@@ -1,13 +1,15 @@
-use crate::{
-    boojum::{
-        algebraic_props::round_function::AlgebraicRoundFunction, field::SmallField,
-        gadgets::traits::round_function::*,
-    },
-    utils::{calldata_to_aligned_data, finalize_queue_state, finalized_queue_state_as_bytes},
+use crate::boojum::{
+    algebraic_props::round_function::AlgebraicRoundFunction, field::SmallField,
+    gadgets::traits::round_function::*,
 };
-use circuit_encodings::{boojum::field::goldilocks::GoldilocksField, *};
+use crate::utils::{
+    calldata_to_aligned_data, finalize_queue_state, finalized_queue_state_as_bytes,
+};
+use crate::{boojum::field::goldilocks::GoldilocksField, *};
 use zk_evm::aux_structures::LogQuery;
 
+// IMPORTANT! This function is being used by all the protocol versions in MultiVM, so changing it
+// may cause a change in behavior for existing protocol versions.
 pub fn initial_heap_content_commitment<
     F: SmallField,
     R: BuildableCircuitRoundFunction<F, 8, 12, 4> + AlgebraicRoundFunction<F, 8, 12, 4>,
@@ -17,7 +19,7 @@ pub fn initial_heap_content_commitment<
 ) -> [u8; 32] {
     let heap_writes = calldata_to_aligned_data(bootloader_heap_data);
 
-    use circuit_encodings::memory_query::MemoryQueueSimulator;
+    use crate::memory_query::MemoryQueueSimulator;
     use zk_evm::abstractions::*;
     use zk_evm::aux_structures::*;
 
@@ -49,6 +51,8 @@ pub fn initial_heap_content_commitment_fixed(bootloader_heap_data: &Vec<u8>) -> 
     )
 }
 
+// IMPORTANT! This function is being used by all the protocol versions in MultiVM, so changing it
+// may cause a change in behavior for existing protocol versions.
 pub fn events_queue_commitment<
     F: SmallField,
     R: BuildableCircuitRoundFunction<F, 8, 12, 4> + AlgebraicRoundFunction<F, 8, 12, 4>,

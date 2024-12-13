@@ -114,9 +114,8 @@ fn ecadd_precompile_inner<F: SmallField, CS: ConstraintSystem<F>>(
     let point2_on_curve = is_on_curve(cs, (&x2, &y2), base_field_params);
     let point2_is_valid = point2_on_curve.or(cs, point2_is_infinity);
 
-    let mut result = projective_add(cs, &mut point1, (x2, y2));
-
-    let ((mut x, mut y), _) = result.convert_to_affine_or_default(cs, BN256Affine::one());
+    let mut result = point1.add_mixed_inf_pass(cs, &mut (x2, y2), point2_is_infinity);
+    let ((mut x, mut y), _) = result.convert_to_affine_or_default(cs, BN256Affine::zero());
 
     x.normalize(cs);
     let x = convert_field_element_to_uint256(cs, x);

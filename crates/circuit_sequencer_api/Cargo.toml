@@ -11,16 +11,14 @@ categories.workspace = true
 description = "ZKsync Era circuit API for sequencer"
 
 [dependencies]
-
-circuit_encodings.workspace = true
+zk_evm.workspace = true
 bellman.workspace = true
-
 
 derivative = "2.2"
 serde = {version = "1", features = ["derive"]}
 rayon = "1.10"
 
 
-[features]
-default = []
-verbose_circuits = ["circuit_encodings/verbose_circuits"]
+[dev-dependencies]
+zkevm_circuits.workspace = true
+

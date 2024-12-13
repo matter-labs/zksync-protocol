@@ -22,6 +22,7 @@ use circuit_definitions::{
 };
 
 use crossbeam::atomic::AtomicCell;
+use geometry_config::ProtocolGeometry;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use rayon::ThreadPoolBuilder;
 
@@ -84,7 +85,7 @@ pub fn generate_light_circuit_setup_data(
     circuit_type: u8,
     source: &mut dyn SetupDataSource,
 ) -> crate::data_source::SourceResult<LightCircuitSetupData> {
-    let geometry = crate::geometry_config::get_geometry_config();
+    let geometry = ProtocolGeometry::latest().config();
     let worker = Worker::new();
 
     let (setup_base, vk_geometry, vars_hint, wits_hint, finalization_hint) = match proving_stage {

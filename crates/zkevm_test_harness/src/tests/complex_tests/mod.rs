@@ -385,7 +385,7 @@ fn run_and_try_create_witness_inner(
     use crate::toolset::GeometryConfig;
 
     let geometry = if options.use_production_geometry {
-        crate::geometry_config::get_geometry_config()
+        crate::geometry_config::ProtocolGeometry::latest().config()
     } else {
         get_testing_geometry_config()
     };
@@ -1191,8 +1191,15 @@ fn run_and_try_create_witness_inner(
             );
 
         // assert_eq!(source.get_recursion_tip_vk().unwrap().into_inner(), vk);
+<<<<<<< HEAD
         source.set_recursion_tip_vk(ZkSyncRecursionLayerStorage::RecursionTipCircuit(vk.clone())).unwrap();
         
+=======
+        source
+            .set_recursion_tip_vk(ZkSyncRecursionLayerStorage::RecursionTipCircuit(vk.clone()))
+            .unwrap();
+
+>>>>>>> origin/dl-precompiles
         println!("Proving recursion tip");
 
         let proof = prove_recursion_layer_circuit::<NoPow>(

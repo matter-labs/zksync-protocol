@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.150.17](https://github.com/matter-labs/zksync-protocol/compare/v0.150.16...v0.150.17) (2024-12-04)
+
+
+### Bug Fixes
+
+* **zkevm_circuits:** make zkevm_circuits compile with newest nightly rust ([#77](https://github.com/matter-labs/zksync-protocol/issues/77)) ([1aebbbe](https://github.com/matter-labs/zksync-protocol/commit/1aebbbe9e4b186b0539280c5923314f1d6b9973e))
+
+## [0.150.16](https://github.com/matter-labs/zksync-protocol/compare/v0.150.15...v0.150.16) (2024-11-21)
+
+
+### Features
+
+* Support stable compiler for circuit_sequencer_api ([#58](https://github.com/matter-labs/zksync-protocol/issues/58)) ([f318e65](https://github.com/matter-labs/zksync-protocol/commit/f318e6537a20ef12244fb611a03778b203f986d0))
+
+## [0.150.15](https://github.com/matter-labs/zksync-protocol/compare/v0.150.14...v0.150.15) (2024-11-20)
+
+
+### Performance Improvements
+
+* **circuit_definitions:** adjust proof configs for compression circuits ([#68](https://github.com/matter-labs/zksync-protocol/issues/68)) ([a411952](https://github.com/matter-labs/zksync-protocol/commit/a411952734f7dcac304b387c17a55e9ff1a9556c))
+
+## [0.150.14](https://github.com/matter-labs/zksync-protocol/compare/v0.150.13...v0.150.14) (2024-11-19)
+
+
+### Miscellaneous Chores
+
+* bump crypto crates to 0.30.8 ([#69](https://github.com/matter-labs/zksync-protocol/issues/69)) ([9cd0b54](https://github.com/matter-labs/zksync-protocol/commit/9cd0b543a6619f94c50b0869a82b57288dc92264))
+
+## [0.150.13](https://github.com/matter-labs/zksync-protocol/compare/v0.150.12...v0.150.13) (2024-11-18)
+
+
+### Miscellaneous Chores
+
+* bump crypto crates to 0.30.7 ([#66](https://github.com/matter-labs/zksync-protocol/issues/66)) ([e7f89fb](https://github.com/matter-labs/zksync-protocol/commit/e7f89fb306d12758ce60da16f3f1f921b7af3b55))
+
 ## [0.150.12](https://github.com/matter-labs/zksync-protocol/compare/v0.150.11...v0.150.12) (2024-11-06)
 
 

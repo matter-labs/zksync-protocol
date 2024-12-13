@@ -24,7 +24,7 @@ use circuit_definitions::zkevm_circuits::bn254::ec_pairing::input::EcPairingCirc
 use circuit_definitions::zkevm_circuits::modexp::input::ModexpCircuitInstanceWitness;
 use circuit_definitions::zkevm_circuits::secp256r1_verify::Secp256r1VerifyCircuitInstanceWitness;
 use circuit_definitions::zkevm_circuits::transient_storage_validity_by_grand_product::input::TransientStorageDeduplicatorInstanceWitness;
-use circuit_sequencer_api::toolset::GeometryConfig;
+use circuit_sequencer_api::geometry_config::GeometryConfig;
 use derivative::Derivative;
 use zkevm_circuits::fsm_input_output::ClosedFormInputCompactFormWitness;
 

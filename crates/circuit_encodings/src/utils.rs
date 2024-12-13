@@ -1,9 +1,9 @@
-use crate::boojum::{
-    algebraic_props::round_function::AlgebraicRoundFunction,
-    gadgets::traits::round_function::BuildableCircuitRoundFunction,
-};
-use circuit_encodings::{
-    boojum::{algebraic_props::round_function::AbsorptionModeOverwrite, field::SmallField},
+use crate::{
+    boojum::{
+        algebraic_props::round_function::{AbsorptionModeOverwrite, AlgebraicRoundFunction},
+        field::SmallField,
+        gadgets::traits::round_function::BuildableCircuitRoundFunction,
+    },
     zk_evm::ethereum_types::U256,
     zkevm_circuits::scheduler::QUEUE_FINAL_STATE_COMMITMENT_LENGTH,
 };

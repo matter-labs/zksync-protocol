@@ -268,12 +268,12 @@ where
     // there is no 0 * P in the table, we will handle it below
     let mut table = Vec::with_capacity(PRECOMPUTATION_TABLE_SIZE);
     let mut tmp = point.clone();
-    let (mut p_affine, _) = point.convert_to_affine_or_default(cs, BN256Affine::one());
+    let (mut p_affine, is_inf) = point.convert_to_affine_or_default(cs, BN256Affine::one());
     table.push(p_affine.clone());
     for _ in 1..PRECOMPUTATION_TABLE_SIZE {
         // 2P, 3P, ...
         tmp = tmp.add_mixed(cs, &mut p_affine);
-        let (affine, _) = tmp.convert_to_affine_or_default(cs, BN256Affine::one());
+        let affine = unsafe { tmp.convert_to_affine(cs) };
         table.push(affine);
     }
     assert_eq!(table.len(), PRECOMPUTATION_TABLE_SIZE);
@@ -379,7 +379,9 @@ where
             }
         }
     }
-
+    // inf * scalar = inf, therefore unmask the generator if the input was inf.
+    let inf = BN256SWProjectivePoint::zero(cs, base_field_params);
+    let acc = BN256SWProjectivePoint::conditionally_select(cs, is_inf, &inf, &acc);
     acc
 }
 
