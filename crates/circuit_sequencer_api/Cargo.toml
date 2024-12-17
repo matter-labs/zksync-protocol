@@ -13,7 +13,9 @@ description = "ZKsync Era circuits API for sequencer"
 [dependencies]
 circuit_encodings = { version = "0.142", path = "../circuit_encodings"}  # Not pinned, because it's an old dependency used by MultiVM
 
-zk_evm = { version = "0.141"}
+#zk_evm = { version = "0.141"}
+zk_evm = {git = "https://github.com/matter-labs/zksync-protocol", branch = "mmzk_v0_141_3" }
+
 bellman = { package = "zksync_bellman", version = "0" } # Not pinned, because it's an old dependency used by MultiVM
 
 

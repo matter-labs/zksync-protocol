@@ -13,8 +13,11 @@ description = "ZKsync Era circuits encodings"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-zkevm_circuits = { version = "0.141"} # Not pinned, because it's an old dependency used by MultiVM
-zk_evm = { version = "0.141"} # Not pinned, because it's an old dependency used by MultiVM
+#zkevm_circuits = { version = "0.141"} # Not pinned, because it's an old dependency used by MultiVM
+#zk_evm = { version = "0.141"} # Not pinned, because it's an old dependency used by MultiVM
+
+zk_evm = { git = "https://github.com/matter-labs/zksync-protocol", branch = "mmzk_v0_141_3" }
+zkevm_circuits = {  git = "https://github.com/matter-labs/zksync-protocol", branch = "mmzk_v0_141_3" }
 
 
 derivative = "2.2"
