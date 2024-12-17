@@ -28,8 +28,8 @@ zkevm_test_harness = { version = "=0.150.8", path = "crates/zkevm_test_harness" 
 zkevm-assembly = { version = "=0.150.8", path = "crates/zkEVM-assembly" }
 
 # `zksync-crypto` repository
-snark_wrapper = "=0.30.2"
-bellman = { package = "zksync_bellman", version = "=0.30.2" }
-boojum = "=0.30.2"
-cs_derive = { package = "zksync_cs_derive", version = "=0.30.2" }
+snark_wrapper = { package = "snark_wrapper", git = "https://github.com/matter-labs/zksync-crypto.git", rev = "235d0c8" }
+bellman = { package = "zksync_bellman", git = "https://github.com/matter-labs/zksync-crypto.git", rev = "235d0c8"}
+boojum = { package = "boojum", git = "https://github.com/matter-labs/zksync-crypto.git", rev = "235d0c8" }
+cs_derive = { package = "zksync_cs_derive", git = "https://github.com/matter-labs/zksync-crypto.git", rev = "235d0c8" }
 
