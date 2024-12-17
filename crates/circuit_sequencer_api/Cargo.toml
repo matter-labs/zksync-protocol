@@ -13,7 +13,7 @@ description = "ZKsync Era circuits API for sequencer"
 [dependencies]
 circuit_encodings = { version = "0.142", path = "../circuit_encodings"}  # Not pinned, because it's an old dependency used by MultiVM
 
-zk_evm = { version = "0.141", path = "../zk_evm" }
+zk_evm = { version = "0.141"}
 bellman = { package = "zksync_bellman", version = "0" } # Not pinned, because it's an old dependency used by MultiVM
 
 
