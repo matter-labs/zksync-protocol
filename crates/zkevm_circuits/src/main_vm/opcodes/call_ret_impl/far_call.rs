@@ -991,7 +991,8 @@ where
             let execute = <bool as WitnessCastable<F, F>>::cast_from_source(inputs[0]);
             let current_depth = <u32 as WitnessCastable<F, F>>::cast_from_source(inputs[1]);
 
-            let mut query =
+            let mut query: [F;
+                <ExecutionContextRecord<F> as CSAllocatableExt<F>>::INTERNAL_STRUCT_LEN] =
                 [F::ZERO; <ExecutionContextRecord<F> as CSAllocatableExt<F>>::INTERNAL_STRUCT_LEN];
             query.copy_from_slice(&inputs[2..]);
             let query: ExecutionContextRecordWitness<F> =
