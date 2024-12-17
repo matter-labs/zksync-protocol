@@ -5,9 +5,10 @@ use bn256::{fq::ROOT_27_OF_UNITY, Certificate, G1Prepared, G2Prepared, Bn256};
 use bn256::prepare_all_line_functions;
 use bn256::prepare_g1_point;
 use bn256::miller_loop_with_prepared_lines;
+use boojum::pairing::ff::ScalarEngine;
 use boojum::{
     cs::{Place, Witness}, gadgets::{non_native_field::traits::NonNativeField, traits::witnessable::CSWitnessable}, 
-    pairing::{bn256::{Fq, Fq12, Fq2, Fq6, G1Affine, G2Affine, FROBENIUS_COEFF_FQ6_C1, XI_TO_Q_MINUS_1_OVER_2}, ff::{Field, PrimeField}}
+    pairing::{bn256::{Fq, Fq12, Fq2, Fq6, G1Affine, G2Affine, G1, G2, FROBENIUS_COEFF_FQ6_C1, XI_TO_Q_MINUS_1_OVER_2}, ff::{Field, PrimeField}}
 };
 use itertools::izip;
 use rand::Rng;
@@ -16,11 +17,11 @@ use std::iter;
 use boojum::config::CSConfig;
 use boojum::config::CSWitnessEvaluationConfig;
 use boojum::cs::traits::cs::DstBuffer;
-use boojum::pairing::CurveAffine;
+use boojum::pairing::{CurveAffine, CurveProjective};
 use boojum::pairing::Engine;
 
 
-const NUM_PAIRINGS_IN_MULTIPAIRING: usize = 2;
+const NUM_PAIRINGS_IN_MULTIPAIRING: usize = 3;
 const NUM_LIMBS: usize = 17;
 // multipairing circuit logic is the following:
 // by contract design we assume, that input is always padded if necessary on the contract side (by points on infinity), 
@@ -81,11 +82,11 @@ impl<I> Iterator for Iter<I> where I: Iterator {
 }
     
 
-type Fp<F> = BN256BaseNNField<F>;
-type Fp2<F> = BN256Fq2NNField<F>;
-type Fp6<F> = BN256Fq6NNField<F>;
-type Fp12<F> = BN256Fq12NNField<F>;
-type RnsParams = BN256BaseNNFieldParams;
+pub(crate) type Fp<F> = BN256BaseNNField<F>;
+pub(crate) type Fp2<F> = BN256Fq2NNField<F>;
+pub(crate) type Fp6<F> = BN256Fq6NNField<F>;
+pub(crate) type Fp12<F> = BN256Fq12NNField<F>;
+pub(crate) type RnsParams = BN256BaseNNFieldParams;
 type PairingInput<F> = (AffinePoint<F>, TwistedCurvePoint<F>);
 
 // Curve parameter for the BN256 curve
@@ -591,14 +592,15 @@ struct Oracle {
     tag: Place,
     line_functions: Vec<(Fq2, Fq2)>,
     line_function_idx: usize,
-    pairing_certificate: Option<Certificate>
+    cert_c_inv: Option<Fq12>,
+    cert_root_of_unity_power: usize
 }
 
-// impl Drop for Oracle {
-//     fn drop(&mut self) {
-//         assert_eq!(self.line_function_idx, self.line_functions.len())
-//     }
-// }
+impl Drop for Oracle {
+    fn drop(&mut self) {
+        assert_eq!(self.line_function_idx, self.line_functions.len())
+    }
+}
 
 impl Oracle {
     fn allocate_boolean<F: SmallField, CS: ConstraintSystem<F>>(&self, cs: &mut CS, witness: bool) -> Boolean<F> {
@@ -606,7 +608,7 @@ impl Oracle {
         let result = Boolean::from_variable_checked(cs, var);
 
         // temporal variable
-        let c_wit = self.pairing_certificate.as_ref().map_or(Fq12::one(), |cert| cert.c);
+        let c_wit = self.cert_c_inv.as_ref().map_or(Fq12::one(), |cert| *cert);
 
         if <CS::Config as CSConfig>::WitnessConfig::EVALUATE_WITNESS == true {
             let value_fn = move |_inputs: &[F], output_buffer: &mut DstBuffer<'_, '_, F>| {
@@ -647,8 +649,8 @@ impl Oracle {
         Fp12::new(c0, c1)
     }
 
-    fn allocate_c<F: SmallField, CS: ConstraintSystem<F>>(&self, cs: &mut CS, params: &Arc<RnsParams>) -> Fp12<F> {
-        let c_wit = self.pairing_certificate.as_ref().map_or(Fq12::one(), |cert| cert.c);
+    fn allocate_c_inv<F: SmallField, CS: ConstraintSystem<F>>(&self, cs: &mut CS, params: &Arc<RnsParams>) -> Fp12<F> {
+        let c_wit = self.cert_c_inv.as_ref().map_or(Fq12::one(), |cert| *cert);
         self.allocate_fq12(cs, c_wit, params)
     }
 
@@ -662,7 +664,7 @@ impl Oracle {
     } 
 
     fn allocate_root_of_unity<F: SmallField, CS: ConstraintSystem<F>>(&self, cs: &mut CS, params: &Arc<RnsParams>) -> Root27OfUnity<F> {
-        let root_of_unity_power = self.pairing_certificate.as_ref().map_or(0, |cert| cert.root_27_of_unity_power);
+        let root_of_unity_power = self.cert_root_of_unity_power;
 
         // 27th_root_of_unity is either 1, or a1 * t or a2 * t^2 (acutally it belongs to Fp^3, that's the reason it has such compact representation)
         // we hence represent element of Fp^3 as a /in Fp^2 and two Boolean flags, the first is set if it is of the form a1 * t; a2 * t - if second if set;
@@ -692,22 +694,21 @@ impl Oracle {
         let second_flag = self.allocate_boolean(cs, second_flag_witness);
         let validity_check = first_flag.and(cs, second_flag);
         ConstantsAllocatorGate::new_to_enforce(validity_check.get_variable(), F::ZERO);
-        // let zero = Boolean::allocate_constant(cs, false);
-        // Boolean::enforce_equal(cs, &validity_check, &zero);
 
         Root27OfUnity { a, first_flag, second_flag }
     }
 
     const fn new_uninitialized() -> Self {
         Oracle {
-            tag: Place::placeholder(), line_functions: vec![], line_function_idx: 0, pairing_certificate: None
+            tag: Place::placeholder(), line_functions: vec![], line_function_idx: 0, 
+            cert_c_inv: None, cert_root_of_unity_power: 0
         }
     }
 
     pub fn populate<F: SmallField, CS: ConstraintSystem<F>>(
         &'static mut self, cs: &mut CS, pairing_input: &[PairingInput<F>], should_compute_certificate: bool
     ) {
-        let Oracle { tag, line_functions, pairing_certificate, line_function_idx } = self;
+        let Oracle { tag, line_functions, cert_root_of_unity_power, cert_c_inv, line_function_idx } = self;
         *line_function_idx = 0;
 
         let tag_variable = cs.alloc_variable_without_value();
@@ -728,32 +729,64 @@ impl Oracle {
                 let mut parser = WitnessParser::new(input);
                 let mut g1_arr = Vec::<G1Affine>::with_capacity(num_of_tuples);
                 let mut line_functions_unflattened = Vec::with_capacity(num_of_tuples);
+                let mut num_of_line_functions_per_tuple : usize = 0;
 
-                for _ in 0..num_of_tuples {
+                for idx in 0..num_of_tuples {
                     let g1 = prepare_g1_point(parser.parse_g1_affine());
                     let g2 = parser.parse_g2_affine();
                     
-                    line_functions_unflattened.push(prepare_all_line_functions(g2));
+                    let line_functions = prepare_all_line_functions(g2);
+                    if idx == 0 {
+                        num_of_line_functions_per_tuple = line_functions.len();
+                    } else {
+                        assert_eq!(line_functions.len(), num_of_line_functions_per_tuple);
+                    }
+
+                    line_functions_unflattened.push(line_functions);
                     g1_arr.push(g1);
+                }
+
+                let f = miller_loop_with_prepared_lines(&g1_arr, &line_functions_unflattened);
+                let final_exp = Bn256::final_exponentiation(&f).unwrap();
+                let certificate = bn256::construct_certificate(f);
+
+                if final_exp == Fq12::one() {
+                    assert!(bn256::validate_ceritificate(&f, &certificate));
+                } else {
+                    assert!(!bn256::validate_ceritificate(&f, &certificate));
                 }
 
                 // prepare certificate (if required)
                 if should_compute_certificate {
-                    let f = miller_loop_with_prepared_lines(&g1_arr, &line_functions_unflattened);
-                    let final_exp = Bn256::final_exponentiation(&f).unwrap();
                     assert_eq!(final_exp, Fq12::one());
+        
+                    let Certificate { c, root_27_of_unity_power } = certificate;
+                    let c_inv = c.inverse().unwrap();
 
-                    let certificate = bn256::construct_certificate(f);
-                    assert!(bn256::validate_ceritificate(&f, &certificate));
+                    *cert_c_inv = Some(c_inv);
+                    *cert_root_of_unity_power = root_27_of_unity_power;
 
-                    *pairing_certificate = Some(certificate);
+                    println!("cert power: {}", cert_root_of_unity_power);
                 }
 
-                // now flatten in the right order!
-                for row_idx in 0..line_functions_unflattened[0].len() {
-                    line_functions.extend(line_functions_unflattened.iter().map(|arr| arr[row_idx]));
+                let mut row_idx = 0;
+                for bit in SIX_U_PLUS_TWO_WNAF.into_iter().rev().skip(1) {
+                    if bit == 0 {
+                        line_functions.extend(line_functions_unflattened.iter().map(|arr| arr[row_idx]));
+                        row_idx += 1;
+                    } else {
+                        line_functions.extend(line_functions_unflattened.iter().flat_map(|arr| {
+                            std::iter::once(arr[row_idx]).chain(std::iter::once(arr[row_idx + 1]))
+                        }));
+                        row_idx += 2;
+                    }
                 }
-
+                line_functions.extend(line_functions_unflattened.iter().flat_map(|arr| {
+                    std::iter::once(arr[row_idx]).chain(std::iter::once(arr[row_idx + 1]))
+                }));
+                row_idx += 2;
+                assert_eq!(row_idx, num_of_line_functions_per_tuple);
+               
                 dst.push(F::ZERO);  
             };
 
@@ -884,9 +917,9 @@ unsafe fn multipairing_robust<F: SmallField, CS: ConstraintSystem<F>>(
     // f = c^λ * u, where u is in Fq^3 (actually it is 27-th root of unity)
     // not that the first term of lambda is the same number as used in Miller Loop, 
     // hence if we start with f_acc = c_inv, than all doubles will be essentially for free! 
-    let mut c = oracle.allocate_c(cs, &params);
-    let mut c_inv = c.inverse(cs);
-    c_inv.normalize(cs);
+    let mut c_inv = oracle.allocate_c_inv(cs, &params);
+    let mut c = c_inv.inverse(cs);
+    c.normalize(cs);
     let mut root_27_of_unity = oracle.allocate_root_of_unity(cs, &params);
     
     let mut q_doubled_array : [_; NUM_PAIRINGS_IN_MULTIPAIRING] = std::array::from_fn(|i| inputs[i].1.clone());
@@ -912,19 +945,22 @@ unsafe fn multipairing_robust<F: SmallField, CS: ConstraintSystem<F>>(
             line_func_eval.mul_into_fp12(cs, &mut f);
        
             let to_add : &mut TwistedCurvePoint<F> = if bit == -1 { &mut q_negated_array[i] } else { &mut inputs[i].1 };
-            let c_to_mul = if bit == 1 { &mut c_inv } else { &mut c };
-
             if bit == 1 || bit == -1 {
                 let line_object = oracle.allocate_next_line_object(cs, &params);
                 let line_func_eval = line_object.add_and_eval(cs, &mut t, to_add, &mut p);
                 line_func_eval.mul_into_fp12(cs, &mut f);
-                f = f.mul(cs, c_to_mul); 
             }
-            f.normalize(cs);
 
             t_array[i] = t;
             inputs[i].0 = p;
         }
+
+        if bit == 1 || bit == -1 {
+            let c_to_mul = if bit == 1 { &mut c_inv } else { &mut c };
+            f = f.mul(cs, c_to_mul);
+        } 
+
+        f.normalize(cs);
     }
 
     // Miller loop postprocess:
@@ -940,78 +976,199 @@ unsafe fn multipairing_robust<F: SmallField, CS: ConstraintSystem<F>>(
     let mut q2_mul_factor = allocate_fq2_constant(cs, FROBENIUS_COEFF_FQ6_C1[2], &params);
     let mut xi = allocate_fq2_constant(cs, XI_TO_Q_MINUS_1_OVER_2, &params);
 
-    // for ((p, q), t, q_doubled) in izip!(inputs.iter_mut(), t_array.iter_mut(), q_doubled_array.iter_mut()) {
-    //     let mut q_frob = q.clone();
-    //     q_frob.x.c1 = q_frob.x.c1.negated(cs);
-    //     q_frob.x = q_frob.x.mul(cs, &mut q1_mul_factor);
-    //     q_frob.y.c1 = q_frob.y.c1.negated(cs);
-    //     q_frob.y = q_frob.y.mul(cs, &mut xi);
+    for ((p, q), t, q_doubled) in izip!(inputs.iter_mut(), t_array.iter_mut(), q_doubled_array.iter_mut()) {
+        let mut q_frob = q.clone();
+        q_frob.x.c1 = q_frob.x.c1.negated(cs);
+        q_frob.x = q_frob.x.mul(cs, &mut q1_mul_factor);
+        q_frob.y.c1 = q_frob.y.c1.negated(cs);
+        q_frob.y = q_frob.y.mul(cs, &mut xi);
         
-    //     let mut q2 = q.clone();
-    //     q2.x = q2.x.mul(cs, &mut q2_mul_factor);
+        let mut q2 = q.clone();
+        q2.x = q2.x.mul(cs, &mut q2_mul_factor);
 
-    //     let mut r_pt = t.clone();
+        let mut r_pt = t.clone();
 
-    //     let line_object = oracle.allocate_next_line_object(cs, &params);
-    //     let line_eval_1 = line_object.add_and_eval(cs, t, &mut q_frob, p);
+        let line_object = oracle.allocate_next_line_object(cs, &params);
+        let line_eval_1 = line_object.add_and_eval(cs, t, &mut q_frob, p);
         
-    //     let line_object = oracle.allocate_next_line_object(cs, &params);
-    //     let line_eval_2 = line_object.add_and_eval(cs, t, &mut q2, p);
+        let line_object = oracle.allocate_next_line_object(cs, &params);
+        let line_eval_2 = line_object.add_and_eval(cs, t, &mut q2, p);
         
-    //     line_eval_1.mul_into_fp12(cs, &mut f);
-    //     line_eval_2.mul_into_fp12(cs, &mut f);
+        line_eval_1.mul_into_fp12(cs, &mut f);
+        line_eval_2.mul_into_fp12(cs, &mut f);
     
-    //     // subgroup check for BN256 curve is of the form: twisted_frob(Q) = [6*u^2]*Q
-    //     r_pt = r_pt.sub(cs, q_doubled);
-    //     // r_pt.x.normalize(cs);
-    //     // r_pt.y.normalize(cs);
+        // subgroup check for BN256 curve is of the form: twisted_frob(Q) = [6*u^2]*Q
+        r_pt = r_pt.sub(cs, q_doubled);
+        // r_pt.x.normalize(cs);
+        // r_pt.y.normalize(cs);
         
-    //     let mut r_pt_negated = r_pt.negate(cs);
-    //     // r_pt_negated.x.normalize(cs);
-    //     // r_pt_negated.y.normalize(cs);
+        let mut r_pt_negated = r_pt.negate(cs);
+        // r_pt_negated.x.normalize(cs);
+        // r_pt_negated.y.normalize(cs);
 
-    //     let mut acc = r_pt.clone();
-    //     for bit in U_WNAF.into_iter().skip(1) {
-    //         if bit == 0 {
-    //             acc = acc.double(cs);
-    //         } else {
-    //             let to_add = if bit == 1 { &mut r_pt } else { &mut r_pt_negated };
-    //             acc = acc.double_and_add(cs, to_add);  
-    //         }
-    //         acc.x.normalize(cs);
-    //         acc.y.normalize(cs);
-    //     } 
-    //     TwistedCurvePoint::enforce_equal(cs, &mut acc, &mut q_frob);
-    // }
+        let mut acc = r_pt.clone();
+        for bit in U_WNAF.into_iter().skip(1) {
+            if bit == 0 {
+                acc = acc.double(cs);
+            } else {
+                let to_add = if bit == 1 { &mut r_pt } else { &mut r_pt_negated };
+                acc = acc.double_and_add(cs, to_add);  
+            }
+            acc.x.normalize(cs);
+            acc.y.normalize(cs);
+        } 
+        TwistedCurvePoint::enforce_equal(cs, &mut acc, &mut q_frob);
+    }
 
     // compute c^{q − q^2 + q^3} * root_27_of_unity; c^{−q^2} is just inversion
-    // let mut c_frob_q = c.frobenius_map(cs, 1);
-    // let mut c_frob_q3 = c.frobenius_map(cs, 3);
+    let mut c_inv_frob_q = c_inv.frobenius_map(cs, 1);
+    let mut c_inv_frob_q3 = c_inv.frobenius_map(cs, 3);
+    
+    f = f.mul(cs, &mut c_inv_frob_q);
+    f = f.mul(cs, &mut c_inv_frob_q3);
 
-    // let mut rhs = c_frob_q.mul(cs, &mut c_inv);
-    // rhs = rhs.mul(cs, &mut c_frob_q3);
-    // root_27_of_unity.mul_into_fp6(cs, &mut rhs.c0);
-    // root_27_of_unity.mul_into_fp6(cs, &mut rhs.c1);
+    // on RHS would be c^{-q^2} = c_inv^{q^2}
+    let mut rhs = c_inv.frobenius_map(cs, 2);
+    root_27_of_unity.mul_into_fp6(cs, &mut f.c0);
+    root_27_of_unity.mul_into_fp6(cs, &mut f.c1);
 
-    // // compute the total number of tuples skipped and convert this number into multiselect:
-    // // the most efficient way to do this is via table invocations, however the costs anyway are comparatevly small to Miller loop anyway,
-    // // so we just do multiselect
-    // let input: Vec<_> = skip_pairings.iter().map(|el| (el.get_variable(), F::ONE)).collect();
-    // let num_of_skipped_tuples = Num::linear_combination(cs, &input);
-    // let bitmask = num_of_skipped_tuples.spread_into_bits::<_, NUM_PAIRINGS_IN_MULTIPAIRING>(cs);
+    // also lhs is probably multiplied by some power of Miller Loop of (G1 x G2) - we need to do the same for rhs
 
-    // // TODO: substite correct constant witness here - which is just the Miller Loop of the product of generators of corresponding subgroups
-    // let g1_mul_g2 = Fq12::one();
-    // let mut cur_acc_witness = Fq12::one();
-    // let mut multiplier = allocate_fq12_constant(cs, cur_acc_witness, &params);
-    // for bit in bitmask.into_iter() {
-    //     cur_acc_witness.mul_assign(&g1_mul_g2);
-    //     let choice = allocate_fq12_constant(cs, cur_acc_witness, &params);
-    //     multiplier = <Fp12<F> as NonNativeField<F, _>>::conditionally_select(cs, bit, &choice, &multiplier);
-    // }
-    // rhs = rhs.mul(cs, &mut multiplier);
+    // compute the total number of tuples skipped and convert this number into multiselect:
+    // the most efficient way to do this is via table invocations, however the costs anyway are comparatevly small to Miller loop anyway,
+    // so we just do multiselect
+    let input: Vec<_> = skip_pairings.iter().map(|el| (el.get_variable(), F::ONE)).collect();
+    let num_of_skipped_tuples = Num::linear_combination(cs, &input);
 
-    //Fp12::enforce_equal(cs, &mut f, &mut rhs);
+    let mut equality_flags = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING);
+    for idx in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
+        let cur_fr = Num::allocated_constant(cs, F::from_raw_u64_unchecked(idx as u64 + 1));
+        let flag = Num::equals(cs, &num_of_skipped_tuples, &cur_fr);
+        equality_flags.push(flag);
+    }
+    
+    // here we compute witness
+    let g1 = prepare_g1_point(G1Affine::one());
+    let g2 = G2Affine::one();
+    let line_functions = prepare_all_line_functions(g2);
+    let g1_mul_g2 = miller_loop_with_prepared_lines(&[g1], &[line_functions]);
+   
+    let mut cur_acc_witness = Fq12::one();
+    let mut multiplier = allocate_fq12_constant(cs, cur_acc_witness, &params);
+    for bit in equality_flags.into_iter() {
+        cur_acc_witness.mul_assign(&g1_mul_g2);
+        let choice = allocate_fq12_constant(cs, cur_acc_witness, &params);
+        multiplier = <Fp12<F> as NonNativeField<F, _>>::conditionally_select(cs, bit, &choice, &multiplier);
+    }
+    rhs = rhs.mul(cs, &mut multiplier);
+
+    Fp12::enforce_equal(cs, &mut f, &mut rhs);
+}
+
+
+#[derive(Clone, Copy, Debug)]
+pub enum Ops {
+    // first output, then inputs
+    ExpByX(usize, usize), 
+    Mul(usize, usize, usize),
+    Square(usize, usize),
+    Conj(usize, usize),
+    Frob(usize, usize, usize) // the last parameter is power
+}
+
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Bn256HardPartMethod {
+    Devegili,
+    FuentesCastaneda,
+    Naive
+}
+
+impl Bn256HardPartMethod {
+    fn get_optinal() -> Self {
+        Bn256HardPartMethod::Devegili
+    }
+
+    fn get_ops_chain(self) -> (Vec<Ops>, usize) {
+        match self {
+            Bn256HardPartMethod::Devegili => Self::devegili_method(),
+            Bn256HardPartMethod::FuentesCastaneda => Self::fuentes_castaneda_method(),
+            Bn256HardPartMethod::Naive => Self::naive_method()
+        }
+    }
+
+    // let x be parameter parametrizing particular curve in Bn256 family of curves
+    // there are two competing agorithms for computing hard part of final exponentiation fot Bn256 family of curves
+    // the first one is Devegili method which takes 3exp by x, 11 squaring, 14 muls
+    // the second one is Fuentes-Castaneda methid which takes 3exp by x, 4 square, 10 muls and 3 Frobenius powers
+    // we implement both of them and will select the most efficient later
+
+    // Devegili method:
+    // 1) a = f^x         7) a = conj(a)       13) t1 = t1^9       19) t0 = frob(f, 2)     25) t0 = t0^x
+    // 2) b = a^2         8) b = frob(a)       14) a = t1 * a      20) b = b * t0          26) t0 = t0 * b
+    // 3) a = b * f^2     9) b = a * b         15) t1 = f^4        21) t0 = b^x            27) a = t0 * a
+    // 4) a = a^2         10) a = a * b        16) a = a * t1      22) t1 = t0^2           28) t0 = frob(f, 3)
+    // 5) a = a * b       11) t0 = frob(f)     17) t0 = t0^2       23) t0 = t1^2           29) f = t0 * a
+    // 6) a = a * f       12) t1 = t0 * f      18) b = b * t0      24) t0 = t0 * t1
+    fn devegili_method() -> (Vec<Ops>, usize) {
+        let (f, f2, a, b, tmp, t0, t1) = (0, 1, 2, 3, 4, 5, 6);
+        let ops_chain = vec![
+            /*1*/ Ops::ExpByX(a, f), /*2*/ Ops::Square(b, a), /*3*/ Ops::Square(f2, f), Ops::Mul(a, b, f2), 
+            /*4*/ Ops::Square(a, a), /*5*/ Ops::Mul(a, a, b),  /*6*/ Ops::Mul(a, a, f), /*7*/ Ops::Conj(a, a),
+            /*8*/ Ops::Frob(b, a, 1), /*9*/ Ops::Mul(b, a, b), /*10*/ Ops::Mul(a, a, b), /*11*/ Ops::Frob(t0, f, 1),
+            /*12*/ Ops::Mul(t1, t0, f), /*13*/ Ops::Square(tmp, t1), Ops::Square(tmp, tmp), Ops::Square(tmp, tmp),
+            Ops::Mul(t1, tmp, t1), /*14*/ Ops::Mul(a, t1, a), /*15*/ Ops::Square(t1, f2),
+            /*16*/ Ops::Mul(a, a, t1), /*17*/ Ops::Square(t0, t0), /*18*/ Ops::Mul(b, b, t0), /*19*/ Ops::Frob(t0, f, 2),
+            /*20*/ Ops::Mul(b, b, t0), /*21*/ Ops::ExpByX(t0, b), /*22*/ Ops::Square(t1, t0), /*23*/ Ops::Square(t0, t1),
+            /*24*/ Ops::Mul(t0, t0, t1), /*25*/ Ops::ExpByX(t0, t0), /*26*/ Ops::Mul(t0, t0, b), /*27*/ Ops::Mul(a, t0, a),
+            /*28*/ Ops::Frob(t0, f, 3), /*29*/ Ops::Mul(f, t0, a)
+        ];
+        (ops_chain, 7)
+    }
+
+    // This is Fuentes-Castaneda method:
+    // 1) a = f^x          5) t = b^x                        9) t = t^2                 13) f = f * frob(t, 3)
+    // 2) a = a^2          6) f = f * frob(conj(f), 3)       10) t = t^x                14) f = f * frob(t)
+    // 3) b = a^2          7) f = f * t                      11) b = b * t              15) f = f * b
+    // 4) b = a * b        8) b = b * t                      12) t = b * conj(a)        16) f = f * frob(b, 2)
+    fn fuentes_castaneda_method() -> (Vec<Ops>, usize) {
+        let (f, a, b, tmp, t) = (0, 1, 2, 3, 4);
+        let ops_chain = vec![
+            /*1*/ Ops::ExpByX(a, f), /*2*/ Ops::Square(a, a), /*3*/ Ops::Square(b, a), /*4*/ Ops::Mul(b, a, b),
+            /*5*/ Ops::ExpByX(t, b), /*6*/ Ops::Conj(tmp, f), Ops::Frob(tmp, tmp, 3), Ops::Mul(f, f, tmp),
+            /*7*/ Ops::Mul(f, f, t), /*8*/ Ops::Mul(b, b, t), /*9*/ Ops::Square(t, t), /*10*/ Ops::ExpByX(t, t),
+            /*11*/ Ops::Mul(b, b, t), /*12*/ Ops::Conj(tmp, a), Ops::Mul(t, b, tmp), /*13*/ Ops::Frob(tmp, t, 3),
+            Ops::Mul(f, f, tmp), /*14*/ Ops::Frob(tmp, t, 1),  Ops::Mul(f, f, tmp), /*15*/ Ops::Mul(f, f, b),
+            /*16*/  Ops::Frob(tmp, b, 2), Ops::Mul(f, f, tmp)
+        ];
+        (ops_chain, 5)
+    }
+
+    // this is algorithm implemented in pairing crate
+    // 1) fp = frob(f, 1)         8) fu2p = fu2^p               15) y6 = conj(fu3 * fu3p)       22) t0 = t1 * y1
+    // 2) fp2 = frob(f, 2)        9) fu3p = fu3^p               16) y6 = y6^2 * y4 * y5         23) t1 = t1 * y0
+    // 3) fp3 = frob(fp2, 1)     10) y2 = frob(fu2, 2)          17) t1 = y3 * y5 * y6           24) t0 = t0^2
+    // 4) fu = f^x               11) y0 = fp * fp2 * fp3        18) y6 = y6 * y2                25) f = t0 * t1
+    // 5) fu2 = fu^x             12) y1 = conj(f)               19) t1 = t1^2
+    // 6) fu3 = fu2^x            13) y5 = conj(fu2)             20) t1 = t1 * y6
+    // 7) y3 = conj(fu^p)        14) y4 = conj(fu * fu2p)       21) t1 = t1^2
+    fn naive_method() -> (Vec<Ops>, usize) {
+        let (f, fp, tmp, fp2, fp3, fu, fu2, fu3, y3, fu2p, fu3p, y2, y0, y1, y4, y5, y6, t0, t1) = (
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18);
+        let ops_chain = vec![
+            /*1*/ Ops::Frob(fp, f, 1), /*2*/ Ops::Frob(fp2, f, 2), /*3*/ Ops::Frob(fp3, fp2, 1), 
+            /*4*/ Ops::ExpByX(fu, f), /*5*/ Ops::ExpByX(fu2, fu), /*6*/ Ops::ExpByX(fu3, fu2), 
+            /*7*/ Ops::Frob(tmp, fu, 1), Ops::Conj(y3, tmp), /*8*/ Ops::Frob(fu2p, fu2, 1), 
+            /*9*/ Ops::Frob(fu3p, fu3, 1), /*10*/ Ops::Frob(y2, fu2, 2), /*11*/ Ops::Mul(tmp, fp, fp2), 
+            Ops::Mul(y0, tmp, fp3), /*12*/ Ops::Conj(y1, f), /*13*/ Ops::Conj(y5, fu2), /*14*/ Ops::Mul(tmp, fu, fu2p),
+            Ops::Conj(y4, tmp), /*15*/ Ops::Mul(tmp, fu3, fu3p), Ops::Conj(y6, tmp), /*16*/ Ops::Square(tmp, y6), 
+            Ops::Mul(tmp, tmp, y4), Ops::Mul(y6, tmp, y5), /*17*/ Ops::Mul(tmp, y3, y5), Ops::Mul(t1, tmp, y6), 
+            /*18*/ Ops::Mul(y6, y2, y6), /*19*/ Ops::Square(t1, t1), /*20*/ Ops::Mul(t1, t1, y6), 
+            /*21*/ Ops::Square(t1, t1), /*22*/ Ops::Mul(t0, t1, y1), /*23*/ Ops::Mul(t1, t1, y0), 
+            /*24*/ Ops::Square(t0, t0), /*25*/ Ops::Mul(f, t0, t1)
+        ];
+        (ops_chain, 19)
+    }
 }
 
 
@@ -1025,7 +1182,7 @@ unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
     let mut validity_checks = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING * 3);
     
     static mut oracle : Oracle = Oracle::new_uninitialized();
-    oracle.populate(cs, inputs, true);
+    oracle.populate(cs, inputs, false);
 
     for (p, q) in inputs.iter_mut() {
         let p_check_flags = p.validate_point_naive(cs, &params);
@@ -1040,6 +1197,8 @@ unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
 
         validity_checks.push(p_check_flags.is_valid_point);
         validity_checks.push(q_check_flags.is_valid_point);
+
+        p.convert_for_line_eval_form(cs);
     }
 
     let mut q_doubled_array : [_; NUM_PAIRINGS_IN_MULTIPAIRING] = std::array::from_fn(|i| inputs[i].1.clone());
@@ -1047,12 +1206,15 @@ unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
     let mut t_array : [_; NUM_PAIRINGS_IN_MULTIPAIRING] = std::array::from_fn(|i| inputs[i].1.clone());
 
     // do I pay constraints for zero allocation here?
-    let mut f = Fp12::<F>::zero(cs, &params);
+    // I think, I do, but the whole codebase is awful and doesn't support it, so not my problem
+    let mut f : Fp12<F> = Fp12::zero(cs, &params);
 
     // main cycle of Miller loop:
-    let iter = SIX_U_PLUS_TWO_WNAF.into_iter().rev().skip(1).identify_first_last().take(10);
+    let iter = SIX_U_PLUS_TWO_WNAF.into_iter().rev().skip(1).identify_first_last();
     for (is_first, _is_last, bit) in iter {
-        f = f.square(cs);
+        if !is_first {
+            f = f.square(cs);
+        }
         
         for i in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
             let line_object = oracle.allocate_next_line_object(cs, &params);
@@ -1082,6 +1244,8 @@ unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
             t_array[i] = t;
             inputs[i].0 = p;
         }
+
+        f.normalize(cs);
     }
 
     // Miller loop postprocess:
@@ -1129,6 +1293,9 @@ unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
                 let to_add = if bit == 1 { &mut r_pt } else { &mut r_pt_negated };
                 acc = acc.double_and_add(cs, to_add);  
             }
+
+            acc.x.normalize(cs);
+            acc.y.normalize(cs);
         } 
         
         let g2_subgroup_check = TwistedCurvePoint::equals(cs, &mut acc, &mut q_frob);
@@ -1137,27 +1304,42 @@ unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
 
     let input: Vec<_> = skip_pairings.iter().map(|el| (el.get_variable(), F::ONE)).collect();
     let num_of_skipped_tuples = Num::linear_combination(cs, &input);
-    let bitmask = num_of_skipped_tuples.spread_into_bits::<_, NUM_PAIRINGS_IN_MULTIPAIRING>(cs);
 
-    // TODO: substite correct constant witness here - which is just the Miller Loop of the product of generators of corresponding subgroups
-    let g1_mul_g2 = Fq12::one();
+    let mut equality_flags = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING);
+    for idx in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
+        let cur_fr = Num::allocated_constant(cs, F::from_raw_u64_unchecked(idx as u64 + 1));
+        let flag = Num::equals(cs, &num_of_skipped_tuples, &cur_fr);
+        equality_flags.push(flag);
+    }
+    
+    // here we compute witness
+    let g1 = prepare_g1_point(G1Affine::one());
+    let g2 = G2Affine::one();
+    let line_functions = prepare_all_line_functions(g2);
+    let g1_mul_g2 = miller_loop_with_prepared_lines(&[g1], &[line_functions]).inverse().unwrap();
+   
     let mut cur_acc_witness = Fq12::one();
     let mut multiplier = allocate_fq12_constant(cs, cur_acc_witness, &params);
-    for bit in bitmask.into_iter() {
+    for bit in equality_flags.into_iter() {
         cur_acc_witness.mul_assign(&g1_mul_g2);
         let choice = allocate_fq12_constant(cs, cur_acc_witness, &params);
         multiplier = <Fp12<F> as NonNativeField<F, _>>::conditionally_select(cs, bit, &choice, &multiplier);
     }
     f = f.mul(cs, &mut multiplier);
 
-    // here comes the finalu exponentiation
+    // here comes the final exponentiation
+    // Olena, paste your code here, no need to change anything else! - f right now is the final unmasked result of Miller loop
     
     let no_exception = Boolean::multi_and(cs, &validity_checks);
     let mut fp12_one = allocate_fq12_constant(cs, Fq12::one(), &params);
     let pairing_is_one = f.equals(cs, &mut fp12_one);
     
-    let result = pairing_is_one.and(cs, no_exception);
-    result
+    // let result = pairing_is_one.and(cs, no_exception);
+
+    // should be deleted later
+    ConstantsAllocatorGate::new_to_enforce(no_exception.get_variable(), F::ONE);
+
+    no_exception
 }
 
 
@@ -1179,87 +1361,128 @@ use std::env;
 type F = GoldilocksField;
 type P = GoldilocksField;
 
+type Fr = <Bn256 as ScalarEngine>::Fr;
+
 /// Creates a test constraint system for testing purposes that includes the
 /// majority (even possibly unneeded) of the gates and tables.
 #[test]
 fn test_alternative_circuit(
 ) {
     //env::set_var("RUST_MIN_STACK", "100000000");
+    use tests::utils::cs::create_test_cs;
     
-    let geometry = CSGeometry {
-        num_columns_under_copy_permutation: 30,
-        num_witness_columns: 0,
-        num_constant_columns: 4,
-        max_allowed_constraint_degree: 4,
-    };
+    // let geometry = CSGeometry {
+    //     num_columns_under_copy_permutation: 30,
+    //     num_witness_columns: 0,
+    //     num_constant_columns: 4,
+    //     max_allowed_constraint_degree: 4,
+    // };
 
-    type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
-    let builder_impl =
-        CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 22);
-    let builder = new_builder::<_, F>(builder_impl);
+    // type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
+    // let builder_impl =
+    //     CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 22);
+    // let builder = new_builder::<_, F>(builder_impl);
 
-    let builder = builder.allow_lookup(
-        LookupParameters::UseSpecializedColumnsWithTableIdAsConstant {
-            width: 1,
-            num_repetitions: 10,
-            share_table_id: true,
-        },
-    );
+    // let builder = builder.allow_lookup(
+    //     LookupParameters::UseSpecializedColumnsWithTableIdAsConstant {
+    //         width: 1,
+    //         num_repetitions: 10,
+    //         share_table_id: true,
+    //     },
+    // );
 
-    let builder = ConstantsAllocatorGate::configure_builder(
-        builder,
-        GatePlacementStrategy::UseGeneralPurposeColumns,
-    );
-    let builder = FmaGateInBaseFieldWithoutConstant::configure_builder(
-        builder,
-        GatePlacementStrategy::UseGeneralPurposeColumns,
-    );
-    let builder = ReductionGate::<F, 4>::configure_builder(
-        builder,
-        GatePlacementStrategy::UseGeneralPurposeColumns,
-    );
-    let builder = DotProductGate::<4>::configure_builder(
-        builder,
-        GatePlacementStrategy::UseGeneralPurposeColumns,
-    );
-    let builder = UIntXAddGate::<16>::configure_builder(
-        builder,
-        GatePlacementStrategy::UseGeneralPurposeColumns,
-    );
-    let builder = SelectionGate::configure_builder(
-        builder,
-        GatePlacementStrategy::UseGeneralPurposeColumns,
-    );
-    let builder = ZeroCheckGate::configure_builder(
-        builder,
-        GatePlacementStrategy::UseGeneralPurposeColumns,
-        false
-    );
+    // let builder = ConstantsAllocatorGate::configure_builder(
+    //     builder,
+    //     GatePlacementStrategy::UseGeneralPurposeColumns,
+    // );
+    // let builder = FmaGateInBaseFieldWithoutConstant::configure_builder(
+    //     builder,
+    //     GatePlacementStrategy::UseGeneralPurposeColumns,
+    // );
+    // let builder = ReductionGate::<F, 4>::configure_builder(
+    //     builder,
+    //     GatePlacementStrategy::UseGeneralPurposeColumns,
+    // );
+    // let builder = DotProductGate::<4>::configure_builder(
+    //     builder,
+    //     GatePlacementStrategy::UseGeneralPurposeColumns,
+    // );
+    // let builder = UIntXAddGate::<16>::configure_builder(
+    //     builder,
+    //     GatePlacementStrategy::UseGeneralPurposeColumns,
+    // );
+    // let builder = SelectionGate::configure_builder(
+    //     builder,
+    //     GatePlacementStrategy::UseGeneralPurposeColumns,
+    // );
+    // let builder = ZeroCheckGate::configure_builder(
+    //     builder,
+    //     GatePlacementStrategy::UseGeneralPurposeColumns,
+    //     false
+    // );
 
-    let builder = NopGate::configure_builder(builder, GatePlacementStrategy::UseGeneralPurposeColumns);
+    // let builder = NopGate::configure_builder(builder, GatePlacementStrategy::UseGeneralPurposeColumns);
 
-    let mut owned_cs = builder.build(CircuitResolverOpts::new(1 << 26));
+    // let mut owned_cs = builder.build(CircuitResolverOpts::new(1 << 26));
 
     // add tables
-    let table = create_range_check_16_bits_table();
-    owned_cs.add_lookup_table::<RangeCheck16BitsTable, 1>(table);
+    // let table = create_range_check_16_bits_table();
+    // owned_cs.add_lookup_table::<RangeCheck16BitsTable, 1>(table);
+    // let cs = &mut owned_cs;
+
+    let mut owned_cs = create_test_cs(1 << 20);
     let cs = &mut owned_cs;
 
     let params = RnsParams::create();
     let params = std::sync::Arc::new(params);
 
-    let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
-    let p = G1Affine::rand(&mut rng);
-    let q = G2Affine::rand(&mut rng);
-    let mut p_negated = p.clone();
-    p_negated.negate();
+    //let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
 
-    let g1 = AffinePoint::allocate(cs, p, &params);
-    let g2 = TwistedCurvePoint::allocate(cs, q, &params);
-    let g1_negated = AffinePoint::allocate(cs, p_negated, &params);
+    let g1_generator = G1::one();
+    let g2_generator = G2::one();
+    let mut cs_point_tuples = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING);
+    let mut rng = rand::thread_rng();
 
-     unsafe {
-        multipairing_robust(cs, &mut [(g1, g2.clone()), (g1_negated, g2)])
+    let mut dlog_relation = Fr::zero();
+    for (_is_first, is_last, _) in (0..NUM_PAIRINGS_IN_MULTIPAIRING).identify_first_last() {
+        let points_tuple = if !is_last {
+            let mut g1_scalar = Fr::rand(&mut rng);
+            let g2_scalar = Fr::rand(&mut rng);
+
+            let mut p = g1_generator.clone();
+            let mut q = g2_generator.clone();
+
+            p.mul_assign(g1_scalar.into_repr());
+            q.mul_assign(g2_scalar.into_repr());
+
+            g1_scalar.mul_assign(&g2_scalar);
+            dlog_relation.add_assign(&g1_scalar);
+
+            let g1 = AffinePoint::allocate(cs, p.into_affine(), &params);
+            let g2 = TwistedCurvePoint::allocate(cs, q.into_affine(), &params);
+            (g1, g2)
+        } else {
+            let mut g1_scalar = Fr::rand(&mut rng);
+            // g1 * g2 = -dlog_rel
+            dlog_relation.negate();
+            dlog_relation.mul_assign(&g1_scalar.inverse().unwrap());
+
+            let mut p = g1_generator.clone();
+            let mut q = g2_generator.clone();
+            
+            p.mul_assign(g1_scalar.into_repr());
+            q.mul_assign(dlog_relation.into_repr());
+
+            let g1 = AffinePoint::allocate(cs, p.into_affine(), &params);
+            let g2 = TwistedCurvePoint::allocate(cs, q.into_affine(), &params);
+            (g1, g2)
+        };
+
+        cs_point_tuples.push(points_tuple);
+    }
+
+    unsafe {
+        multipairing_robust(cs, &mut cs_point_tuples)
     };
     // let candidate_witness = candidate_acc.witness_hook(cs);
 
@@ -1269,7 +1492,7 @@ fn test_alternative_circuit(
     owned_cs.pad_and_shrink();
     let mut owned_cs = owned_cs.into_assembly::<Global>();
     assert!(owned_cs.check_if_satisfied(&worker));
-    // owned_cs.print_gate_stats();
+    owned_cs.print_gate_stats();
 
     // let lines = prepare_all_line_functions(q);
     // let p_prepared = prepare_g1_point(p);
