@@ -1125,13 +1125,14 @@ impl Bn256HardPartMethod {
     /// The final returned value is in compressed toru form
     pub fn final_exp_easy_part<F: SmallField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        mut elem: Fp12<F>, 
+        mut elem: &Fp12<F>, 
         params: &Arc<BN256BaseNNFieldParams>,
         is_safe_version: bool
     ) -> (BN256TorusWrapper<F>, Boolean<F>) {
 
         // Need to be sure if it is technically possible to get m1 = 0
-        let c1_is_zero = elem.c1.is_zero(cs);
+        let mut elem_clone = elem.c1.clone();
+        let c1_is_zero = elem_clone.is_zero(cs);
         let one_fp6 = Fp6::<F>::one(cs, &params);
         let new_c1 = <Fp6<F> as NonNativeField<F, _>>::conditionally_select(
             cs,
@@ -1143,6 +1144,7 @@ impl Bn256HardPartMethod {
 
         // -m0/m1;
         let mut tmp = elem.c1;
+        tmp.normalize(cs);
         let mut m1 = tmp.inverse(cs);
         let mut encoding = elem.c0;
         encoding = encoding.mul(cs, &mut m1);
@@ -1170,7 +1172,7 @@ impl Bn256HardPartMethod {
     pub fn final_exp_hard_part<F: SmallField, CS: ConstraintSystem<F>>(
         self,
         cs: &mut CS,
-        elem: BN256TorusWrapper<F>,
+        elem: &BN256TorusWrapper<F>,
         is_safe_version: bool,
         params: &Arc<BN256BaseNNFieldParams>,
     ) -> BN256TorusWrapper<F> {
@@ -1443,6 +1445,10 @@ unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
 
     // here comes the final exponentiation
     // Olena, paste your code here, no need to change anything else! - f right now is the final unmasked result of Miller loop
+
+    let (wrapped_f, is_trivial) = Bn256HardPartMethod::final_exp_easy_part(cs, &f, &params, true);
+    let chain = Bn256HardPartMethod::get_optinal(); 
+    let candidate = chain.final_exp_hard_part(cs, &wrapped_f, true, &params);
     
     let no_exception = Boolean::multi_and(cs, &validity_checks);
     let mut fp12_one = allocate_fq12_constant(cs, Fq12::one(), &params);
@@ -1643,7 +1649,7 @@ fn test_naive_circuit(
 
     type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
     let builder_impl =
-        CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 22);
+        CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 23);
     let builder = new_builder::<_, F>(builder_impl);
 
     let builder = builder.allow_lookup(
@@ -1710,7 +1716,7 @@ fn test_naive_circuit(
         multipairing_naive(cs, &mut [(g1.clone(), g2.clone()), (g1_negated, g2.clone()), (g1, g2.clone())])
         // multipairing_naive(cs, &mut [(g1, g2.clone())])
     };
-    
+
 
     let worker = Worker::new_with_num_threads(8);
 
