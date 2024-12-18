@@ -133,7 +133,7 @@ pub fn allocate_fq6_constant<F: SmallField, CS: ConstraintSystem<F>>(
 ) -> Fp6<F> {
     let c0 = allocate_fq2_constant(cs, value.c0, params);
     let c1 = allocate_fq2_constant(cs, value.c1, params);
-    let c2 = allocate_fq2_constant(cs, value.c1, params);
+    let c2 = allocate_fq2_constant(cs, value.c2, params);
 
     Fp6::new(c0, c1, c2)
 }
@@ -746,21 +746,32 @@ impl Oracle {
                 let mut parser = WitnessParser::new(input);
                 let mut g1_arr = Vec::<G1Affine>::with_capacity(num_of_tuples);
                 let mut line_functions_unflattened = Vec::with_capacity(num_of_tuples);
+                let mut should_skip_flags = Vec::with_capacity(num_of_tuples);
+
+                let mut found = false;
                 let mut num_of_line_functions_per_tuple : usize = 0;
 
-                for idx in 0..num_of_tuples {
-                    let g1 = prepare_g1_point(parser.parse_g1_affine());
+                for _ in 0..num_of_tuples {
+                    let g1 = parser.parse_g1_affine();
                     let g2 = parser.parse_g2_affine();
-                    
-                    let line_functions = prepare_all_line_functions(g2);
-                    if idx == 0 {
-                        num_of_line_functions_per_tuple = line_functions.len();
-                    } else {
-                        assert_eq!(line_functions.len(), num_of_line_functions_per_tuple);
-                    }
 
-                    line_functions_unflattened.push(line_functions);
-                    g1_arr.push(g1);
+                    let should_skip = g1.is_zero() || g2.is_zero();
+                    should_skip_flags.push(should_skip);
+
+                    if !should_skip {
+                        let g1_prepared = prepare_g1_point(g1);
+                        g1_arr.push(g1_prepared);
+                        let line_functions = prepare_all_line_functions(g2);
+                    
+                        if !found {
+                            num_of_line_functions_per_tuple = line_functions.len();
+                            found = true;
+                        } else {
+                            assert_eq!(line_functions.len(), num_of_line_functions_per_tuple);
+                        }
+
+                        line_functions_unflattened.push(line_functions);
+                    }
                 }
 
                 let f = miller_loop_with_prepared_lines(&g1_arr, &line_functions_unflattened);
@@ -786,10 +797,23 @@ impl Oracle {
                     println!("cert power: {}", cert_root_of_unity_power);
                 }
 
+                // default line functions of the pair of generators used in the case we have to mask points at infinity or invalid points
+                let g2_generator = G2Affine::one();
+                let masking_line_functions = prepare_all_line_functions(g2_generator);
+
+                // now insert missing:
+                for (position, flag) in should_skip_flags.into_iter().enumerate() {
+                    if flag {
+                        line_functions_unflattened.insert(position, masking_line_functions.clone());
+                    }
+                }
+
                 let mut row_idx = 0;
                 for bit in SIX_U_PLUS_TWO_WNAF.into_iter().rev().skip(1) {
                     if bit == 0 {
-                        line_functions.extend(line_functions_unflattened.iter().map(|arr| arr[row_idx]));
+                        line_functions.extend(line_functions_unflattened.iter().map(|arr| {
+                            arr[row_idx] 
+                        }));
                         row_idx += 1;
                     } else {
                         line_functions.extend(line_functions_unflattened.iter().flat_map(|arr| {
@@ -909,7 +933,7 @@ impl<F: SmallField> LineObject<F> {
 unsafe fn multipairing_robust<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     inputs: &mut [PairingInput<F>],
-) {
+) -> Vec<Boolean<F>> {
     assert_eq!(inputs.len(), NUM_PAIRINGS_IN_MULTIPAIRING);
     let params = Arc::new(RnsParams::create());
     let mut skip_pairings = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING);
@@ -1072,14 +1096,16 @@ unsafe fn multipairing_robust<F: SmallField, CS: ConstraintSystem<F>>(
    
     let mut cur_acc_witness = Fq12::one();
     let mut multiplier = allocate_fq12_constant(cs, cur_acc_witness, &params);
-    for bit in equality_flags.into_iter() {
+    for bit in equality_flags.iter() {
         cur_acc_witness.mul_assign(&g1_mul_g2);
         let choice = allocate_fq12_constant(cs, cur_acc_witness, &params);
-        multiplier = <Fp12<F> as NonNativeField<F, _>>::conditionally_select(cs, bit, &choice, &multiplier);
+        multiplier = <Fp12<F> as NonNativeField<F, _>>::conditionally_select(cs, *bit, &choice, &multiplier);
     }
     rhs = rhs.mul(cs, &mut multiplier);
 
     Fp12::enforce_equal(cs, &mut f, &mut rhs);
+
+    equality_flags
 }
 
 
@@ -1486,6 +1512,111 @@ type Fr = <Bn256 as ScalarEngine>::Fr;
 
 /// Creates a test constraint system for testing purposes that includes the
 /// majority (even possibly unneeded) of the gates and tables.
+// #[test]
+// fn test_alternative_circuit_complex(
+// ) {
+//     use tests::utils::cs::create_test_cs;
+    
+//     let skip_flags : [bool; NUM_PAIRINGS_IN_MULTIPAIRING] = [true, true, true];
+
+//     let mut owned_cs = create_test_cs(1 << 20);
+//     let cs = &mut owned_cs;
+
+//     let params = RnsParams::create();
+//     let params = std::sync::Arc::new(params);
+
+//     let mut cs_point_tuples = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING);
+//     let mut rng = rand::thread_rng();
+
+//     let last_idx = skip_flags.iter().cloned().rfind(|flag| !flag).unwrap_or(NUM_PAIRINGS_IN_MULTIPAIRING);
+//     let mut dlog_relation = Fr::zero();
+
+//     for (pos, skip_flag) in skip_flags.iter().enumerate() {
+//         let points_tuple = if !is_last {
+//             let mut g1_scalar = Fr::rand(&mut rng);
+//             let g2_scalar = Fr::rand(&mut rng);
+
+//             let mut p = g1_generator.clone();
+//             let mut q = g2_generator.clone();
+
+//             p.mul_assign(g1_scalar.into_repr());
+//             q.mul_assign(g2_scalar.into_repr());
+
+//             g1_scalar.mul_assign(&g2_scalar);
+//             dlog_relation.add_assign(&g1_scalar);
+
+//             let g1 = AffinePoint::allocate(cs, p.into_affine(), &params);
+//             let g2 = TwistedCurvePoint::allocate(cs, q.into_affine(), &params);
+//             (g1, g2)
+//         } else {
+//             let mut g1_scalar = Fr::rand(&mut rng);
+//             // g1 * g2 = -dlog_rel
+//             dlog_relation.negate();
+//             dlog_relation.mul_assign(&g1_scalar.inverse().unwrap());
+
+//             let mut p = g1_generator.clone();
+//             let mut q = g2_generator.clone();
+            
+//             p.mul_assign(g1_scalar.into_repr());
+//             q.mul_assign(dlog_relation.into_repr());
+
+//             let g1 = AffinePoint::allocate(cs, p.into_affine(), &params);
+//             let g2 = TwistedCurvePoint::allocate(cs, q.into_affine(), &params);
+//             (g1, g2)
+//         };
+
+//         cs_point_tuples.push(points_tuple);
+//     }
+
+//     let p_point_at_infty = G1Affine::zero();
+//     let (x, y) = p_point_at_infty.into_xy_unchecked();
+//     println!("init x: {}, y: {}", x, y);
+//     let q = G2Affine::rand(&mut rng);
+
+//     let g1 = AffinePoint::allocate(cs, p_point_at_infty, &params);
+//     let g2 = TwistedCurvePoint::allocate(cs, q, &params);
+//     cs_point_tuples.push((g1, g2));
+
+//     let equality_flags = unsafe {
+//         multipairing_robust(cs, &mut cs_point_tuples)
+//     };
+//     let candidate_witness : Vec<_> = equality_flags.into_iter().map(|c| c.witness_hook(cs)).collect();
+
+//     let worker = Worker::new_with_num_threads(8);
+
+//     drop(cs);
+//     owned_cs.pad_and_shrink();
+//     let mut owned_cs = owned_cs.into_assembly::<Global>();
+//     assert!(owned_cs.check_if_satisfied(&worker));
+//     owned_cs.print_gate_stats();
+
+//     // let lines = prepare_all_line_functions(q);
+//     // let p_prepared = prepare_g1_point(p);
+//     // let actual_miller_loop_f = miller_loop_with_prepared_lines(&[p_prepared], &[lines]);
+
+//     for c in candidate_witness.into_iter() {
+//         println!("flag wit: {}", c().unwrap());
+//     }
+
+//     // // unwrap candidate witness
+//     // let candidate_witness_wrapper = candidate_witness().unwrap();
+//     // let candidate_miller_loop_f = Fq12 {
+//     //     c0: Fq6 {
+//     //         c0: Fq2 { c0: candidate_witness_wrapper.0.0.0.get(), c1: candidate_witness_wrapper.0.0.1.get() },
+//     //         c1: Fq2 { c0: candidate_witness_wrapper.0.1.0.get(), c1: candidate_witness_wrapper.0.1.1.get() },
+//     //         c2: Fq2 { c0: candidate_witness_wrapper.0.2.0.get(), c1: candidate_witness_wrapper.0.2.1.get() },
+//     //     },
+//     //     c1: Fq6 {
+//     //         c0: Fq2 { c0: candidate_witness_wrapper.1.0.0.get(), c1: candidate_witness_wrapper.1.0.1.get() },
+//     //         c1: Fq2 { c0: candidate_witness_wrapper.1.1.0.get(), c1: candidate_witness_wrapper.1.1.1.get() },
+//     //         c2: Fq2 { c0: candidate_witness_wrapper.1.2.0.get(), c1: candidate_witness_wrapper.1.2.1.get() },
+//     //     },
+//     // };
+
+//     // assert_eq!(actual_miller_loop_f, candidate_miller_loop_f);
+// }
+
+
 #[test]
 fn test_alternative_circuit(
 ) {
@@ -1611,10 +1742,10 @@ fn test_alternative_circuit(
     let g2 = TwistedCurvePoint::allocate(cs, q, &params);
     cs_point_tuples.push((g1, g2));
 
-    unsafe {
+    let equality_flags = unsafe {
         multipairing_robust(cs, &mut cs_point_tuples)
     };
-    // let candidate_witness = candidate_acc.witness_hook(cs);
+    let candidate_witness : Vec<_> = equality_flags.into_iter().map(|c| c.witness_hook(cs)).collect();
 
     let worker = Worker::new_with_num_threads(8);
 
@@ -1627,6 +1758,10 @@ fn test_alternative_circuit(
     // let lines = prepare_all_line_functions(q);
     // let p_prepared = prepare_g1_point(p);
     // let actual_miller_loop_f = miller_loop_with_prepared_lines(&[p_prepared], &[lines]);
+
+    for c in candidate_witness.into_iter() {
+        println!("flag wit: {}", c().unwrap());
+    }
 
     // // unwrap candidate witness
     // let candidate_witness_wrapper = candidate_witness().unwrap();
@@ -1645,6 +1780,7 @@ fn test_alternative_circuit(
 
     // assert_eq!(actual_miller_loop_f, candidate_miller_loop_f);
 }
+
 
 #[test]
 fn test_naive_circuit(
