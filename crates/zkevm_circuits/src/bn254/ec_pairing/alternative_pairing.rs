@@ -570,6 +570,7 @@ impl<'a, F: SmallField> WitnessParser<'a, F> {
     fn parse_g1_affine(&mut self) -> G1Affine {
         let x = self.parse_fq();
         let y = self.parse_fq();
+        println!("x: {}, y: {}", x, y);
         G1Affine::from_xy_checked(x, y).unwrap()
     }
 
@@ -1444,7 +1445,7 @@ fn test_alternative_circuit(
     let mut rng = rand::thread_rng();
 
     let mut dlog_relation = Fr::zero();
-    for (_is_first, is_last, _) in (0..NUM_PAIRINGS_IN_MULTIPAIRING).identify_first_last() {
+    for (_is_first, is_last, _) in (0..NUM_PAIRINGS_IN_MULTIPAIRING - 1).identify_first_last() {
         let points_tuple = if !is_last {
             let mut g1_scalar = Fr::rand(&mut rng);
             let g2_scalar = Fr::rand(&mut rng);
@@ -1480,6 +1481,15 @@ fn test_alternative_circuit(
 
         cs_point_tuples.push(points_tuple);
     }
+
+    let p_point_at_infty = G1Affine::zero();
+    let (x, y) = p_point_at_infty.into_xy_unchecked();
+    println!("init x: {}, y: {}", x, y);
+    let q = G2Affine::rand(&mut rng);
+
+    let g1 = AffinePoint::allocate(cs, p_point_at_infty, &params);
+    let g2 = TwistedCurvePoint::allocate(cs, q, &params);
+    cs_point_tuples.push((g1, g2));
 
     unsafe {
         multipairing_robust(cs, &mut cs_point_tuples)
