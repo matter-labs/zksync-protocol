@@ -326,7 +326,7 @@ where
             }
             CompressionMethod::AlgebraicTorus => {
                 let mut scalar = Self::easy_part(cs, r);
-                let mut torus = BN256TorusWrapper::compress::<_, true>(cs, &mut scalar);
+                let mut torus = BN256TorusWrapper::compress(cs, &mut scalar, true);
                 let hard_part = match hardexp_method {
                     HardExpMethod::Naive => Self::hard_part_naive(cs, &mut torus),
                     HardExpMethod::FuentesCastaneda => {

@@ -1152,7 +1152,7 @@ impl Bn256HardPartMethod {
 
         // x^{p^2}:
         let mut y = x.frobenius_map(cs, 2);
-        let mut candidate = y.mul(cs, &mut x);
+        let mut candidate = y.mul_optimal(cs, &mut x, true);
 
         let candidate_is_one = candidate.encoding.is_zero(cs);
         let candidate_is_one = candidate_is_one.negated(cs);
@@ -1171,7 +1171,7 @@ impl Bn256HardPartMethod {
         self,
         cs: &mut CS,
         elem: BN256TorusWrapper<F>,
-        is_safe_version: Boolean<F>,
+        is_safe_version: bool,
         params: &Arc<BN256BaseNNFieldParams>,
     ) -> BN256TorusWrapper<F> {
         let (ops_chain, num_of_variables) = self.get_ops_chain();
@@ -1183,21 +1183,21 @@ impl Bn256HardPartMethod {
         let mut scratchpad = vec![zero; num_of_variables];
         scratchpad[0] = elem.clone();
     
-        for (i, (is_first, is_last, op)) in ops_chain.into_iter().identify_first_last().enumerate() {
-            // let may_cause_exp = is_safe_version.and(cs, Boolean::from(is_last));
+        for (i, (_is_first, is_last, op)) in ops_chain.into_iter().identify_first_last().enumerate() {
+            let may_cause_exp = is_safe_version && is_last;
             
             match op {
                 Ops::ExpByX(out_idx, in_idx) => {
-                    scratchpad[out_idx] = scratchpad[in_idx].pow_naf_decomposition(cs, &x_decomposition);
+                    scratchpad[out_idx] = scratchpad[in_idx].pow_naf_decomposition(cs, &x_decomposition, may_cause_exp);
                 },
                 Ops::Mul(out_idx, left_idx, right_idx) => {
                     // So ugly 
                     let mut left_val = scratchpad[left_idx].clone();
                     let mut right_val = scratchpad[right_idx].clone();
-                    scratchpad[out_idx] = left_val.mul(cs, &mut right_val);
+                    scratchpad[out_idx] = left_val.mul_optimal(cs, &mut right_val, may_cause_exp);
                 },
                 Ops::Square(out_idx, in_idx) => {
-                    scratchpad[out_idx] = scratchpad[in_idx].square(cs);
+                    scratchpad[out_idx] = scratchpad[in_idx].square_optimal(cs, may_cause_exp);
                 },
                 Ops::Conj(out_idx, in_idx) => {
                     scratchpad[out_idx] = scratchpad[in_idx].conjugate(cs);
@@ -1710,6 +1710,7 @@ fn test_naive_circuit(
         multipairing_naive(cs, &mut [(g1.clone(), g2.clone()), (g1_negated, g2.clone()), (g1, g2.clone())])
         // multipairing_naive(cs, &mut [(g1, g2.clone())])
     };
+    
 
     let worker = Worker::new_with_num_threads(8);
 
