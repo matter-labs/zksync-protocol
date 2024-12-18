@@ -101,6 +101,18 @@ const U_WNAF : [i8; 63] =  [
     1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, -1, 0, 0, 0, 1
 ];
 
+const X_TERNARY : [i8; 64] =  [
+    1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+];
+
+const X_TERNARY_HALF : [i8; 63] =  [
+    1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+];
+
 
 // a bunch of useful allocators
 pub fn allocate_fq2_constant<F: SmallField, CS: ConstraintSystem<F>>(
@@ -439,6 +451,10 @@ impl<F: SmallField> TwistedCurvePoint<F> {
         let vars_for_y_c0 = self.y.c0.as_variables_set();
         let vars_for_y_c1 = self.y.c1.as_variables_set();
         vars_for_x_c0.into_iter().chain(vars_for_x_c1.into_iter()).chain(vars_for_y_c0.into_iter()).chain(vars_for_y_c1.into_iter())
+    }
+    fn normalize<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS){
+        self.x.normalize(cs);
+        self.y.normalize(cs);
     }
 }
 
@@ -1097,6 +1113,106 @@ impl Bn256HardPartMethod {
             Bn256HardPartMethod::Naive => Self::naive_method()
         }
     }
+    fn get_x_ternary_decomposition() -> &'static [i8] {
+        &X_TERNARY
+    }
+    
+    fn get_half_x_ternary_decomposition() -> &'static [i8]{
+        &X_TERNARY_HALF
+    }
+    /// Computes the easy part of the final exponentiation for BN256 pairings:
+    /// result = f^{(q^6 - 1)*(q^2 + 1)}. Using a known decomposition,
+    /// it reduces to computing (-m0/m1)^{p^2+1} from the Miller loop result m = m0 + w*m1.
+    /// The final returned value is in compressed toru form
+    pub fn final_exp_easy_part<F: SmallField, CS: ConstraintSystem<F>>(
+        cs: &mut CS,
+        mut elem: &Fp12<F>, 
+        params: &Arc<BN256BaseNNFieldParams>,
+        is_safe_version: bool
+    ) -> (BN256TorusWrapper<F>, Boolean<F>) {
+
+        // Need to be sure if it is technically possible to get m1 = 0
+        let mut elem_clone = elem.c1.clone();
+        let c1_is_zero = elem_clone.is_zero(cs);
+        let one_fp6 = Fp6::<F>::one(cs, &params);
+        let new_c1 = <Fp6<F> as NonNativeField<F, _>>::conditionally_select(
+            cs,
+            c1_is_zero,
+            &one_fp6,
+            &elem.c1
+        );
+        let elem = Fp12::<F>::new(elem.c0.clone(), new_c1);
+
+        // -m0/m1;
+        let mut tmp = elem.c1;
+        tmp.normalize(cs);
+        let mut m1 = tmp.inverse(cs);
+        let mut encoding = elem.c0;
+        encoding = encoding.mul(cs, &mut m1);
+        encoding = encoding.negated(cs);
+
+        let mut x = BN256TorusWrapper::new(encoding); 
+
+        // x^{p^2}:
+        let mut y = x.frobenius_map(cs, 2);
+        let mut candidate = y.mul_optimal(cs, &mut x, true);
+
+        let candidate_is_one = candidate.encoding.is_zero(cs);
+        let candidate_is_one = candidate_is_one.negated(cs);
+
+        let is_trivial = c1_is_zero.or(cs,  candidate_is_one);
+        // If candidate is trivial or we had an exception, we should replace candidate by the hard part generator.
+        // need to check is really mask from Torus return generator
+        // let mut hard_part_generator = Fq6::one(); 
+        // let hard_part_generator = allocate_fq6_constant(cs, hard_part_generator, &params);
+        candidate = candidate.mask(cs, is_trivial);
+
+
+        (candidate, is_trivial)
+    }
+    pub fn final_exp_hard_part<F: SmallField, CS: ConstraintSystem<F>>(
+        self,
+        cs: &mut CS,
+        elem: &BN256TorusWrapper<F>,
+        is_safe_version: bool,
+        params: &Arc<BN256BaseNNFieldParams>,
+    ) -> BN256TorusWrapper<F> {
+        let (ops_chain, num_of_variables) = self.get_ops_chain();
+        let x_decomposition = Self::get_x_ternary_decomposition();
+    
+        // should be zero but dl zksync-crypto have a mistake so let have temporary one 
+        let zero = BN256TorusWrapper::<F>::one(cs, &params);
+    
+        let mut scratchpad = vec![zero; num_of_variables];
+        scratchpad[0] = elem.clone();
+    
+        for (i, (_is_first, is_last, op)) in ops_chain.into_iter().identify_first_last().enumerate() {
+            let may_cause_exp = is_safe_version && is_last;
+            
+            match op {
+                Ops::ExpByX(out_idx, in_idx) => {
+                    scratchpad[out_idx] = scratchpad[in_idx].pow_naf_decomposition(cs, &x_decomposition, may_cause_exp);
+                },
+                Ops::Mul(out_idx, left_idx, right_idx) => {
+                    // So ugly 
+                    let mut left_val = scratchpad[left_idx].clone();
+                    let mut right_val = scratchpad[right_idx].clone();
+                    scratchpad[out_idx] = left_val.mul_optimal(cs, &mut right_val, may_cause_exp);
+                },
+                Ops::Square(out_idx, in_idx) => {
+                    scratchpad[out_idx] = scratchpad[in_idx].square_optimal(cs, may_cause_exp);
+                },
+                Ops::Conj(out_idx, in_idx) => {
+                    scratchpad[out_idx] = scratchpad[in_idx].conjugate(cs);
+                },
+                Ops::Frob(out_idx, in_idx, power) => {
+                    scratchpad[out_idx] = scratchpad[in_idx].frobenius_map(cs, power);
+                }
+            }
+        }
+    
+        scratchpad[0].clone()
+    }
 
     // let x be parameter parametrizing particular curve in Bn256 family of curves
     // there are two competing agorithms for computing hard part of final exponentiation fot Bn256 family of curves
@@ -1208,7 +1324,7 @@ unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
 
     // do I pay constraints for zero allocation here?
     // I think, I do, but the whole codebase is awful and doesn't support it, so not my problem
-    let mut f : Fp12<F> = Fp12::zero(cs, &params);
+    let mut f : Fp12<F> = Fp12::one(cs, &params);
 
     // main cycle of Miller loop:
     let iter = SIX_U_PLUS_TWO_WNAF.into_iter().rev().skip(1).identify_first_last();
@@ -1330,6 +1446,10 @@ unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
 
     // here comes the final exponentiation
     // Olena, paste your code here, no need to change anything else! - f right now is the final unmasked result of Miller loop
+
+    let (wrapped_f, is_trivial) = Bn256HardPartMethod::final_exp_easy_part(cs, &f, &params, true);
+    let chain = Bn256HardPartMethod::get_optinal(); 
+    let candidate = chain.final_exp_hard_part(cs, &wrapped_f, true, &params);
     
     let no_exception = Boolean::multi_and(cs, &validity_checks);
     let mut fp12_one = allocate_fq12_constant(cs, Fq12::one(), &params);
@@ -1524,6 +1644,98 @@ fn test_alternative_circuit(
     // };
 
     // assert_eq!(actual_miller_loop_f, candidate_miller_loop_f);
+}
+
+#[test]
+fn test_naive_circuit(
+) {
+    
+    let geometry = CSGeometry {
+        num_columns_under_copy_permutation: 30,
+        num_witness_columns: 0,
+        num_constant_columns: 4,
+        max_allowed_constraint_degree: 4,
+    };
+
+    type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
+    let builder_impl =
+        CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 23);
+    let builder = new_builder::<_, F>(builder_impl);
+
+    let builder = builder.allow_lookup(
+        LookupParameters::UseSpecializedColumnsWithTableIdAsConstant {
+            width: 1,
+            num_repetitions: 10,
+            share_table_id: true,
+        },
+    );
+
+    let builder = ConstantsAllocatorGate::configure_builder(
+        builder,
+        GatePlacementStrategy::UseGeneralPurposeColumns,
+    );
+    let builder = FmaGateInBaseFieldWithoutConstant::configure_builder(
+        builder,
+        GatePlacementStrategy::UseGeneralPurposeColumns,
+    );
+    let builder = ReductionGate::<F, 4>::configure_builder(
+        builder,
+        GatePlacementStrategy::UseGeneralPurposeColumns,
+    );
+    let builder = DotProductGate::<4>::configure_builder(
+        builder,
+        GatePlacementStrategy::UseGeneralPurposeColumns,
+    );
+    let builder = UIntXAddGate::<16>::configure_builder(
+        builder,
+        GatePlacementStrategy::UseGeneralPurposeColumns,
+    );
+    let builder = SelectionGate::configure_builder(
+        builder,
+        GatePlacementStrategy::UseGeneralPurposeColumns,
+    );
+    let builder = ZeroCheckGate::configure_builder(
+        builder,
+        GatePlacementStrategy::UseGeneralPurposeColumns,
+        false
+    );
+
+    let builder = NopGate::configure_builder(builder, GatePlacementStrategy::UseGeneralPurposeColumns);
+
+    let mut owned_cs = builder.build(CircuitResolverOpts::new(1 << 26));
+
+    // add tables
+    let table = create_range_check_16_bits_table();
+    owned_cs.add_lookup_table::<RangeCheck16BitsTable, 1>(table);
+    let cs = &mut owned_cs;
+
+    let params = RnsParams::create();
+    let params = std::sync::Arc::new(params);
+
+    let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
+    let p = G1Affine::rand(&mut rng);
+    let q = G2Affine::rand(&mut rng);
+    let mut p_negated = p.clone();
+    p_negated.negate();
+
+    let g1 = AffinePoint::allocate(cs, p, &params);
+    let g2 = TwistedCurvePoint::allocate(cs, q, &params);
+    let g1_negated = AffinePoint::allocate(cs, p_negated, &params);
+
+     unsafe {
+        multipairing_naive(cs, &mut [(g1.clone(), g2.clone()), (g1_negated, g2.clone()), (g1, g2.clone())])
+        // multipairing_naive(cs, &mut [(g1, g2.clone())])
+    };
+
+
+    let worker = Worker::new_with_num_threads(8);
+
+    drop(cs);
+    owned_cs.pad_and_shrink();
+    let mut owned_cs = owned_cs.into_assembly::<Global>();
+    assert!(owned_cs.check_if_satisfied(&worker));
+
+
 }
 
 
