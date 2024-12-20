@@ -22,14 +22,14 @@ circuit_sequencer_api = { version = "=0.150.18", path = "crates/circuit_sequence
 kzg = { version = "=0.150.18", path = "crates/kzg", package = "zksync_kzg" }
 zk_evm = { version = "=0.150.18", path = "crates/zk_evm" }
 zk_evm_abstractions = { version = "=0.150.18", path = "crates/zk_evm_abstractions" }
-zkevm_circuits = { version = "=0.150.18", path = "crates/zkevm_circuits" } 
+zkevm_circuits = { version = "=0.150.18", path = "crates/zkevm_circuits" }
 zkevm_opcode_defs = { version = "=0.150.18", path = "crates/zkevm_opcode_defs" }
 zkevm_test_harness = { version = "=0.150.18", path = "crates/zkevm_test_harness" }
 zkevm-assembly = { version = "=0.150.18", path = "crates/zkEVM-assembly" }
 
 # `zksync-crypto` repository
-snark_wrapper = "=0.30.11"
-bellman = { package = "zksync_bellman", version = "=0.30.11" }
-boojum = "=0.30.11"
-cs_derive = { package = "zksync_cs_derive", version = "=0.30.11" }
+snark_wrapper = "=0.30.12"
+bellman = { package = "zksync_bellman", version = "=0.30.12" }
+boojum = "=0.30.12"
+cs_derive = { package = "zksync_cs_derive", version = "=0.30.12" }
 
