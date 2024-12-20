@@ -1,0 +1,24 @@
+[workspace]
+dependencies_update = true                   # Wether to run `cargo update` in the release PR
+pr_name = "chore(main): release {{version}}" # template for the PR name
+pr_labels = ["release", "crates.io"]         # Set PR labels
+changelog_path = "./CHANGELOG.md"            # Set common changelog path for all crates
+changelog_update = false                     # Disable individual changelog updates for all packages.
+git_tag_enable = false                       # Disable individual tags for all packages.
+git_release_enable = false                   # Disable individual releases for all packages.
+semver_check = false                         # Disable API breaking changes checks with cargo-semver-checks.
+publish_timeout = "10m"                      # Set a timeout for `cargo publish`.
+
+# Use one package to combine changelog updates and tags for all workspace
+[[package]]
+name = "circuit_definitions"
+git_release_enable = true           # Enable GitHub releases
+git_tag_enable = true               # Enable one common tag for all crates
+git_tag_name = "v{{version}}"       # Common tag name for the workspace
+git_release_name = "v{{version}}"   # Common GitHub release name
+changelog_update = true             # Enable changelog updates combining all crates
+changelog_include = [
+    "circuit_encodings", "circuit_sequencer_api", "zksync_kzg",
+    "zkevm-assembly", "zk_evm", "zk_evm_abstractions",
+    "zkevm_circuits", "zkevm_opcode_defs", "zkevm_test_harness"
+]
