@@ -87,7 +87,7 @@ pub(crate) type Fp2<F> = BN256Fq2NNField<F>;
 pub(crate) type Fp6<F> = BN256Fq6NNField<F>;
 pub(crate) type Fp12<F> = BN256Fq12NNField<F>;
 pub(crate) type RnsParams = BN256BaseNNFieldParams;
-type PairingInput<F> = (AffinePoint<F>, TwistedCurvePoint<F>);
+pub(crate) type PairingInput<F> = (AffinePoint<F>, TwistedCurvePoint<F>);
 
 // Curve parameter for the BN256 curve
 const SIX_U_PLUS_TWO_WNAF: [i8; 65] = [
@@ -101,16 +101,14 @@ const U_WNAF : [i8; 63] =  [
     1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, -1, 0, 0, 0, 1
 ];
 
-const X_TERNARY : [i8; 64] =  [
-    1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+const X_TERNARY : [i64; 63] =  [
+    1, 0, 0, 0, 1, 0, 1, 0, 0, -1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 
+    1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, -1, 0, 0, 0, 1
 ];
 
-const X_TERNARY_HALF : [i8; 63] =  [
-    1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+const X_TERNARY_HALF : [i8; 62] =  [
+    1, 0, 0, 0, 1, 0, 1, 0, 0, -1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 
+    1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, -1, 0, 0, 0
 ];
 
 
@@ -161,7 +159,7 @@ struct CurveCheckFlags<F: SmallField> {
 
 
 #[derive(Debug, Clone)]
-struct AffinePoint<F: SmallField> {
+pub(crate) struct AffinePoint<F: SmallField> {
     x: Fp<F>,
     y: Fp<F>,
     is_in_eval_form: bool
@@ -263,7 +261,7 @@ impl<F: SmallField> AffinePoint<F> {
 
 
 #[derive(Debug, Clone)]
-struct TwistedCurvePoint<F: SmallField> {
+pub(crate) struct TwistedCurvePoint<F: SmallField> {
     pub x: Fp2<F>,
     pub y: Fp2<F>
 }
@@ -1130,6 +1128,8 @@ pub enum Bn256HardPartMethod {
 impl Bn256HardPartMethod {
     fn get_optinal() -> Self {
         Bn256HardPartMethod::Devegili
+        // Bn256HardPartMethod::Naive
+        // Bn256HardPartMethod::FuentesCastaneda
     }
 
     fn get_ops_chain(self) -> (Vec<Ops>, usize) {
@@ -1139,13 +1139,87 @@ impl Bn256HardPartMethod {
             Bn256HardPartMethod::Naive => Self::naive_method()
         }
     }
-    fn get_x_ternary_decomposition() -> &'static [i8] {
+    fn get_x_ternary_decomposition() -> &'static [i64] {
         &X_TERNARY
     }
     
     fn get_half_x_ternary_decomposition() -> &'static [i8]{
         &X_TERNARY_HALF
     }
+
+    fn random_fq12<R: Rng>(rng: &mut R) -> Fq12 {
+        let c0 = Fq6::rand(rng);
+        let c1 = Fq6::rand(rng);
+        Fq12 { c0, c1 }
+    }
+
+    fn get_hard_part_generator() -> Fq12 {
+        let mut rng = XorShiftRng::from_seed([42, 0, 0, 0]);
+
+        let chains = [
+            Bn256HardPartMethod::devegili_method(),
+            Bn256HardPartMethod::fuentes_castaneda_method(),
+            Bn256HardPartMethod::naive_method(),
+        ];
+
+        let x = 4965661367192848881;
+
+        loop {
+            let cand = Bn256HardPartMethod::random_fq12(&mut rng);
+
+            if cand == Fq12::one() {
+                continue;
+            }
+
+            for (ops_chain, num_of_variables) in chains.iter() {
+                let mut scratchpad = vec![Fq12::zero(); *num_of_variables];
+                scratchpad[0] = cand;
+
+                for op in ops_chain {
+                    let out_idx = match op {
+                        Ops::ExpByX(out_idx, in_idx) => {
+                            let mut tmp = scratchpad[*in_idx];
+                            tmp = tmp.pow([x]);
+                            scratchpad[*out_idx] = tmp;
+                            out_idx
+                        },
+                        Ops::Mul(out_idx, left_idx, right_idx) => {
+                            let mut tmp = scratchpad[*left_idx];
+                            tmp.mul_assign(&scratchpad[*right_idx]);
+                            scratchpad[*out_idx] = tmp;
+                            out_idx
+                        },
+                        Ops::Square(out_idx, in_idx) => {
+                            let mut tmp = scratchpad[*in_idx];
+                            tmp.square();
+                            scratchpad[*out_idx] = tmp;
+                            out_idx
+                        },
+                        Ops::Conj(out_idx, in_idx) => {
+                            let mut tmp = scratchpad[*in_idx];
+                            tmp.conjugate();
+                            scratchpad[*out_idx] = tmp;
+                            out_idx
+                        },
+                        Ops::Frob(out_idx, in_idx, power) => {
+                            let mut tmp = scratchpad[*in_idx];
+                            tmp.frobenius_map(*power);
+                            scratchpad[*out_idx] = tmp;
+                            out_idx
+                        },
+                    };
+
+                    if scratchpad[*out_idx] == Fq12::one() {
+                        continue;
+                    }
+                }
+            }
+
+            return cand;
+        }
+    }
+
+    
     /// Computes the easy part of the final exponentiation for BN256 pairings:
     /// result = f^{(q^6 - 1)*(q^2 + 1)}. Using a known decomposition,
     /// it reduces to computing (-m0/m1)^{p^2+1} from the Miller loop result m = m0 + w*m1.
@@ -1157,44 +1231,38 @@ impl Bn256HardPartMethod {
         is_safe_version: bool
     ) -> (BN256TorusWrapper<F>, Boolean<F>) {
 
-        // Need to be sure if it is technically possible to get m1 = 0
-        let mut elem_clone = elem.c1.clone();
-        let c1_is_zero = elem_clone.is_zero(cs);
-        let one_fp6 = Fp6::<F>::one(cs, &params);
-        let new_c1 = <Fp6<F> as NonNativeField<F, _>>::conditionally_select(
-            cs,
-            c1_is_zero,
-            &one_fp6,
-            &elem.c1
-        );
-        let elem = Fp12::<F>::new(elem.c0.clone(), new_c1);
-
+        let ( mut elem, is_exception) = if is_safe_version{
+            let mut elem_clone = elem.c1.clone();
+            let is_exceptional = elem_clone.is_zero(cs);
+            let one_fp6 = Fp6::<F>::one(cs, &params);
+            let new_c1 = <Fp6<F> as NonNativeField<F, _>>::conditionally_select(
+                cs,
+                is_exceptional,
+                &one_fp6,
+                &elem.c1
+            );
+            let elem = Fp12::<F>::new(elem.c0.clone(), new_c1);
+            (elem, is_exceptional)
+        } else {
+            (elem.clone(), Boolean::allocated_constant(cs, false))
+        };
         // -m0/m1;
-        let mut tmp = elem.c1;
-        tmp.normalize(cs);
-        let mut m1 = tmp.inverse(cs);
-        let mut encoding = elem.c0;
-        encoding = encoding.mul(cs, &mut m1);
+        elem.normalize(cs);
+
+        let mut encoding = elem.c0.div(cs, &mut elem.c1);
         encoding = encoding.negated(cs);
 
         let mut x = BN256TorusWrapper::new(encoding); 
 
         // x^{p^2}:
         let mut y = x.frobenius_map(cs, 2);
-        let mut candidate = y.mul_optimal(cs, &mut x, true);
+        let mut candidate = y.mul_optimal(cs, &mut x, is_safe_version);
 
-        let candidate_is_one = candidate.encoding.is_zero(cs);
-        let candidate_is_one = candidate_is_one.negated(cs);
+        let (res, enc_is_zero) = candidate.replace_by_constant_if_trivial(cs, Self::get_hard_part_generator());
 
-        let is_trivial = c1_is_zero.or(cs,  candidate_is_one);
-        // If candidate is trivial or we had an exception, we should replace candidate by the hard part generator.
-        // need to check is really mask from Torus return generator
-        // let mut hard_part_generator = Fq6::one(); 
-        // let hard_part_generator = allocate_fq6_constant(cs, hard_part_generator, &params);
-        candidate = candidate.mask(cs, is_trivial);
+        let is_trivial = is_exception.or(cs,  enc_is_zero);
 
-
-        (candidate, is_trivial)
+        (res, is_trivial)
     }
     pub fn final_exp_hard_part<F: SmallField, CS: ConstraintSystem<F>>(
         self,
@@ -1206,13 +1274,11 @@ impl Bn256HardPartMethod {
         let (ops_chain, num_of_variables) = self.get_ops_chain();
         let x_decomposition = Self::get_x_ternary_decomposition();
     
-        // should be zero but dl zksync-crypto have a mistake so let have temporary one 
-        let zero = BN256TorusWrapper::<F>::one(cs, &params);
+        let zero = BN256TorusWrapper::<F>::zero(cs, &params);
     
         let mut scratchpad = vec![zero; num_of_variables];
         scratchpad[0] = elem.clone();
-    
-        for (i, (_is_first, is_last, op)) in ops_chain.into_iter().identify_first_last().enumerate() {
+        for (_is_first, is_last, op) in ops_chain.into_iter().identify_first_last(){
             let may_cause_exp = is_safe_version && is_last;
             
             match op {
@@ -1223,20 +1289,29 @@ impl Bn256HardPartMethod {
                     // So ugly 
                     let mut left_val = scratchpad[left_idx].clone();
                     let mut right_val = scratchpad[right_idx].clone();
+                    left_val.normalize(cs);
+                    right_val.normalize(cs);
                     scratchpad[out_idx] = left_val.mul_optimal(cs, &mut right_val, may_cause_exp);
                 },
                 Ops::Square(out_idx, in_idx) => {
-                    scratchpad[out_idx] = scratchpad[in_idx].square_optimal(cs, may_cause_exp);
+                    let mut tmp = scratchpad[in_idx].clone();
+                    tmp.normalize(cs);
+                    scratchpad[out_idx] = tmp.square_optimal(cs, may_cause_exp);
                 },
                 Ops::Conj(out_idx, in_idx) => {
-                    scratchpad[out_idx] = scratchpad[in_idx].conjugate(cs);
+                    let mut tmp = scratchpad[in_idx].clone();
+                    tmp.normalize(cs);
+                    scratchpad[out_idx] = tmp.conjugate(cs);
+
                 },
                 Ops::Frob(out_idx, in_idx, power) => {
                     scratchpad[out_idx] = scratchpad[in_idx].frobenius_map(cs, power);
+                    
+
                 }
             }
         }
-    
+
         scratchpad[0].clone()
     }
 
@@ -1244,7 +1319,6 @@ impl Bn256HardPartMethod {
     // there are two competing agorithms for computing hard part of final exponentiation fot Bn256 family of curves
     // the first one is Devegili method which takes 3exp by x, 11 squaring, 14 muls
     // the second one is Fuentes-Castaneda methid which takes 3exp by x, 4 square, 10 muls and 3 Frobenius powers
-    // we implement both of them and will select the most efficient later
 
     // Devegili method:
     // 1) a = f^x         7) a = conj(a)       13) t1 = t1^9       19) t0 = frob(f, 2)     25) t0 = t0^x
@@ -1315,10 +1389,10 @@ impl Bn256HardPartMethod {
 }
 
 
-unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
+pub(crate) unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     inputs: &mut [PairingInput<F>],
-) -> Boolean<F> {
+) -> (BN256TorusWrapper<F>, Fp12<F>, Boolean<F>) {
     assert_eq!(inputs.len(), NUM_PAIRINGS_IN_MULTIPAIRING);
     let params = Arc::new(RnsParams::create());
     let mut skip_pairings = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING);
@@ -1348,8 +1422,6 @@ unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
     let mut q_negated_array : [_; NUM_PAIRINGS_IN_MULTIPAIRING] = std::array::from_fn(|i| inputs[i].1.negate(cs));
     let mut t_array : [_; NUM_PAIRINGS_IN_MULTIPAIRING] = std::array::from_fn(|i| inputs[i].1.clone());
 
-    // do I pay constraints for zero allocation here?
-    // I think, I do, but the whole codebase is awful and doesn't support it, so not my problem
     let mut f : Fp12<F> = Fp12::one(cs, &params);
 
     // main cycle of Miller loop:
@@ -1365,17 +1437,11 @@ unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
             let mut p = inputs[i].0.clone();
 
             let line_func_eval = line_object.double_and_eval(cs, &mut t, &mut p);
-
             if is_first {
                 q_doubled_array[i] = t.clone();
             }
 
-            if is_first && i == 0 {
-                f = line_func_eval.convert_into_fp12(cs);
-            } else {
-                line_func_eval.mul_into_fp12(cs, &mut f);
-            }
-       
+            line_func_eval.mul_into_fp12(cs, &mut f);
             let to_add : &mut TwistedCurvePoint<F> = if bit == -1 { &mut q_negated_array[i] } else { &mut inputs[i].1 };
        
             if bit == 1 || bit == -1 {
@@ -1470,23 +1536,23 @@ unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
     }
     f = f.mul(cs, &mut multiplier);
 
-    // here comes the final exponentiation
-    // Olena, paste your code here, no need to change anything else! - f right now is the final unmasked result of Miller loop
+    let miller_loop_res = f.clone();
 
     let (wrapped_f, is_trivial) = Bn256HardPartMethod::final_exp_easy_part(cs, &f, &params, true);
     let chain = Bn256HardPartMethod::get_optinal(); 
     let candidate = chain.final_exp_hard_part(cs, &wrapped_f, true, &params);
-    
+    let is_exeption = is_trivial.negated(cs);
+    validity_checks.push(is_exeption);
     let no_exception = Boolean::multi_and(cs, &validity_checks);
-    let mut fp12_one = allocate_fq12_constant(cs, Fq12::one(), &params);
-    let pairing_is_one = f.equals(cs, &mut fp12_one);
+    // let mut fp12_one = allocate_fq12_constant(cs, Fq12::one(), &params);
+    // let pairing_is_one = f.equals(cs, &mut fp12_one);
     
-    // let result = pairing_is_one.and(cs, no_exception);
+    // // let result = pairing_is_one.and(cs, no_exception);
 
-    // should be deleted later
-    ConstantsAllocatorGate::new_to_enforce(no_exception.get_variable(), F::ONE);
+    // // should be deleted later
+    // ConstantsAllocatorGate::new_to_enforce(no_exception.get_variable(), F::ONE);
 
-    no_exception
+    (candidate, miller_loop_res, no_exception)
 }
 
 
@@ -1780,12 +1846,15 @@ fn test_alternative_circuit(
 
     // assert_eq!(actual_miller_loop_f, candidate_miller_loop_f);
 }
-
-
-#[test]
-fn test_naive_circuit(
-) {
-    
+use boojum::cs::implementations::reference_cs::CSReferenceImplementation;
+use boojum::cs::{CSGeometry, GateConfigurationHolder, LookupParameters, StaticToolboxHolder};
+fn cs_geometry() -> CSReferenceImplementation<
+    F,
+    P,
+    DevCSConfig,
+    impl GateConfigurationHolder<F>,
+    impl StaticToolboxHolder,
+> {
     let geometry = CSGeometry {
         num_columns_under_copy_permutation: 30,
         num_witness_columns: 0,
@@ -1843,35 +1912,222 @@ fn test_naive_circuit(
     // add tables
     let table = create_range_check_16_bits_table();
     owned_cs.add_lookup_table::<RangeCheck16BitsTable, 1>(table);
+    owned_cs
+}
+
+#[test]
+fn test_multipairing_naive() {
+
+    let mut owned_cs = cs_geometry();
     let cs = &mut owned_cs;
 
     let params = RnsParams::create();
     let params = std::sync::Arc::new(params);
 
     let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
-    let p = G1Affine::rand(&mut rng);
-    let q = G2Affine::rand(&mut rng);
-    let mut p_negated = p.clone();
-    p_negated.negate();
 
-    let g1 = AffinePoint::allocate(cs, p, &params);
-    let g2 = TwistedCurvePoint::allocate(cs, q, &params);
-    let g1_negated = AffinePoint::allocate(cs, p_negated, &params);
+    let mut pairs = Vec::new();
+    let mut q1_s_for_wit = Vec::new();
+    let mut prep_lines = Vec::new();
+    for _ in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
+        let p = G1::rand(&mut rng);
+        let q = G2::rand(&mut rng);
 
-     unsafe {
-        multipairing_naive(cs, &mut [(g1.clone(), g2.clone()), (g1_negated, g2.clone()), (g1, g2.clone())])
-        // multipairing_naive(cs, &mut [(g1, g2.clone())])
+        let p_affine = p.into_affine();
+        let p_prep = prepare_g1_point(p_affine);
+
+        let q_affine = q.into_affine();
+        let lines = prepare_all_line_functions(q_affine);
+
+        let g1 = AffinePoint::allocate(cs, p.into_affine(), &params);
+        let g2 = TwistedCurvePoint::allocate(cs, q.into_affine(), &params);
+        pairs.push((g1, g2));
+        q1_s_for_wit.push(p_prep);
+        prep_lines.push(lines);
+    }
+    let miller_loop_wit = miller_loop_with_prepared_lines(&q1_s_for_wit, &prep_lines);
+    let mut actual_miller_loop = Fp12::<F>::allocate_from_witness(cs, miller_loop_wit, &params);
+    let fin_exp_res = Bn256::final_exponentiation(&miller_loop_wit).unwrap();
+    let mut actual_res = Fp12::<F>::allocate_from_witness(cs, fin_exp_res, &params);
+    actual_res.normalize(cs);
+
+    let (res_torus, miller_loop, no_exception) = unsafe {
+        multipairing_naive(cs, &mut pairs)
     };
-
+    let mut res = res_torus.decompress(cs);
+    res.normalize(cs);
+    println!("miller_loop check");
+    Fp12::<F>::enforce_equal(cs, &actual_miller_loop, &miller_loop);
+    println!("final check");
+    Fp12::<F>::enforce_equal(cs, &res, &actual_res);
 
     let worker = Worker::new_with_num_threads(8);
+    owned_cs.pad_and_shrink();
+    let mut owned_cs = owned_cs.into_assembly::<std::alloc::Global>();
+    assert!(owned_cs.check_if_satisfied(&worker), "Constraints are not satisfied");
+    
+    owned_cs.print_gate_stats();
+}
 
+#[test]
+fn test_final_exponentiation_comparison() {
+    let mut owned_cs = cs_geometry();
+    let cs = &mut owned_cs;
+
+    let params = RnsParams::create();
+    let params = std::sync::Arc::new(params);
+
+    let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
+    let p = G1::rand(&mut rng);
+    let q = G2::rand(&mut rng);
+    let p_affine = p.into_affine();
+    let q_affine = q.into_affine();
+
+    let p_prepared = prepare_g1_point(p_affine);
+    let q_lines = prepare_all_line_functions(q_affine);
+    let miller_loop_wit = miller_loop_with_prepared_lines(&[p_prepared], &[q_lines]);
+    let miller = Bn256::miller_loop([(&(p.into_affine().prepare()), &(q.into_affine().prepare()))].iter());
+
+    let expected_final_exp = Bn256::final_exponentiation(&miller).unwrap();
+
+    let miller_loop_alloc = Fp12::<F>::allocate_from_witness(cs, miller_loop_wit, &params);
+
+    let (wrapped_torus, _is_trivial) = Bn256HardPartMethod::final_exp_easy_part(cs, &miller_loop_alloc, &params, true);
+
+    let chain = Bn256HardPartMethod::get_optinal(); 
+    let candidate = chain.final_exp_hard_part(cs, &wrapped_torus, true, &params);
+    let mut candidate_final_exp = candidate.decompress(cs);
+    candidate_final_exp.normalize(cs);
+
+    let mut expected_fp12 = Fp12::allocate_from_witness(cs, expected_final_exp, &params);
+    expected_fp12.normalize(cs);
+
+    Fp12::enforce_equal(cs, &candidate_final_exp, &expected_fp12);
+
+    let worker = Worker::new_with_num_threads(8);
     drop(cs);
     owned_cs.pad_and_shrink();
     let mut owned_cs = owned_cs.into_assembly::<Global>();
-    assert!(owned_cs.check_if_satisfied(&worker));
+    assert!(owned_cs.check_if_satisfied(&worker), "Constraints are not satisfied");
 
+    owned_cs.print_gate_stats();
 
 }
 
 
+#[test]
+fn test_easy_part() {
+
+    let mut owned_cs = cs_geometry();
+    let cs = &mut owned_cs;
+
+    let params = std::sync::Arc::new(RnsParams::create());
+
+    let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
+    let p = G1::rand(&mut rng);
+    let q = G2::rand(&mut rng);
+
+    let p_affine = p.into_affine();
+    let q_affine = q.into_affine();
+
+    let p_prepared = prepare_g1_point(p_affine);
+    let q_lines = prepare_all_line_functions(q_affine);
+
+    let miller_loop_native = miller_loop_with_prepared_lines(&[p_prepared], &[q_lines]);
+
+    // naive easy part 
+    pub fn easy_part_of_final_exp(f: &Fq12) -> Fq12 {
+        let mut f_q6_minus_1 = *f;
+        f_q6_minus_1.conjugate(); 
+    
+        let inv_f = match f.inverse() {
+            Some(inv) => inv,
+            None => {
+                return Fq12::zero();
+            }
+        };
+    
+        f_q6_minus_1.mul_assign(&inv_f); // f^(q^6 - 1)
+    
+        let mut f_q6_minus_1_q2 = f_q6_minus_1;
+        f_q6_minus_1_q2.frobenius_map(2);
+        f_q6_minus_1_q2.mul_assign(&f_q6_minus_1);
+    
+        f_q6_minus_1_q2
+    }
+    
+    let mut allocated_miller_loop = Fp12::<F>::allocate_from_witness(
+        cs, 
+        miller_loop_native, 
+        &params
+    );
+    let expected_native = easy_part_of_final_exp(&miller_loop_native);
+    let allocated_expected =
+        Fp12::<F>::allocate_from_witness(cs, expected_native, &params);
+    let (wrapped_torus, _is_trivial) = 
+        Bn256HardPartMethod::final_exp_easy_part(cs, &allocated_miller_loop, &params, true);
+
+    use crate::bn254::ec_pairing::final_exp::FinalExpEvaluation;
+    let mut easy_part_dl = FinalExpEvaluation::easy_part(cs, &mut allocated_miller_loop);
+    let mut decompres = wrapped_torus.decompress(cs);
+    decompres.normalize(cs);
+
+    Fp12::enforce_equal(cs, &allocated_expected, &easy_part_dl);
+    Fp12::enforce_equal(cs, &decompres, &allocated_expected);
+
+    let worker = Worker::new_with_num_threads(8);
+    owned_cs.pad_and_shrink();
+    let mut owned_cs = owned_cs.into_assembly::<std::alloc::Global>();
+    assert!(owned_cs.check_if_satisfied(&worker), "Constraints are not satisfied");
+    
+    owned_cs.print_gate_stats();
+
+}
+
+
+#[test]
+fn test_final_exponentiation_dl() {
+
+    let mut owned_cs = cs_geometry();
+    let cs = &mut owned_cs;
+
+
+    let params = RnsParams::create();
+    let params = std::sync::Arc::new(params);
+
+    let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
+    let p = G1::rand(&mut rng);
+    let q = G2::rand(&mut rng);
+    let p_affine = p.into_affine();
+    let q_affine = q.into_affine();
+
+    let p_prepared = prepare_g1_point(p_affine);
+    let q_lines = prepare_all_line_functions(q_affine);
+    let miller_loop_wit = miller_loop_with_prepared_lines(&[p_prepared], &[q_lines]);
+
+    let expected_final_exp = Bn256::final_exponentiation(&miller_loop_wit).unwrap();
+
+    let mut miller_loop_alloc = Fp12::<F>::allocate_from_witness(cs, miller_loop_wit, &params);
+
+    use crate::bn254::ec_pairing::final_exp::FinalExpEvaluation;
+    let mut easy_part = FinalExpEvaluation::easy_part(cs, &mut miller_loop_alloc);
+    let mut compres = BN256TorusWrapper::<F>::compress(cs, &mut easy_part, true);
+    compres.normalize(cs);
+
+    let mut expected_fp12 = Fp12::allocate_from_witness(cs, expected_final_exp, &params);
+    expected_fp12.normalize(cs);
+
+
+    let other_res = FinalExpEvaluation::hard_part_naive(cs, &mut compres);
+    let mut other_res = other_res.decompress(cs);
+    other_res.normalize(cs);
+    Fp12::enforce_equal(cs, &other_res, &expected_fp12);
+    let worker = Worker::new_with_num_threads(8);
+    drop(cs);
+    owned_cs.pad_and_shrink();
+    let mut owned_cs = owned_cs.into_assembly::<Global>();
+    assert!(owned_cs.check_if_satisfied(&worker), "Constraints are not satisfied");
+
+    owned_cs.print_gate_stats();
+
+}

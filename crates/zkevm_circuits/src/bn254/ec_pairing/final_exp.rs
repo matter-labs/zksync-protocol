@@ -45,7 +45,7 @@ where
     /// Calculates the easy part of the exponentiation, that is
     /// `r^((p^(k) - 1) / Phi_k(p))` where
     /// `Phi_{12}(p) = p^4 - p^2 + 1` is a 12th cyclotomic polynomial.
-    fn easy_part(cs: &mut CS, r: &mut BN256Fq12NNField<F>) -> BN256Fq12NNField<F> {
+    pub fn easy_part(cs: &mut CS, r: &mut BN256Fq12NNField<F>) -> BN256Fq12NNField<F> {
         // 1. f1 <- f1^*; 2. f2 <- f^{-1}; 3. f <- f1*f2; 4. f2 <- f
         let mut f1 = r.conjugate(cs);
         let mut f2 = r.inverse(cs);

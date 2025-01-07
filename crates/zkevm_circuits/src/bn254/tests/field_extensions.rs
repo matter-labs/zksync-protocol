@@ -7,6 +7,7 @@ pub mod test {
     use crate::bn254::tests::utils::cs::create_test_cs;
     use crate::bn254::tests::utils::debug_success;
     use boojum::field::goldilocks::GoldilocksField;
+    use boojum::worker::Worker;
 
     type F = GoldilocksField;
     type P = GoldilocksField;
@@ -53,6 +54,11 @@ pub mod test {
 
             debug_success("Fq2 basic arithmetic", i, DEBUG_FREQUENCY);
         }
+        cs.pad_and_shrink();
+        let worker = Worker::new();
+        let mut owned_cs = owned_cs.into_assembly::<std::alloc::Global>();
+        owned_cs.print_gate_stats();
+        assert!(owned_cs.check_if_satisfied(&worker));
     }
 
     /// Test multiplication by a non-residue of `Fq2` field extension.
