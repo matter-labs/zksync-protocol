@@ -10,7 +10,7 @@ impl ProofCompressionFunction for CompressionMode5ForWrapper {
     type PreviousLayerPoW = NoPow;
 
     // no PoW on this step too
-    type ThisLayerPoW = NoPow;
+    type ThisLayerPoW = CompressionPoWForWrapper;
     type ThisLayerHasher = CompressionTreeHasherForWrapper;
     type ThisLayerTranscript = CompressionTranscriptForWrapper;
 
@@ -96,11 +96,11 @@ impl ProofCompressionFunction for CompressionMode5ForWrapper {
 
     fn proof_config_for_compression_step() -> ProofConfig {
         ProofConfig {
-            fri_lde_factor: 4096,
+            fri_lde_factor: 512,
             merkle_tree_cap_size: 8,
             fri_folding_schedule: None,
             security_level: crate::L1_SECURITY_BITS,
-            pow_bits: 0,
+            pow_bits: 26,
         }
     }
 

@@ -1,3 +1,5 @@
+#![feature(array_chunks)]
+
 use crate::boojum::algebraic_props::round_function::{
     absorb_multiple_rounds, AbsorptionModeOverwrite, AlgebraicRoundFunction,
 };
@@ -28,11 +30,13 @@ pub trait OutOfCircuitFixedLengthEncodable<F: SmallField, const N: usize>: Clone
 
 // all encodings must match circuit counterparts
 pub mod callstack_entry;
+pub mod commitments;
 pub mod decommittment_request;
 pub mod log_query;
 pub mod memory_query;
 pub mod recursion_request;
 pub mod state_diff_record;
+pub mod utils;
 
 pub use self::log_query::*;
 

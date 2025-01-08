@@ -25,6 +25,7 @@ path = "src/geometry_config_generator/main.rs"
 [dependencies]
 # "Owned" dependencies
 circuit_definitions.workspace = true
+circuit_encodings.workspace = true
 circuit_sequencer_api.workspace = true
 kzg.workspace = true
 zkevm-assembly.workspace = true
@@ -51,7 +52,7 @@ rand = "0.4"
 indicatif = "0.16"
 
 [features]
-verbose_circuits = ["circuit_definitions/verbose_circuits", "circuit_sequencer_api/verbose_circuits"]
+verbose_circuits = ["circuit_definitions/verbose_circuits", "circuit_encodings/verbose_circuits"]
 log_tracing = ["circuit_definitions/log_tracing"]
 
 default = ["log_tracing"]
