@@ -1,5 +1,6 @@
 use arrayvec::ArrayVec;
 
+use std::collections::VecDeque;
 use std::sync::{Arc, RwLock};
 
 use boojum::algebraic_props::round_function::AlgebraicRoundFunction;
@@ -48,13 +49,8 @@ use self::ec_mul::implementation::convert_uint256_to_field_element;
 use self::implementation::ec_pairing;
 use self::input::EcPairingCircuitInstanceWitness;
 
-pub mod final_exp;
-pub mod implementation;
-pub mod input;
-pub mod alternative_pairing;
-// pub mod algebraic_torus;
 
-pub const NUM_MEMORY_READS_PER_CYCLE: usize = 6;
+pub const NUM_MEMORY_READS_PER_CYCLE: usize = 18;
 pub const EXCEPTION_FLAGS_ARR_LEN: usize = 8;
 const NUM_PAIRINGS_IN_MULTIPAIRING: usize = 3;
 #[derive(
@@ -130,7 +126,7 @@ fn precompile_inner<F: SmallField, CS: ConstraintSystem<F>>(
     let base_field_params = &Arc::new(bn254_base_field_params());
 
     let n = p_points.len();
-    let mut coordinates: ArrayVec<UInt256<F>, _> = ArrayVec::new();
+    let mut coordinates: ArrayVec<UInt256<F>, 18> = ArrayVec::new();
 
     for i in 0..n {
         coordinates.push(p_points[i].x);
@@ -147,14 +143,10 @@ fn precompile_inner<F: SmallField, CS: ConstraintSystem<F>>(
     let mut g2_points_in_circuit = Vec::with_capacity(n);
 
     for i in 0..n {
-        let p_x_fe = convert_uint256_to_field_element(cs, &p_points[i].x, &base_field_params);
-        let p_y_fe = convert_uint256_to_field_element(cs, &p_points[i].y, &base_field_params);
+        let x = convert_uint256_to_field_element(cs, &p_points[i].x, &base_field_params);
+        let y = convert_uint256_to_field_element(cs, &p_points[i].y, &base_field_params);
         use crate::bn254::ec_pairing::alternative_pairing::AffinePoint;
-        let p_affine = AffinePoint {
-            x: p_x_fe,
-            y: p_y_fe,
-            is_in_eval_form: false,
-        };
+        let p_affine = AffinePoint::from_xy_unchecked(x, y);
 
         let q_x_c0_fe = convert_uint256_to_field_element(cs, &q_points[i].x_c0, &base_field_params);
         let q_x_c1_fe = convert_uint256_to_field_element(cs, &q_points[i].x_c1, &base_field_params);
@@ -183,7 +175,7 @@ fn precompile_inner<F: SmallField, CS: ConstraintSystem<F>>(
 
     use crate::bn254::ec_pairing::alternative_pairing::multipairing_naive;
     let (result, _, no_exeption)  = unsafe { multipairing_naive(cs, &mut pairing_inputs) };
-    let mut result = result.decompress(cs);
+    let result = result.decompress(cs);
     let mut are_valid_inputs = ArrayVec::<_, EXCEPTION_FLAGS_ARR_LEN>::new();
     are_valid_inputs.extend(coordinates_are_in_field);
     are_valid_inputs.push(no_exeption);
@@ -202,10 +194,9 @@ pub fn ecpairing_precompile_inner<
     memory_queue: &mut MemoryQueue<F, R>,
     precompile_calls_queue: &mut StorageLogQueue<F, R>,
     memory_read_witness: ConditionalWitnessAllocator<F, UInt256<F>>,
-    mut state: EcPairingFunctionFSM<F>,
     _round_function: &R,
     limit: usize,
-) -> EcPairingFunctionFSM<F>
+)
 where
     [(); <LogQuery<F> as CSAllocatableExt<F>>::INTERNAL_STRUCT_LEN]:,
     [(); <MemoryQuery<F> as CSAllocatableExt<F>>::INTERNAL_STRUCT_LEN]:,
@@ -224,46 +215,27 @@ where
     let boolean_true = Boolean::allocated_constant(cs, true);
     let zero_u256 = UInt256::zero(cs);
     let one_fq12 = BN256Fq12NNField::one(cs, &Arc::new(bn254_base_field_params()));
-
-    // we can have a degenerate case when queue is empty, but it's a first circuit in the queue,
-    // so we taken default FSM state that has state.read_precompile_call = true;
-    let input_queue_is_empty = precompile_calls_queue.is_empty(cs);
-    // we can only skip the full circuit if we are not in any form of progress
-    let can_finish_immediatelly =
-        Boolean::multi_and(cs, &[state.read_precompile_call, input_queue_is_empty]);
-
-    if crate::config::CIRCUIT_VERSOBE {
-        dbg!(can_finish_immediatelly.witness_hook(cs)());
-        dbg!(state.witness_hook(cs)());
-    }
-
-    state.read_precompile_call = state
-        .read_precompile_call
-        .mask_negated(cs, can_finish_immediatelly);
-    state.read_words_for_round = state
-        .read_words_for_round
-        .mask_negated(cs, can_finish_immediatelly);
-    state.completed = Boolean::multi_or(cs, &[state.completed, can_finish_immediatelly]);
-
-    if crate::config::CIRCUIT_VERSOBE {
-        dbg!(state.witness_hook(cs)());
-        dbg!(precompile_calls_queue.into_state().witness_hook(cs)());
-        memory_read_witness.print_debug_info();
-    }
-
+    let one_u32 = UInt32::allocated_constant(cs, 1u32);
     // main work cycle
     for _cycle in 0..limit {
         if crate::config::CIRCUIT_VERSOBE {
             dbg!(_cycle);
-            dbg!(state.witness_hook(cs)());
             dbg!(precompile_calls_queue.into_state().witness_hook(cs)());
         }
-        // if we are in a proper state then get the ABI from the queue
-        let (precompile_call, _) = precompile_calls_queue.pop_front(cs, state.read_precompile_call);
+        let is_empty = precompile_calls_queue.is_empty(cs);
+        let should_process = is_empty.negated(cs);
+        let (precompile_call, _) = precompile_calls_queue.pop_front(cs, should_process);
+
+        let params_encoding = precompile_call.key;
+        let mut call_params = EcPairingPrecompileCallParams::from_encoding(cs, params_encoding);
+
+
+        let timestamp_to_use_for_read = precompile_call.timestamp;
+        let timestamp_to_use_for_write = timestamp_to_use_for_read.add_no_overflow(cs, one_u32);
 
         Num::conditionally_enforce_equal(
             cs,
-            state.read_precompile_call,
+            should_process,
             &Num::from_variable(precompile_call.aux_byte.get_variable()),
             &Num::from_variable(aux_byte_for_precompile.get_variable()),
         );
@@ -275,118 +247,68 @@ where
         {
             Num::conditionally_enforce_equal(
                 cs,
-                state.read_precompile_call,
+                should_process,
                 &Num::from_variable(a.get_variable()),
                 &Num::from_variable(b.get_variable()),
             );
         }
 
-        // now compute some parameters that describe the call itself
-
-        let params_encoding = precompile_call.key;
-        let call_params = EcPairingPrecompileCallParams::from_encoding(cs, params_encoding);
-
-        state.precompile_call_params = EcPairingPrecompileCallParams::conditionally_select(
-            cs,
-            state.read_precompile_call,
-            &call_params,
-            &state.precompile_call_params,
-        );
-        // also set timestamps
-        state.timestamp_to_use_for_read = UInt32::conditionally_select(
-            cs,
-            state.read_precompile_call,
-            &precompile_call.timestamp,
-            &state.timestamp_to_use_for_read,
-        );
-
-        // timestamps have large space, so this can be expected
-        let timestamp_to_use_for_write =
-            unsafe { state.timestamp_to_use_for_read.increment_unchecked(cs) };
-        state.timestamp_to_use_for_write = UInt32::conditionally_select(
-            cs,
-            state.read_precompile_call,
-            &timestamp_to_use_for_write,
-            &state.timestamp_to_use_for_write,
-        );
-
-        state.read_words_for_round = Boolean::multi_or(
-            cs,
-            &[state.read_precompile_call, state.read_words_for_round],
-        );
-        state.read_precompile_call = boolean_false;
-
-        let zero_pairs_left = state.precompile_call_params.num_pairs.is_zero(cs);
-
         let mut read_values = [zero_u256; NUM_MEMORY_READS_PER_CYCLE];
-        let should_read = zero_pairs_left.negated(cs);
-        let mut bias_variable = should_read.get_variable();
+        let mut bias_variable = should_process.get_variable();
+
         for dst in read_values.iter_mut() {
-            let read_query_value =
-                memory_read_witness.conditionally_allocate_biased(cs, should_read, bias_variable);
+            let read_query_value = memory_read_witness.conditionally_allocate_biased(
+                cs,
+                should_process,
+                bias_variable,
+            );
             bias_variable = read_query_value.inner[0].get_variable();
 
             *dst = read_query_value;
 
             let read_query = MemoryQuery {
-                timestamp: state.timestamp_to_use_for_read,
-                memory_page: state.precompile_call_params.input_page,
-                index: state.precompile_call_params.input_offset,
+                timestamp: timestamp_to_use_for_read,
+                memory_page: call_params.input_page,
+                index: call_params.input_offset,
                 rw_flag: boolean_false,
                 is_ptr: boolean_false,
                 value: read_query_value,
             };
 
-            let may_be_new_offset = unsafe {
-                state
-                    .precompile_call_params
-                    .input_offset
-                    .increment_unchecked(cs)
-            };
-            state.precompile_call_params.input_offset = UInt32::conditionally_select(
-                cs,
-                state.read_words_for_round,
-                &may_be_new_offset,
-                &state.precompile_call_params.input_offset,
-            );
+            let _ = memory_queue.push(cs, read_query, should_process);
+            
+            call_params.input_offset = call_params
+                .input_offset
+                .add_no_overflow(cs, one_u32);
 
-            // perform read
-            memory_queue.push(cs, read_query, should_read);
         }
 
-        let may_be_new_num_pairs = unsafe {
-            state
-                .precompile_call_params
-                .num_pairs
-                .decrement_unchecked(cs)
-        };
-        state.precompile_call_params.num_pairs = UInt32::conditionally_select(
-            cs,
-            state.read_words_for_round,
-            &may_be_new_num_pairs,
-            &state.precompile_call_params.num_pairs,
-        );
+        // Prepare vectors of G1 and G2
+        let mut p_points = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING);
+        let mut q_points = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING);
+    
+        for i in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
+            let x = read_values[6 * i + 0].clone();
+            let y = read_values[6 * i + 1].clone();
+            let x_c0 = read_values[6 * i + 2].clone();
+            let x_c1 = read_values[6 * i + 3].clone();
+            let y_c0 = read_values[6 * i + 4].clone();
+            let y_c1 = read_values[6 * i + 5].clone();
+    
+            let p = G1AffineCoord { x, y };
+            let q = G2AffineCoord {
+                x_c0,
+                x_c1,
+                y_c0,
+                y_c1,
+            };
+    
+            p_points.push(p);
+            q_points.push(q);
+        }
 
-        let [p_x, p_y, q_x_c1, q_x_c0, q_y_c1, q_y_c0] = read_values;
-
-        let (success, mut result) = pair(cs, &p_x, &p_y, &q_x_c0, &q_x_c1, &q_y_c0, &q_y_c1);
-        NonNativeField::normalize(&mut result, cs);
-
-        let mut acc = result.mul(cs, &mut state.pairing_inner_state.clone());
-        state.pairing_inner_state = <Fq12<
-            _,
-            BN256Fq,
-            NonNativeFieldOverU16<_, bn256::Fq, 17>,
-            BN256Extension12Params,
-        > as NonNativeField<F, BN256Fq>>::conditionally_select(
-            cs,
-            state.read_words_for_round,
-            &acc,
-            &state.pairing_inner_state,
-        );
-
-        let no_pairs_left = state.precompile_call_params.num_pairs.is_zero(cs);
-        let write_result = Boolean::multi_and(cs, &[state.read_words_for_round, no_pairs_left]);
+        let (success,  _) = precompile_inner(cs, &p_points, &q_points);
+        ;
 
         let success_as_u32 = unsafe { UInt32::from_variable_unchecked(success.get_variable()) };
         let mut success = zero_u256;
@@ -394,69 +316,20 @@ where
 
         let success_query = MemoryQuery {
             timestamp: timestamp_to_use_for_write,
-            memory_page: state.precompile_call_params.output_page,
-            index: state.precompile_call_params.output_offset,
+            memory_page: call_params.output_page,
+            index: call_params.output_offset,
             rw_flag: boolean_true,
             is_ptr: boolean_false,
             value: success,
         };
 
-        let _ = memory_queue.push(cs, success_query, write_result);
+        let _ = memory_queue.push(cs, success_query, should_process);
+        // call_params.output_offset = call_params
+        //     .output_offset
+        //     .add_no_overflow(cs, one_u32);
 
-        let maybe_new_offset = unsafe {
-            state
-                .precompile_call_params
-                .output_offset
-                .increment_unchecked(cs)
-        };
-
-        state.precompile_call_params.output_offset = UInt32::conditionally_select(
-            cs,
-            write_result,
-            &maybe_new_offset,
-            &state.precompile_call_params.output_offset,
-        );
-
-        let paired = acc.sub(cs, &mut one_fq12.clone()).is_zero(cs);
-        let paired_as_u32 = unsafe { UInt32::from_variable_unchecked(paired.get_variable()) };
-        let mut paired = zero_u256;
-        paired.inner[0] = paired_as_u32;
-
-        let write_query = MemoryQuery {
-            timestamp: state.timestamp_to_use_for_write,
-            memory_page: state.precompile_call_params.output_page,
-            index: state.precompile_call_params.output_offset,
-            rw_flag: boolean_true,
-            is_ptr: boolean_false,
-            value: paired,
-        };
-
-        memory_queue.push(cs, write_query, write_result);
-
-        let input_is_empty = precompile_calls_queue.is_empty(cs);
-        let input_is_not_empty = input_is_empty.negated(cs);
-        let nothing_left = Boolean::multi_and(cs, &[write_result, input_is_empty]);
-        let process_next = Boolean::multi_and(cs, &[write_result, input_is_not_empty]);
-
-        state.read_precompile_call = process_next;
-        state.completed = Boolean::multi_or(cs, &[nothing_left, state.completed]);
-        let t = Boolean::multi_or(cs, &[state.read_precompile_call, state.completed]);
-        state.read_words_for_round = t.negated(cs);
-
-        if crate::config::CIRCUIT_VERSOBE {
-            dbg!(state.witness_hook(cs)());
-            dbg!(precompile_calls_queue.into_state().witness_hook(cs)());
-        }
     }
-
-    if crate::config::CIRCUIT_VERSOBE {
-        dbg!(state.witness_hook(cs)());
-        dbg!(precompile_calls_queue.into_state().witness_hook(cs)());
-    }
-
     precompile_calls_queue.enforce_consistency(cs);
-
-    state
 }
 
 pub fn ecpairing_function_entry_point<
@@ -480,7 +353,7 @@ where
         requests_queue_witness,
         memory_reads_witness,
     } = witness;
-
+    
     let mut structured_input =
         EcPairingCircuitInputOutput::alloc_ignoring_outputs(cs, closed_form_input.clone());
 
@@ -522,22 +395,11 @@ where
         witness_source: Arc::new(RwLock::new(memory_reads_witness)),
     };
 
-    let mut starting_fsm_state = EcPairingFunctionFSM::placeholder(cs);
-    starting_fsm_state.read_precompile_call = Boolean::allocated_constant(cs, true);
-
-    let initial_state = EcPairingFunctionFSM::conditionally_select(
-        cs,
-        start_flag,
-        &starting_fsm_state,
-        &structured_input.hidden_fsm_input.internal_fsm,
-    );
-
-    let final_state = ecpairing_precompile_inner::<F, CS, R>(
+    ecpairing_precompile_inner::<F, CS, R>(
         cs,
         &mut memory_queue,
         &mut requests_queue,
         read_queries_allocator,
-        initial_state,
         round_function,
         limit,
     );
@@ -545,7 +407,7 @@ where
     let final_memory_state = memory_queue.into_state();
     let final_requests_state = requests_queue.into_state();
 
-    let done = final_state.completed;
+    let done = requests_queue.is_empty(cs);
     structured_input.completion_flag = done;
     structured_input.observable_output = PrecompileFunctionOutputData::placeholder(cs);
 
@@ -556,7 +418,6 @@ where
         &structured_input.observable_output.final_memory_state,
     );
 
-    structured_input.hidden_fsm_output.internal_fsm = final_state;
     structured_input.hidden_fsm_output.log_queue_state = final_requests_state;
     structured_input.hidden_fsm_output.memory_queue_state = final_memory_state;
 

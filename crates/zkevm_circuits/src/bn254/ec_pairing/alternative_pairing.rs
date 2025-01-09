@@ -173,6 +173,13 @@ impl<F: SmallField> AffinePoint<F> {
 
         AffinePoint { x, y, is_in_eval_form: false }
     }
+    pub fn from_xy_unchecked(x: Fp<F>, y: Fp<F>) -> Self {
+        AffinePoint {
+            x,
+            y,
+            is_in_eval_form: false,
+        }
+    }
 
     fn is_point_at_infty<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS) -> Boolean<F> {
         let x_is_zero = self.x.is_zero(cs);
