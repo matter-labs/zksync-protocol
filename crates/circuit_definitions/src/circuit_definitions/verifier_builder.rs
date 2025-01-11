@@ -1,6 +1,7 @@
 use snark_wrapper::boojum::field::goldilocks::{GoldilocksExt2, GoldilocksField};
 
 use super::*;
+use super::base_layer::ecmultipairing_naive::ECMultiPairingNaiveFunctionInstanceSynthesisFunction;
 
 use crate::boojum::cs::traits::circuit::CircuitBuilderProxy;
 use crate::circuit_definitions::base_layer::*;
@@ -45,6 +46,8 @@ pub type ECMulBuilder =
     CircuitBuilderProxy<GoldilocksField, ECMulFunctionInstanceSynthesisFunction>;
 pub type ECPairingBuilder =
     CircuitBuilderProxy<GoldilocksField, ECPairingFunctionInstanceSynthesisFunction>;
+pub type ECMultiPairingNaiveBuilder =
+    CircuitBuilderProxy<GoldilocksField, ECMultiPairingNaiveFunctionInstanceSynthesisFunction>;
 
 type F = GoldilocksField;
 type EXT = GoldilocksExt2;
@@ -123,6 +126,9 @@ where
         }
         i if i == BaseLayerCircuitType::ECPairingPrecompile as u8 => {
             ECPairingBuilder::dyn_verifier_builder()
+        }
+        i if i == BaseLayerCircuitType::ECMultiPairingNaivePrecompile as u8 => {
+            ECMultiPairingNaiveBuilder::dyn_verifier_builder()
         }
         _ => {
             panic!("unknown circuit type = {}", circuit_type);
@@ -206,6 +212,9 @@ where
         }
         i if i == BaseLayerCircuitType::ECPairingPrecompile as u8 => {
             ECPairingBuilder::dyn_recursive_verifier_builder()
+        }
+        i if i == BaseLayerCircuitType::ECMultiPairingNaivePrecompile as u8 => {
+            ECMultiPairingNaiveBuilder::dyn_recursive_verifier_builder()
         }
         _ => {
             panic!("unknown circuit type = {}", circuit_type);

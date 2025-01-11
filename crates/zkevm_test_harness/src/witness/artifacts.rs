@@ -68,6 +68,7 @@ pub struct DemuxedPrecompilesLogQueries {
     pub ecadd: Vec<LogQuery>,
     pub ecmul: Vec<LogQuery>,
     pub ecpairing: Vec<LogQuery>,
+    pub ecmultipairing_naive: Vec<LogQuery>,
 }
 
 impl DemuxedLogQueries {
@@ -121,6 +122,9 @@ impl DemuxedLogQueries {
                     }
                     a if a == *ECPAIRING_PRECOMPILE_FORMAL_ADDRESS => {
                         precompiles.ecpairing.push(query);
+                    }
+                    a if a == *ECMULTIPAIRING_NAIVE_PRECOMPILE_FORMAL_ADDRESS => {
+                        precompiles.ecmultipairing_naive.push(query);
                     }
                     _ => {
                         // just burn ergs

@@ -49,6 +49,7 @@ pub enum BaseLayerCircuitType {
     ECAddPrecompile = 17,
     ECMulPrecompile = 18,
     ECPairingPrecompile = 19,
+    ECMultiPairingNaivePrecompile = 20,
     EIP4844Repack = 255,
 }
 
@@ -74,6 +75,7 @@ impl BaseLayerCircuitType {
             a if a == Self::ECAddPrecompile as u8 => Self::ECAddPrecompile,
             a if a == Self::ECMulPrecompile as u8 => Self::ECMulPrecompile,
             a if a == Self::ECPairingPrecompile as u8 => Self::ECPairingPrecompile,
+            a if a == Self::ECMultiPairingNaivePrecompile as u8 => Self::ECMultiPairingNaivePrecompile,
             a if a == Self::EIP4844Repack as u8 => Self::EIP4844Repack,
             _ => {
                 panic!("unknown circuit type {}", value);

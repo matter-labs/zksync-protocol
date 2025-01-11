@@ -33,6 +33,7 @@ pub mod vm_main;
 pub mod ecadd;
 pub mod ecmul;
 pub mod ecpairing;
+pub mod ecmultipairing_naive;
 pub mod eip4844;
 pub mod linear_hasher;
 pub mod modexp;
@@ -40,6 +41,7 @@ pub mod modexp;
 pub use self::code_decommitter::CodeDecommitterInstanceSynthesisFunction;
 pub use self::ecadd::ECAddFunctionInstanceSynthesisFunction;
 pub use self::ecmul::ECMulFunctionInstanceSynthesisFunction;
+use self::ecmultipairing_naive::ECMultiPairingNaiveFunctionInstanceSynthesisFunction;
 pub use self::ecpairing::ECPairingFunctionInstanceSynthesisFunction;
 pub use self::ecrecover::ECRecoverFunctionInstanceSynthesisFunction;
 pub use self::eip4844::EIP4844InstanceSynthesisFunction;
@@ -82,6 +84,8 @@ pub type ECMulCircuit =
     ZkSyncUniformCircuitInstance<GoldilocksField, ECMulFunctionInstanceSynthesisFunction>;
 pub type ECPairingCircuit =
     ZkSyncUniformCircuitInstance<GoldilocksField, ECPairingFunctionInstanceSynthesisFunction>;
+pub type ECMultiPairingNaiveCircuit =
+    ZkSyncUniformCircuitInstance<GoldilocksField, ECMultiPairingNaiveFunctionInstanceSynthesisFunction>;
 pub type RAMPermutationCircuit =
     ZkSyncUniformCircuitInstance<GoldilocksField, RAMPermutationInstanceSynthesisFunction>;
 pub type StorageSorterCircuit =
@@ -133,6 +137,7 @@ pub enum ZkSyncBaseLayerStorage<
     ECAdd(T),
     ECMul(T),
     ECPairing(T),
+    ECMultiPairingNaive(T),
 }
 
 impl<T: Clone + std::fmt::Debug + serde::Serialize + serde::de::DeserializeOwned>
@@ -160,6 +165,7 @@ impl<T: Clone + std::fmt::Debug + serde::Serialize + serde::de::DeserializeOwned
             ZkSyncBaseLayerStorage::ECAdd(..) => "ECAdd",
             ZkSyncBaseLayerStorage::ECMul(..) => "ECMul",
             ZkSyncBaseLayerStorage::ECPairing(..) => "ECPairing",
+            ZkSyncBaseLayerStorage::ECMultiPairingNaive(..) => "ECMultiPairing naive version",
         }
     }
 
@@ -209,6 +215,9 @@ impl<T: Clone + std::fmt::Debug + serde::Serialize + serde::de::DeserializeOwned
             ZkSyncBaseLayerStorage::ECPairing(..) => {
                 BaseLayerCircuitType::ECPairingPrecompile as u8
             }
+            ZkSyncBaseLayerStorage::ECMultiPairingNaive(..) => {
+                BaseLayerCircuitType::ECMultiPairingNaivePrecompile as u8
+            }
         }
     }
 
@@ -234,6 +243,7 @@ impl<T: Clone + std::fmt::Debug + serde::Serialize + serde::de::DeserializeOwned
             ZkSyncBaseLayerStorage::ECAdd(inner) => inner,
             ZkSyncBaseLayerStorage::ECMul(inner) => inner,
             ZkSyncBaseLayerStorage::ECPairing(inner) => inner,
+            ZkSyncBaseLayerStorage::ECMultiPairingNaive(inner) => inner,
         }
     }
 
@@ -273,6 +283,7 @@ impl<T: Clone + std::fmt::Debug + serde::Serialize + serde::de::DeserializeOwned
             a if a == BaseLayerCircuitType::ECAddPrecompile as u8 => Self::ECAdd(inner),
             a if a == BaseLayerCircuitType::ECMulPrecompile as u8 => Self::ECMul(inner),
             a if a == BaseLayerCircuitType::ECPairingPrecompile as u8 => Self::ECPairing(inner),
+            a if a == BaseLayerCircuitType::ECMultiPairingNaivePrecompile as u8 => Self::ECMultiPairingNaive(inner),
             a @ _ => panic!("unknown numeric type {}", a),
         }
     }
@@ -313,6 +324,7 @@ where
     ECAdd(ECAddCircuit),
     ECMul(ECMulCircuit),
     ECPairing(ECPairingCircuit),
+    ECMultiPairingNaive(ECMultiPairingNaiveCircuit),
 }
 
 impl ZkSyncBaseLayerCircuit
@@ -347,6 +359,7 @@ where
             ZkSyncBaseLayerCircuit::ECAdd(..) => "ECAdd",
             ZkSyncBaseLayerCircuit::ECMul(..) => "ECMul",
             ZkSyncBaseLayerCircuit::ECPairing(..) => "ECPairing",
+            ZkSyncBaseLayerCircuit::ECMultiPairingNaive(..) => "ECMultiPairingNaive",
         }
     }
 
@@ -372,6 +385,8 @@ where
             ZkSyncBaseLayerCircuit::ECAdd(inner) => inner.size_hint(),
             ZkSyncBaseLayerCircuit::ECMul(inner) => inner.size_hint(),
             ZkSyncBaseLayerCircuit::ECPairing(inner) => inner.size_hint(),
+            ZkSyncBaseLayerCircuit::ECMultiPairingNaive(inner) => inner.size_hint(),
+
         }
     }
 
@@ -473,6 +488,7 @@ where
             ZkSyncBaseLayerCircuit::ECAdd(inner) => Self::synthesis_inner::<_, CR>(inner, hint),
             ZkSyncBaseLayerCircuit::ECMul(inner) => Self::synthesis_inner::<_, CR>(inner, hint),
             ZkSyncBaseLayerCircuit::ECPairing(inner) => Self::synthesis_inner::<_, CR>(inner, hint),
+            ZkSyncBaseLayerCircuit::ECMultiPairingNaive(inner) => Self::synthesis_inner::<_, CR>(inner, hint),
         }
     }
 
@@ -498,6 +514,7 @@ where
             ZkSyncBaseLayerCircuit::ECAdd(inner) => inner.geometry_proxy(),
             ZkSyncBaseLayerCircuit::ECMul(inner) => inner.geometry_proxy(),
             ZkSyncBaseLayerCircuit::ECPairing(inner) => inner.geometry_proxy(),
+            ZkSyncBaseLayerCircuit::ECMultiPairingNaive(inner) => inner.geometry_proxy(),
         }
     }
 
@@ -563,6 +580,9 @@ where
             ZkSyncBaseLayerCircuit::ECPairing(inner) => {
                 inner.debug_witness();
             }
+            ZkSyncBaseLayerCircuit::ECMultiPairingNaive(inner) => {
+                inner.debug_witness();
+            }
         };
 
         ()
@@ -613,6 +633,9 @@ where
             ZkSyncBaseLayerCircuit::ECMul(..) => BaseLayerCircuitType::ECMulPrecompile as u8,
             ZkSyncBaseLayerCircuit::ECPairing(..) => {
                 BaseLayerCircuitType::ECPairingPrecompile as u8
+            },
+            ZkSyncBaseLayerCircuit::ECMultiPairingNaive(..) => {
+                BaseLayerCircuitType::ECMultiPairingNaivePrecompile as u8
             }
         }
     }

@@ -54,9 +54,10 @@ pub enum DemuxOutput {
     ECAdd,
     ECMul,
     ECPairing,
+    ECMultiPairingNaive,
 }
 
-pub const NUM_DEMUX_OUTPUTS: usize = DemuxOutput::ECPairing as usize + 1;
+pub const NUM_DEMUX_OUTPUTS: usize = DemuxOutput::ECMultiPairingNaive as usize + 1;
 
 pub const ALL_DEMUX_OUTPUTS: [DemuxOutput; NUM_DEMUX_OUTPUTS] = [
     DemuxOutput::RollupStorage,
@@ -72,6 +73,7 @@ pub const ALL_DEMUX_OUTPUTS: [DemuxOutput; NUM_DEMUX_OUTPUTS] = [
     DemuxOutput::ECAdd,
     DemuxOutput::ECMul,
     DemuxOutput::ECPairing,
+    DemuxOutput::ECMultiPairingNaive,
 ];
 
 impl DemuxOutput {
@@ -102,7 +104,7 @@ impl DemuxOutput {
             Self::ECAdd => Some(*zkevm_opcode_defs::system_params::ECADD_PRECOMPILE_FORMAL_ADDRESS),
             Self::ECMul => Some(*zkevm_opcode_defs::system_params::ECMUL_PRECOMPILE_FORMAL_ADDRESS),
             Self::ECPairing => Some(*zkevm_opcode_defs::system_params::ECPAIRING_PRECOMPILE_FORMAL_ADDRESS),
-
+            // Self::ECMultiPairingNaive => Some(*zkevm_opcode_defs::system_params::ECMULTIPAIRING_NAIVE_PRECOMPILE_ADDRESS),
             _ => None,
         }
     }

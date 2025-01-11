@@ -99,6 +99,7 @@ pub const SEQUENCE_OF_CIRCUIT_TYPES: [BaseLayerCircuitType; NUM_CIRCUITS_FOR_VAR
     BaseLayerCircuitType::ECAddPrecompile,
     BaseLayerCircuitType::ECMulPrecompile,
     BaseLayerCircuitType::ECPairingPrecompile,
+    BaseLayerCircuitType::ECMultiPairingNaivePrecompile,
 ];
 
 #[derive(Derivative, serde::Serialize, serde::Deserialize)]
@@ -228,6 +229,8 @@ pub fn scheduler_function<
     let ecpairing_observable_output =
         PrecompileFunctionOutputData::allocate(cs, witness.ecpairing_observable_output.clone());
 
+    let ecmultipairing_naive_observable_output =
+        PrecompileFunctionOutputData::allocate(cs, witness.ecmultipairing_naive_observable_output.clone());
     let storage_sorter_observable_output = StorageDeduplicatorOutputData::allocate(
         cs,
         witness.storage_sorter_observable_output.clone(),
@@ -358,6 +361,8 @@ pub fn scheduler_function<
         log_demuxer_observable_output.output_queue_states[DemuxOutput::ECMul as usize];
     let ecpairing_access_queue_state =
         log_demuxer_observable_output.output_queue_states[DemuxOutput::ECPairing as usize];
+    let ecmultipairing_naive_access_queue_state =
+        log_demuxer_observable_output.output_queue_states[DemuxOutput::ECMultiPairingNaive as usize];
 
     // precompiles: keccak, sha256, ecrecover, modexp, ecadd, ecmul and ecpairing
     let (keccak_circuit_observable_input_commitment, keccak_circuit_observable_output_commitment) =
@@ -400,7 +405,7 @@ pub fn scheduler_function<
         compute_precompile_commitment(
             cs,
             &modexp_access_queue_state,
-            &modexp_observable_output.final_memory_state,
+            &secp256r1_verify_observable_output.final_memory_state,
             &modexp_observable_output.final_memory_state,
             round_function,
         );
@@ -408,7 +413,7 @@ pub fn scheduler_function<
         compute_precompile_commitment(
             cs,
             &ecadd_access_queue_state,
-            &ecadd_observable_output.final_memory_state,
+            &modexp_observable_output.final_memory_state,
             &ecadd_observable_output.final_memory_state,
             round_function,
         );
@@ -416,7 +421,7 @@ pub fn scheduler_function<
         compute_precompile_commitment(
             cs,
             &ecmul_access_queue_state,
-            &ecmul_observable_output.final_memory_state,
+            &ecadd_observable_output.final_memory_state,
             &ecmul_observable_output.final_memory_state,
             round_function,
         );
@@ -426,10 +431,22 @@ pub fn scheduler_function<
     ) = compute_precompile_commitment(
         cs,
         &ecpairing_access_queue_state,
-        &ecpairing_observable_output.final_memory_state,
+        &ecmul_observable_output.final_memory_state,
         &ecpairing_observable_output.final_memory_state,
         round_function,
     );
+    let (
+        ecmulti_naive_pairing_circuit_observable_input_commitment,
+        ecmulti_naive_pairing_circuit_observable_output_commitment,
+    ) = compute_precompile_commitment(
+        cs,
+        &ecmultipairing_naive_access_queue_state,
+        &ecpairing_observable_output.final_memory_state,
+        &ecmultipairing_naive_observable_output.final_memory_state,
+        round_function,
+    );
+
+    
 
     // ram permutation and validation
     // NBL this circuit is terminal - it has no actual output
@@ -620,6 +637,10 @@ pub fn scheduler_function<
                     ecpairing_circuit_observable_input_commitment,
                 ),
                 (
+                    BaseLayerCircuitType::ECMultiPairingNaivePrecompile,
+                    ecmulti_naive_pairing_circuit_observable_input_commitment,
+                ),
+                (
                     BaseLayerCircuitType::RamValidation,
                     ram_validation_circuit_input_commitment,
                 ),
@@ -698,6 +719,10 @@ pub fn scheduler_function<
                 (
                     BaseLayerCircuitType::ECPairingPrecompile,
                     ecpairing_circuit_observable_output_commitment,
+                ),
+                (
+                    BaseLayerCircuitType::ECMultiPairingNaivePrecompile,
+                    ecmulti_naive_pairing_circuit_observable_output_commitment,
                 ),
                 (
                     BaseLayerCircuitType::RamValidation,
@@ -858,7 +883,7 @@ pub fn scheduler_function<
     {
         let should_skip = modexp_access_queue_state.tail.length.is_zero(cs);
 
-        let input_state = modexp_observable_output.final_memory_state;
+        let input_state = secp256r1_verify_observable_output.final_memory_state;
         let output_state = modexp_observable_output.final_memory_state;
 
         let same_state = is_equal_queue_state(cs, &input_state, &output_state);
@@ -869,7 +894,7 @@ pub fn scheduler_function<
     {
         let should_skip = ecadd_access_queue_state.tail.length.is_zero(cs);
 
-        let input_state = ecadd_observable_output.final_memory_state;
+        let input_state = modexp_observable_output.final_memory_state;
         let output_state = ecadd_observable_output.final_memory_state;
 
         let same_state = is_equal_queue_state(cs, &input_state, &output_state);
@@ -880,7 +905,7 @@ pub fn scheduler_function<
     {
         let should_skip = ecmul_access_queue_state.tail.length.is_zero(cs);
 
-        let input_state = ecmul_observable_output.final_memory_state;
+        let input_state = ecadd_observable_output.final_memory_state;
         let output_state = ecmul_observable_output.final_memory_state;
 
         let same_state = is_equal_queue_state(cs, &input_state, &output_state);
@@ -891,13 +916,25 @@ pub fn scheduler_function<
     {
         let should_skip = ecpairing_access_queue_state.tail.length.is_zero(cs);
 
-        let input_state = ecpairing_observable_output.final_memory_state;
+        let input_state = ecmul_observable_output.final_memory_state;
         let output_state = ecpairing_observable_output.final_memory_state;
 
         let same_state = is_equal_queue_state(cs, &input_state, &output_state);
         same_state.conditionally_enforce_true(cs, should_skip);
 
         skip_flags[(BaseLayerCircuitType::ECPairingPrecompile as u8 as usize) - 1] =
+            Some(should_skip);
+    }
+    {
+        let should_skip = ecmultipairing_naive_access_queue_state.tail.length.is_zero(cs);
+
+        let input_state = ecpairing_observable_output.final_memory_state;
+        let output_state = ecmultipairing_naive_observable_output.final_memory_state;
+
+        let same_state = is_equal_queue_state(cs, &input_state, &output_state);
+        same_state.conditionally_enforce_true(cs, should_skip);
+
+        skip_flags[(BaseLayerCircuitType::ECMultiPairingNaivePrecompile as u8 as usize) - 1] =
             Some(should_skip);
     }
 

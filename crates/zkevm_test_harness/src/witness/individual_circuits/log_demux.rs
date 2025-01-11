@@ -33,7 +33,7 @@ use crate::zk_evm::zkevm_opcode_defs::system_params::{
 use crate::zk_evm::zkevm_opcode_defs::MODEXP_PRECOMPILE_FORMAL_ADDRESS;
 use circuit_definitions::zk_evm::zkevm_opcode_defs::{
     ECADD_PRECOMPILE_FORMAL_ADDRESS, ECMUL_PRECOMPILE_FORMAL_ADDRESS,
-    ECPAIRING_PRECOMPILE_FORMAL_ADDRESS,
+    ECPAIRING_PRECOMPILE_FORMAL_ADDRESS, ECMULTIPAIRING_NAIVE_PRECOMPILE_FORMAL_ADDRESS,
 };
 use std::collections::HashMap;
 

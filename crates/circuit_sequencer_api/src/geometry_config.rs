@@ -92,8 +92,6 @@ const fn get_geometry_config_1_4_1() -> GeometryConfig {
         cycles_per_sha256_circuit: 2206,
         cycles_per_ecrecover_circuit: 7,
         limit_for_l1_messages_pudata_hasher: 774,
-<<<<<<< HEAD
-=======
         // Not supported in this version
         cycles_per_transient_storage_sorter: 0,
         // Not supported in this version
@@ -152,7 +150,6 @@ const fn get_geometry_config_1_5_0() -> GeometryConfig {
         cycles_per_sha256_circuit: 2206,
         cycles_per_ecrecover_circuit: 7,
         limit_for_l1_messages_pudata_hasher: 774,
->>>>>>> origin/dl-precompiles
         cycles_per_transient_storage_sorter: 50875,
         cycles_per_secp256r1_verify_circuit: 4,
         cycles_per_modexp_circuit: 13,
