@@ -10,6 +10,7 @@ pub mod keccak256;
 pub mod modexp;
 pub mod secp256r1_verify;
 pub mod sha256;
+mod ecmultipairing_naive;
 
 use num_enum::TryFromPrimitive;
 use std::convert::TryFrom;

@@ -1548,17 +1548,17 @@ pub(crate) unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
     let (wrapped_f, is_trivial) = Bn256HardPartMethod::final_exp_easy_part(cs, &f, &params, true);
     let chain = Bn256HardPartMethod::get_optinal(); 
     let candidate = chain.final_exp_hard_part(cs, &wrapped_f, true, &params);
+    let mut final_res = candidate.decompress(cs);
     let is_exeption = is_trivial.negated(cs);
     validity_checks.push(is_exeption);
+
+    let mut fp12_one = allocate_fq12_constant(cs, Fq12::one(), &params);
+    let pairing_is_one = final_res.equals(cs, &mut fp12_one);
+    let no_exeption = is_trivial.negated(cs);
+    validity_checks.push(no_exeption);
+    validity_checks.push(pairing_is_one);
+
     let no_exception = Boolean::multi_and(cs, &validity_checks);
-    // let mut fp12_one = allocate_fq12_constant(cs, Fq12::one(), &params);
-    // let pairing_is_one = f.equals(cs, &mut fp12_one);
-    
-    // // let result = pairing_is_one.and(cs, no_exception);
-
-    // // should be deleted later
-    // ConstantsAllocatorGate::new_to_enforce(no_exception.get_variable(), F::ONE);
-
     (candidate, miller_loop_res, no_exception)
 }
 
