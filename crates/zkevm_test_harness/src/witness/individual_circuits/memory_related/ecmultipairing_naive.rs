@@ -1,6 +1,6 @@
 use super::*;
 use std::convert::TryInto;
-
+use crate::zk_evm::zkevm_opcode_defs::ethereum_types::U256;
 use crate::witness::artifacts::LogQueueStates;
 use crate::zkevm_circuits::base_structures::log_query::*;
 use crate::zkevm_circuits::bn254::ec_pairing::input_alternative::{

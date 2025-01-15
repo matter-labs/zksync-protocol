@@ -1,5 +1,5 @@
 use arrayvec::ArrayVec;
-
+use std::collections::VecDeque;
 use std::sync::{Arc, RwLock};
 
 use boojum::algebraic_props::round_function::AlgebraicRoundFunction;
@@ -50,6 +50,7 @@ use self::input_alternative::EcMultiPairingCircuitInstanceWitness;
 
 
 pub const NUM_MEMORY_READS_PER_CYCLE: usize = 18;
+pub const MEMORY_QUERIES_PER_CALL: usize = 18;
 pub const EXCEPTION_FLAGS_ARR_LEN: usize = 8;
 const NUM_PAIRINGS_IN_MULTIPAIRING: usize = 3;
 #[derive(
@@ -351,7 +352,9 @@ where
         requests_queue_witness,
         memory_reads_witness,
     } = witness;
-    
+
+    let memory_reads_witness: VecDeque<_> = memory_reads_witness.into_iter().flatten().collect();
+
     let mut structured_input =
         EcMultiPairingCircuitInputOutput::alloc_ignoring_outputs(cs, closed_form_input.clone());
 

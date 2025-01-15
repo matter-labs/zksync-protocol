@@ -19,7 +19,7 @@ use boojum::gadgets::traits::auxiliary::PrettyComparison;
 use boojum::gadgets::traits::selectable::Selectable;
 use boojum::gadgets::traits::witnessable::WitnessHookable;
 use serde::{Deserialize, Serialize};
-
+pub const MEMORY_QUERIES_PER_CALL: usize = 18;
 #[derive(
     Derivative,
     CSAllocatable,
@@ -69,5 +69,5 @@ pub type EcMultiPairingCircuitInputOutputWitness<F> = ClosedFormInputWitness<
 pub struct EcMultiPairingCircuitInstanceWitness<F: SmallField> {
     pub closed_form_input: EcMultiPairingCircuitInputOutputWitness<F>,
     pub requests_queue_witness: CircuitQueueRawWitness<F, LogQuery<F>, 4, LOG_QUERY_PACKED_WIDTH>,
-    pub memory_reads_witness: VecDeque<U256>,
+    pub memory_reads_witness:  VecDeque<[U256; MEMORY_QUERIES_PER_CALL]>,
 }
