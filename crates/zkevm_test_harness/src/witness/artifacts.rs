@@ -16,7 +16,7 @@ use circuit_definitions::encodings::decommittment_request::DecommittmentQueueSta
 use circuit_definitions::encodings::*;
 use circuit_definitions::zk_evm::zkevm_opcode_defs::{
     ECADD_PRECOMPILE_FORMAL_ADDRESS, ECMUL_PRECOMPILE_FORMAL_ADDRESS,
-    ECPAIRING_PRECOMPILE_FORMAL_ADDRESS, MODEXP_PRECOMPILE_FORMAL_ADDRESS,
+    ECPAIRING_PRECOMPILE_FORMAL_ADDRESS, MODEXP_PRECOMPILE_FORMAL_ADDRESS, ECMULTIPAIRING_NAIVE_PRECOMPILE_FORMAL_ADDRESS,
 };
 use circuit_definitions::zkevm_circuits::bn254::ec_add::input::EcAddCircuitInstanceWitness;
 use circuit_definitions::zkevm_circuits::bn254::ec_mul::input::EcMulCircuitInstanceWitness;
@@ -219,6 +219,10 @@ pub(crate) struct MemoryCircuitsArtifacts<F: SmallField> {
         FirstAndLastCircuitWitness<ECPairingObservableWitness<F>>,
         Vec<ClosedFormInputCompactFormWitness<F>>,
     ),
+    pub ecmultipairing_naive_circuits_data: (
+        FirstAndLastCircuitWitness<ECMultiPairingNaiveObservableWitness<F>>,
+        Vec<ClosedFormInputCompactFormWitness<F>>,
+    ),
 }
 
 use crate::witness::aux_data_structs::one_per_circuit_accumulator::LastPerCircuitAccumulator;
@@ -229,7 +233,7 @@ use super::postprocessing::observable_witness::{
     Keccak256RoundFunctionObservableWitness, LinearHasherObservableWitness,
     ModexpObservableWitness, RamPermutationObservableWitness, Secp256r1VerifyObservableWitness,
     Sha256RoundFunctionObservableWitness, StorageApplicationObservableWitness,
-    StorageDeduplicatorObservableWitness, TransientStorageDeduplicatorObservableWitness,
+    StorageDeduplicatorObservableWitness, TransientStorageDeduplicatorObservableWitness, ECMultiPairingNaiveObservableWitness,
 };
 use super::postprocessing::FirstAndLastCircuitWitness;
 

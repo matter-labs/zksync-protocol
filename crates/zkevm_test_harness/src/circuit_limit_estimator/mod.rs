@@ -219,6 +219,12 @@ pub fn get_circuit_capacity(circuit_type: u8) -> usize {
             },
             None,
         ),
+        23 => compute_inner::<ECMultiPairingNaiveFunctionInstanceSynthesisFunction, _>(
+            |x: usize| {
+                x
+            },
+            None,
+        ),
         _ => panic!("Unknown circuit type for which the limit can be computed {}", circuit_type)
     }
 }

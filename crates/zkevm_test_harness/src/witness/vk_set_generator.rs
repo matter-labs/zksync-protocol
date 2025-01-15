@@ -246,6 +246,16 @@ pub fn circuits_for_vk_generation(
     let circuit = ZkSyncCircuit::<Bn256, VmWitnessOracle<Bn256>>::ECPairing(circuit);
     result.push(circuit);
 
+    // ecmultipairing
+    let circuit = ECMultiPairingNaiveFunctionCircuit::new(
+        None,
+        geometry.cycles_per_ecmultipairingnaive_circuit as usize,
+        round_function.clone(),
+        None,
+    );
+    let circuit = ZkSyncCircuit::<Bn256, VmWitnessOracle<Bn256>>::ECMultiPairingNaive(circuit);
+    result.push(circuit);
+
     // ram permutation
     let circuit = RAMPermutationCircuit::new(
         None,

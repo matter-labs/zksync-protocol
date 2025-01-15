@@ -32,9 +32,9 @@ pub const MODEXP_PRECOMPILE_ADDRESS: u16 = 0x05; // as in Ethereum
 pub const ECADD_PRECOMPILE_ADDRESS: u16 = 0x06; // as in Ethereum
 pub const ECMUL_PRECOMPILE_ADDRESS: u16 = 0x07; // as in Ethereum
 pub const ECPAIRING_PRECOMPILE_ADDRESS: u16 = 0x08; // as in Ethereum
-
 //TODO_O_O change address when contract appears
-pub const ECMULTIPAIRING_NAIVE_PRECOMPILE_ADDRESS: u16 = 0x08; // as in Ethereum
+pub const ECMULTIPAIRING_NAIVE_PRECOMPILE_ADDRESS: u16 = 0x09; // as in Ethereum
+
 pub const MAX_PUBDATA_COST_PER_QUERY: i32 = 65;
 pub const INITIAL_STORAGE_WRITE_PUBDATA_BYTES: usize = 64;
 pub const REPEATED_STORAGE_WRITE_PUBDATA_BYTES: usize = 40;

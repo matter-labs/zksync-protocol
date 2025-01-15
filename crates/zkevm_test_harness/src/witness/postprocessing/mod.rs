@@ -63,6 +63,7 @@ use circuit_definitions::zkevm_circuits::storage_validity_by_grand_product::inpu
 use circuit_definitions::zkevm_circuits::transient_storage_validity_by_grand_product::input::TransientStorageDeduplicatorInstanceWitness;
 use circuit_definitions::zkevm_circuits::transient_storage_validity_by_grand_product::input::*;
 use circuit_definitions::Field;
+use circuit_encodings::zkevm_circuits::bn254::ec_pairing::input_alternative::{EcMultiPairingCircuitInstanceWitness, EcMultiPairingCircuitFSMInputOutput};
 use crossbeam::atomic::AtomicCell;
 use derivative::Derivative;
 use observable_witness::ObservableWitness;
@@ -119,6 +120,8 @@ pub(crate) struct BlockFirstAndLastBasicCircuitsObservableWitnesses {
     pub ecmul_precompile_circuits: FirstAndLastCircuitWitness<ECMulObservableWitness<Field>>,
     pub ecpairing_precompile_circuits:
         FirstAndLastCircuitWitness<ECPairingObservableWitness<Field>>,
+    pub ecmultipairing_naive_precompile_circuits:
+        FirstAndLastCircuitWitness<ECMultiPairingNaiveObservableWitness<Field>>,
     pub ram_permutation_circuits:
         FirstAndLastCircuitWitness<RamPermutationObservableWitness<Field>>,
     pub storage_sorter_circuits:
@@ -314,6 +317,17 @@ impl<F: SmallField> ClosedFormInputField<F> for EcMulCircuitInstanceWitness<F> {
 
 impl<F: SmallField> ClosedFormInputField<F> for EcPairingCircuitInstanceWitness<F> {
     type T = EcPairingCircuitFSMInputOutput<F>;
+    type IN = PrecompileFunctionInputData<F>;
+    type OUT = PrecompileFunctionOutputData<F>;
+
+    fn closed_form_input(
+        &mut self,
+    ) -> &mut ClosedFormInputWitness<F, Self::T, Self::IN, Self::OUT> {
+        &mut self.closed_form_input
+    }
+}
+impl<F: SmallField> ClosedFormInputField<F> for EcMultiPairingCircuitInstanceWitness<F> {
+    type T = EcMultiPairingCircuitFSMInputOutput<F>;
     type IN = PrecompileFunctionInputData<F>;
     type OUT = PrecompileFunctionOutputData<F>;
 

@@ -3,7 +3,7 @@ use zkevm_opcode_defs::{
     FatPointer,
 };
 
-use crate::precompiles::ecadd::ECAddPrecompile;
+use crate::precompiles::{ecadd::ECAddPrecompile, ecmultipairing_naive::EcMultiPairingNaivePrecompile};
 use crate::precompiles::ecmul::ECMulPrecompile;
 use crate::precompiles::ecpairing::ECPairingPrecompile;
 use crate::precompiles::modexp::ModexpPrecompile;
@@ -67,6 +67,7 @@ pub enum PrecompileCyclesWitness {
     ECAdd(Vec<<ECAddPrecompile<true> as Precompile>::CycleWitness>),
     ECMul(Vec<<ECMulPrecompile<true> as Precompile>::CycleWitness>),
     ECPairing(Vec<<ECPairingPrecompile<true> as Precompile>::CycleWitness>),
+    ECMultiPairingNaive(Vec<<EcMultiPairingNaivePrecompile<true> as Precompile>::CycleWitness>),
 }
 
 // ALL traits here are for execution and NOT for witness generation. They can depend on one another, but should

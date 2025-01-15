@@ -50,6 +50,7 @@ use circuit_definitions::zkevm_circuits::eip_4844::input::EIP4844CircuitInstance
 use circuit_definitions::zkevm_circuits::fsm_input_output::ClosedFormInputCompactFormWitness;
 use circuit_definitions::zkevm_circuits::scheduler::aux::BaseLayerCircuitType;
 use circuit_definitions::zkevm_circuits::sort_decommittment_requests::input::CodeDecommittmentsDeduplicatorInstanceWitness;
+use circuit_encodings::zk_evm::zk_evm_abstractions::precompiles::ecmultipairing_naive::EcMultiPairingNaiveRoundWitness;
 use derivative::Derivative;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::mpsc::{self, Receiver, Sender, SyncSender};
@@ -997,6 +998,7 @@ pub(crate) struct PrecompilesInputData {
     pub ecadd_witnesses: Vec<(Cycle, LogQuery, ECAddRoundWitness)>,
     pub ecmul_witnesses: Vec<(Cycle, LogQuery, ECMulRoundWitness)>,
     pub ecpairing_witnesses: Vec<(Cycle, LogQuery, Vec<ECPairingRoundWitness>)>,
+    pub ecmultipairing_naive_witnesses: Vec<(Cycle, LogQuery, EcMultiPairingNaiveRoundWitness)>,
     pub logs_queues_states: PrecompilesQueuesStates,
     pub logs_queries: DemuxedPrecompilesLogQueries,
 }
@@ -1477,6 +1479,32 @@ fn process_memory_related_circuits(
         artifacts_callback_sender.clone(),
     );
 
+        // ecmultipairing_naive precompile
+
+        use crate::witness::individual_circuits::memory_related::ecmultipairing_naive::ecmultipairing_naive_decompose_into_per_circuit_witness;
+
+        tracing::debug!("Running ecmultipairing_naive simulation");
+    
+        let ecmultipairing_naive_circuits_data = ecmultipairing_naive_decompose_into_per_circuit_witness(
+            implicit_memory_queries.ecmultipairing_naive_memory_queries,
+            implicit_memory_states.ecmultipairing_naive_simulator_snapshots,
+            implicit_memory_states.ecmultipairing_naive_memory_states,
+            precompiles_data.ecmultipairing_naive_witnesses,
+            precompiles_data.logs_queries.ecmultipairing_naive,
+            precompiles_data.logs_queues_states.ecmultipairing_naive,
+            geometry.cycles_per_ecmultipairing_naive_circuit as usize,
+            round_function,
+        );
+    
+        circuits_data.ecmultipairing_naive_circuits_data = make_circuits(
+            geometry.cycles_per_ecmultipairing_naive_circuit,
+            BaseLayerCircuitType::ECMultiPairingNaivePrecompile,
+            ecmultipairing_naive_circuits_data,
+            *round_function,
+            |x| ZkSyncBaseLayerCircuit::ECMultiPairingNaive(x),
+            artifacts_callback_sender.clone(),
+        );
+
     circuits_data
 }
 
@@ -1535,6 +1563,7 @@ pub(crate) fn create_artifacts_from_tracer<'a>(
         ecadd_witnesses,
         ecmul_witnesses,
         ecpairing_witnesses,
+        ecmultipairing_naive_witnesses,
         mut callstack_with_aux_data,
         vm_snapshots,
         ..
@@ -1671,6 +1700,7 @@ pub(crate) fn create_artifacts_from_tracer<'a>(
         ecpairing_witnesses,
         logs_queues_states: precompiles_logs_queues_states,
         logs_queries: demuxed_log_queries.precompiles,
+        ecmultipairing_naive_witnesses,
     };
 
     // Prepare inputs for processing of all circuits related to memory
@@ -1772,6 +1802,7 @@ pub(crate) fn create_artifacts_from_tracer<'a>(
             ecadd_precompile_circuits: memory_circuits_data.ecadd_circuits_data.0,
             ecmul_precompile_circuits: memory_circuits_data.ecmul_circuits_data.0,
             ecpairing_precompile_circuits: memory_circuits_data.ecpairing_circuits_data.0,
+            ecmultipairing_naive_precompile_circuits: memory_circuits_data.ecmultipairing_naive_circuits_data.0,
             ram_permutation_circuits: memory_circuits_data.ram_permutation_artifacts.0,
             storage_sorter_circuits: log_circuits_data.storage_deduplicator_artifacts.0,
             storage_application_circuits: log_circuits_data.storage_application_artifacts.0,
@@ -1806,6 +1837,7 @@ pub(crate) fn create_artifacts_from_tracer<'a>(
         .chain(memory_circuits_data.ecadd_circuits_data.1)
         .chain(memory_circuits_data.ecmul_circuits_data.1)
         .chain(memory_circuits_data.ecpairing_circuits_data.1)
+        .chain(memory_circuits_data.ecmultipairing_naive_circuits_data.1)
         .collect();
 
     (

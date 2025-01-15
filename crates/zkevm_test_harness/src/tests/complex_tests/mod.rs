@@ -157,8 +157,9 @@ fn get_testing_geometry_config() -> GeometryConfig {
         cycles_per_ecadd_circuit: 10,
         cycles_per_ecmul_circuit: 10,
         cycles_per_ecpairing_circuit: 10,
-
+        cycles_per_ecmultipairing_naive_circuit: 10,
         limit_for_l1_messages_pudata_hasher: 32,
+
     }
 }
 
@@ -562,7 +563,7 @@ fn run_and_try_create_witness_inner(
     println!("Computing leaf vks");
 
     for base_circuit_type in ((BaseLayerCircuitType::VM as u8)
-        ..=(BaseLayerCircuitType::ECPairingPrecompile as u8))
+        ..=(BaseLayerCircuitType::ECMultiPairingNaivePrecompile as u8))
         .chain(std::iter::once(BaseLayerCircuitType::EIP4844Repack as u8))
     {
         let recursive_circuit_type = base_circuit_type_into_recursive_leaf_circuit_type(
@@ -1092,7 +1093,7 @@ fn run_and_try_create_witness_inner(
     // collect for recursion tip. We know that is this test depth is 0
     let mut recursion_tip_proofs = vec![];
     for recursive_circuit_type in (ZkSyncRecursionLayerStorageType::LeafLayerCircuitForMainVM as u8)
-        ..=(ZkSyncRecursionLayerStorageType::LeafLayerCircuitForECPairing as u8)
+        ..=(ZkSyncRecursionLayerStorageType::LeafLayerCircuitForECMultiPairingNaive as u8)
     {
         match source.get_node_layer_proof(recursive_circuit_type, 0, 0) {
             Ok(proof) => recursion_tip_proofs.push(proof.into_inner()),
@@ -1112,7 +1113,7 @@ fn run_and_try_create_witness_inner(
     let node_vk = source.get_recursion_layer_node_vk().unwrap();
     // leaf params
     use crate::zkevm_circuits::recursion::leaf_layer::input::RecursionLeafParametersWitness;
-    let leaf_layer_params: [RecursionLeafParametersWitness<GoldilocksField>; 20] = leaf_vk_commits
+    let leaf_layer_params: [RecursionLeafParametersWitness<GoldilocksField>; 21] = leaf_vk_commits
         .iter()
         .map(|el| el.1.clone())
         .collect::<Vec<_>>()

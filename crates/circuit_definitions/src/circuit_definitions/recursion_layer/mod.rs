@@ -522,7 +522,7 @@ impl<T: Clone + std::fmt::Debug + serde::Serialize + serde::de::DeserializeOwned
             BaseLayerCircuitType::ECAddPrecompile => Self::LeafLayerCircuitForECAdd(inner),
             BaseLayerCircuitType::ECMulPrecompile => Self::LeafLayerCircuitForECMul(inner),
             BaseLayerCircuitType::ECPairingPrecompile => Self::LeafLayerCircuitForECPairing(inner),
-            BaseLayerCircuitType::ECPairingPrecompile => Self::LeafLayerCircuitForECMultiPairingNaive(inner),
+            BaseLayerCircuitType::ECMultiPairingNaivePrecompile => Self::LeafLayerCircuitForECMultiPairingNaive(inner),
             BaseLayerCircuitType::EIP4844Repack => Self::LeafLayerCircuitForEIP4844Repack(inner),
             circuit_type => {
                 panic!("unknown base circuit type for leaf: {:?}", circuit_type);

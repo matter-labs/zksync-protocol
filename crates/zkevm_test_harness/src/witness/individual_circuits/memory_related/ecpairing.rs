@@ -20,7 +20,7 @@ use boojum::gadgets::non_native_field::implementations::implementation_u16::FFPr
 use circuit_definitions::encodings::*;
 
 use derivative::Derivative;
-
+// TODO_O_O amount_of_queries isnt correct?
 pub(crate) fn ecpairing_memory_queries(
     ecpairing_witnesses: &Vec<(u32, LogQuery_, Vec<ECPairingRoundWitness>)>,
 ) -> Vec<MemoryQuery> {

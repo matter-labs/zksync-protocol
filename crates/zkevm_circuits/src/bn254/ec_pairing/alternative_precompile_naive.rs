@@ -28,7 +28,7 @@ use super::*;
 use crate::base_structures::log_query::*;
 use crate::base_structures::memory_query::*;
 use crate::base_structures::precompile_input_outputs::PrecompileFunctionOutputData;
-use crate::bn254::ec_pairing::input_alternative::{EcMultiPairingCircuitInputOutput, EcMultiPairingFunctionFSM};
+use crate::bn254::ec_pairing::input_alternative::{EcMultiPairingCircuitInputOutput};
 use crate::bn254::validation::{
     is_affine_infinity, is_on_curve, is_on_twist_curve, is_twist_affine_infinity, validate_in_field,
 };
