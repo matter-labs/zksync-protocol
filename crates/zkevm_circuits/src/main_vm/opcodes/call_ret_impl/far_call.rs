@@ -804,7 +804,6 @@ where
     heap_growth = heap_growth.mask_negated(cs, uf); // if we access in bounds then it's 0
     let new_heap_upper_bound =
         UInt32::conditionally_select(cs, uf, &heap_bound, &heap_max_accessed);
-    let grow_heap = Boolean::multi_and(cs, &[forwarding_data.use_heap, execute]);
 
     let aux_heap_max_accessed = upper_bound.mask(cs, forwarding_data.use_aux_heap);
     let aux_heap_bound = current_callstack_entry.aux_heap_upper_bound;
@@ -812,21 +811,15 @@ where
     aux_heap_growth = aux_heap_growth.mask_negated(cs, uf); // if we access in bounds then it's 0
     let new_aux_heap_upper_bound =
         UInt32::conditionally_select(cs, uf, &aux_heap_bound, &aux_heap_max_accessed);
-    let grow_aux_heap = Boolean::multi_and(cs, &[forwarding_data.use_aux_heap, execute]);
 
-    let mut growth_cost = heap_growth.mask(cs, grow_heap);
-    growth_cost = UInt32::conditionally_select(cs, grow_aux_heap, &aux_heap_growth, &growth_cost);
-
-    if crate::config::CIRCUIT_VERSOBE {
-        if execute.witness_hook(&*cs)().unwrap() {
-            dbg!(opcode_carry_parts.preliminary_ergs_left.witness_hook(&*cs)().unwrap());
-            dbg!(grow_heap.witness_hook(&*cs)().unwrap());
-            dbg!(heap_growth.witness_hook(&*cs)().unwrap());
-            dbg!(grow_aux_heap.witness_hook(&*cs)().unwrap());
-            dbg!(aux_heap_growth.witness_hook(&*cs)().unwrap());
-            dbg!(growth_cost.witness_hook(&*cs)().unwrap());
-        }
-    }
+    let mut growth_cost = heap_growth.mask(cs, forwarding_data.use_heap);
+    growth_cost = UInt32::conditionally_select(
+        cs,
+        forwarding_data.use_aux_heap,
+        &aux_heap_growth,
+        &growth_cost,
+    );
+    growth_cost = growth_cost.mask(cs, execute);
 
     let (ergs_left_after_growth, uf) = opcode_carry_parts
         .preliminary_ergs_left
@@ -838,9 +831,23 @@ where
     let ergs_left_after_growth = ergs_left_after_growth.mask_negated(cs, uf); // if not enough - set to 0
     exceptions.push(uf);
 
+    let panic = Boolean::multi_or(
+        cs,
+        &[common_abi_parts.ptr_validation_data.generally_invalid, uf],
+    );
+    let no_panic = panic.negated(cs);
+    let grow_heap = Boolean::multi_and(cs, &[forwarding_data.use_heap, execute, no_panic]);
+    let grow_aux_heap = Boolean::multi_and(cs, &[forwarding_data.use_aux_heap, execute, no_panic]);
+
     if crate::config::CIRCUIT_VERSOBE {
         if execute.witness_hook(&*cs)().unwrap() {
             dbg!(ergs_left_after_growth.witness_hook(&*cs)().unwrap());
+            dbg!(opcode_carry_parts.preliminary_ergs_left.witness_hook(&*cs)().unwrap());
+            dbg!(grow_heap.witness_hook(&*cs)().unwrap());
+            dbg!(heap_growth.witness_hook(&*cs)().unwrap());
+            dbg!(grow_aux_heap.witness_hook(&*cs)().unwrap());
+            dbg!(aux_heap_growth.witness_hook(&*cs)().unwrap());
+            dbg!(growth_cost.witness_hook(&*cs)().unwrap());
         }
     }
 
@@ -884,15 +891,6 @@ where
     let extra_ergs_from_caller_to_callee =
         unsafe { UInt32::from_variable_unchecked(extra_ergs_from_caller_to_callee) };
     let callee_stipend = unsafe { UInt32::from_variable_unchecked(callee_stipend) };
-
-    let evm_simulator_stipend =
-        UInt32::allocated_constant(cs, zkevm_opcode_defs::system_params::EVM_SIMULATOR_STIPEND);
-    let callee_stipend = UInt32::conditionally_select(
-        cs,
-        can_call_evm_simulator_without_masking,
-        &evm_simulator_stipend,
-        &callee_stipend,
-    );
 
     if crate::config::CIRCUIT_VERSOBE {
         if execute.witness_hook(&*cs)().unwrap() {
@@ -1133,12 +1131,23 @@ where
         cs,
         zkevm_opcode_defs::system_params::NEW_FRAME_MEMORY_STIPEND,
     );
+    let memory_size_stipend_for_evm = UInt32::allocated_constant(
+        cs,
+        zkevm_opcode_defs::system_params::NEW_EVM_FRAME_MEMORY_STIPEND,
+    );
 
     let memory_stipend = UInt32::conditionally_select(
         cs,
         new_callstack_entry.is_kernel_mode,
         &memory_size_stipend_for_kernel,
         &memory_size_stipend_for_userspace,
+    );
+
+    let memory_stipend = UInt32::conditionally_select(
+        cs,
+        versioned_byte_is_evm_bytecode,
+        &memory_size_stipend_for_evm,
+        &memory_stipend,
     );
 
     new_callstack_entry.heap_upper_bound = memory_stipend;
@@ -1169,6 +1178,9 @@ where
     // non-local call
     let boolean_false = Boolean::allocated_constant(cs, false);
     new_callstack_entry.is_local_call = boolean_false;
+
+    // stipend
+    new_callstack_entry.stipend = callee_stipend;
 
     let oracle = witness_oracle.clone();
     // we should assemble all the dependencies here, and we will use AllocateExt here
