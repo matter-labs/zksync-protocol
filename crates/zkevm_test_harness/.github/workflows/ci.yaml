@@ -5,7 +5,7 @@ on:
 jobs:
   build:
     name: cargo build
-    runs-on: [ubuntu-22.04-github-hosted-32core]
+    runs-on: [ubuntu-24.04-github-hosted-32core]
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -27,12 +27,12 @@ jobs:
         run: cargo build --manifest-path circuit_definitions/Cargo.toml --verbose
       - name: Compile kzg
         run: cargo build --manifest-path kzg/Cargo.toml --verbose
-          
+
 
 
   test:
     name: cargo test
-    runs-on: [ubuntu-22.04-github-hosted-32core]
+    runs-on: [ubuntu-24.04-github-hosted-32core]
     needs: build
     steps:
       - uses: actions/checkout@v3
@@ -45,7 +45,7 @@ jobs:
           rustup toolchain install nightly-2023-08-23
           rustup default nightly-2023-08-23
           cargo install cargo-nextest
-      - name: Main test 
+      - name: Main test
         run: cargo nextest run --release --test-threads 2
       - name: Encodings test
         run: cargo nextest run --release --manifest-path circuit_encodings/Cargo.toml

@@ -6,7 +6,7 @@ resolver = "2"
 
 [workspace.package]
 # All the packages in the workspace should have the same version
-version = "0.150.17"
+version = "0.150.20"
 edition = "2021"
 authors = ["The Matter Labs Team <hello@matterlabs.dev>"]
 homepage = "https://zksync.io/"
@@ -16,22 +16,22 @@ keywords = ["blockchain", "zksync"]
 categories = ["cryptography"]
 
 [workspace.dependencies]
-circuit_definitions = { version = "=0.150.17", path = "crates/circuit_definitions" }
-circuit_encodings = { version = "=0.150.17", path = "crates/circuit_encodings" }
-circuit_sequencer_api = { version = "=0.150.17", path = "crates/circuit_sequencer_api" }
-kzg = { version = "=0.150.17", path = "crates/kzg", package = "zksync_kzg" }
-zk_evm = { version = "=0.150.17", path = "crates/zk_evm" }
-zk_evm_abstractions = { version = "=0.150.17", path = "crates/zk_evm_abstractions" }
-zkevm_circuits = { version = "=0.150.17", path = "crates/zkevm_circuits" } 
-zkevm_opcode_defs = { version = "=0.150.17", path = "crates/zkevm_opcode_defs" }
-zkevm_test_harness = { version = "=0.150.17", path = "crates/zkevm_test_harness" }
-zkevm-assembly = { version = "=0.150.17", path = "crates/zkEVM-assembly" }
+circuit_definitions = { version = "=0.150.20", path = "crates/circuit_definitions" }
+circuit_encodings = { version = "=0.150.20", path = "crates/circuit_encodings" }
+circuit_sequencer_api = { version = "=0.150.20", path = "crates/circuit_sequencer_api" }
+kzg = { version = "=0.150.20", path = "crates/kzg", package = "zksync_kzg" }
+zk_evm = { version = "=0.150.20", path = "crates/zk_evm" }
+zk_evm_abstractions = { version = "=0.150.20", path = "crates/zk_evm_abstractions" }
+zkevm_circuits = { version = "=0.150.20", path = "crates/zkevm_circuits" }
+zkevm_opcode_defs = { version = "=0.150.20", path = "crates/zkevm_opcode_defs" }
+zkevm_test_harness = { version = "=0.150.20", path = "crates/zkevm_test_harness" }
+zkevm-assembly = { version = "=0.150.20", path = "crates/zkEVM-assembly" }
 
 # `zksync-crypto` repository
 snark_wrapper = { git = "https://github.com/distributed-lab/zksync-crypto.git", branch = "kp", package = "snark_wrapper" }
-bellman = { package = "zksync_bellman", version = "=0.30.10" }
+bellman = { package = "zksync_bellman", version = "=0.30.13" }
 boojum = { git = "https://github.com/distributed-lab/zksync-crypto.git", branch = "kp", package = "boojum" }
-cs_derive = { package = "zksync_cs_derive", version = "=0.30.10" }
+cs_derive = { package = "zksync_cs_derive", version = "=0.30.13" }
 
 # snark_wrapper = { path = "./../zksync-crypto/crates/snark-wrapper" }
 # boojum = { path = "./../zksync-crypto/crates/boojum" }
