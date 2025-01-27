@@ -148,10 +148,6 @@ impl<const B: bool> Precompile for ECAddPrecompile<B> {
                 index: MemoryIndex(params.output_memory_offset),
             };
 
-            // Marking that the operation was successful
-            // THIS IS NOT CORRECT
-
-            /*
             let ok_marker = U256::one();
             let ok_or_err_query = MemoryQuery {
                 timestamp: timestamp_to_write,
@@ -164,7 +160,7 @@ impl<const B: bool> Precompile for ECAddPrecompile<B> {
                 memory.execute_partial_query(monotonic_cycle_counter, ok_or_err_query);
 
             // Writing resultant x coordinate
-            write_location.index.0 += 1;*/
+            write_location.index.0 += 1;
 
             let x_result_query = MemoryQuery {
                 timestamp: timestamp_to_write,
@@ -190,10 +186,10 @@ impl<const B: bool> Precompile for ECAddPrecompile<B> {
                 memory.execute_partial_query(monotonic_cycle_counter, y_result_query);
 
             if B {
-                //round_witness.writes[0] = ok_or_err_query;
+                round_witness.writes[0] = ok_or_err_query;
                 round_witness.writes[0] = x_result_query;
                 round_witness.writes[1] = y_result_query;
-                //write_history.push(ok_or_err_query);
+                write_history.push(ok_or_err_query);
                 write_history.push(x_result_query);
                 write_history.push(y_result_query);
             }
@@ -203,8 +199,6 @@ impl<const B: bool> Precompile for ECAddPrecompile<B> {
                 page: MemoryPage(params.memory_page_to_write),
                 index: MemoryIndex(params.output_memory_offset),
             };
-
-            /*
 
             let err_marker = U256::zero();
             let ok_or_err_query = MemoryQuery {
@@ -217,7 +211,7 @@ impl<const B: bool> Precompile for ECAddPrecompile<B> {
             let ok_or_err_query =
                 memory.execute_partial_query(monotonic_cycle_counter, ok_or_err_query);
 
-            write_location.index.0 += 1;*/
+            write_location.index.0 += 1;
             let empty_result = U256::zero();
             let x_result_query = MemoryQuery {
                 timestamp: timestamp_to_write,
@@ -240,10 +234,10 @@ impl<const B: bool> Precompile for ECAddPrecompile<B> {
                 memory.execute_partial_query(monotonic_cycle_counter, y_result_query);
 
             if B {
-                //round_witness.writes[0] = ok_or_err_query;
-                round_witness.writes[0] = x_result_query;
-                round_witness.writes[1] = y_result_query;
-                //write_history.push(ok_or_err_query);
+                round_witness.writes[0] = ok_or_err_query;
+                round_witness.writes[1] = x_result_query;
+                round_witness.writes[2] = y_result_query;
+                write_history.push(ok_or_err_query);
                 write_history.push(x_result_query);
                 write_history.push(y_result_query);
             }
