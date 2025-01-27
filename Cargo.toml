@@ -28,10 +28,13 @@ zkevm_test_harness = { version = "=0.150.20", path = "crates/zkevm_test_harness"
 zkevm-assembly = { version = "=0.150.20", path = "crates/zkEVM-assembly" }
 
 # `zksync-crypto` repository
-snark_wrapper = { git = "https://github.com/distributed-lab/zksync-crypto.git", branch = "kp", package = "snark_wrapper" }
+#snark_wrapper = "=0.30.13"
+snark_wrapper = { git = "https://github.com/matter-labs/zksync-crypto.git", branch = "feature/ec_precompiles", package = "snark_wrapper" }
+#snark_wrapper = { path = "./../zksync-crypto/crates/snark-wrapper" }
+
 bellman = { package = "zksync_bellman", version = "=0.30.13" }
-boojum = { git = "https://github.com/distributed-lab/zksync-crypto.git", branch = "kp", package = "boojum" }
+#boojum = "=0.30.13"
+boojum = { git = "https://github.com/matter-labs/zksync-crypto.git", branch = "feature/ec_precompiles", package = "boojum" }
+#boojum = { path = "./../zksync-crypto/crates/boojum" }
 cs_derive = { package = "zksync_cs_derive", version = "=0.30.13" }
 
-# snark_wrapper = { path = "./../zksync-crypto/crates/snark-wrapper" }
-# boojum = { path = "./../zksync-crypto/crates/boojum" }
