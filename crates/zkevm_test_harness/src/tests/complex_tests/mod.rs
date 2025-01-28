@@ -77,10 +77,11 @@ fn basic_test() {
         }
     });
     let options = Options {
-        use_production_geometry: true,
+        use_production_geometry: false,
+        try_reuse_artifacts: false,
         ..Default::default()
     };
-    run_and_try_create_witness_inner(test_artifact, 40000, blobs, &options);
+    run_and_try_create_witness_inner(test_artifact, 800000, blobs, &options);
     // run_and_try_create_witness_inner(test_artifact, 16);
 }
 
@@ -153,13 +154,12 @@ fn get_testing_geometry_config() -> GeometryConfig {
         cycles_per_events_or_l1_messages_sorter: 4,
         cycles_per_secp256r1_verify_circuit: 2,
         cycles_per_transient_storage_sorter: 16,
-        cycles_per_modexp_circuit: 10,
-        cycles_per_ecadd_circuit: 10,
-        cycles_per_ecmul_circuit: 10,
-        cycles_per_ecpairing_circuit: 10,
+        cycles_per_modexp_circuit: 3,
+        cycles_per_ecadd_circuit: 2,
+        cycles_per_ecmul_circuit: 2,
+        cycles_per_ecpairing_circuit: 1,
         cycles_per_ecmultipairing_naive_circuit: 10,
         limit_for_l1_messages_pudata_hasher: 32,
-
     }
 }
 
@@ -554,7 +554,9 @@ fn run_and_try_create_witness_inner(
             }
         }
 
-        let vk = source.get_base_layer_vk(circuit_type).unwrap();
+        let vk = source
+            .get_base_layer_vk(circuit_type)
+            .expect(&format!("Cannot find base layer VK for {}", circuit_type));
         verification_keys.push(vk);
 
         proofs.push(proofs_for_circuit_type);

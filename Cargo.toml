@@ -38,3 +38,9 @@ boojum = { git = "https://github.com/matter-labs/zksync-crypto.git", branch = "f
 #boojum = { path = "./../zksync-crypto/crates/boojum" }
 cs_derive = { package = "zksync_cs_derive", version = "=0.30.13" }
 
+
+[profile.release]
+incremental = true
+
+[profile.dev]
+debug = 0

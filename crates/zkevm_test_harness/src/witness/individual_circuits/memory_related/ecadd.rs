@@ -116,7 +116,7 @@ pub(crate) fn ecadd_decompose_into_per_circuit_witness<
             amount_of_queries += 1;
         }
 
-        // and 2 writes
+        // and 3 writes (1 for status, 2 for actual output)
         for (_query_index, write) in round_witness.writes.into_iter().enumerate() {
             let write_query = memory_queries_it.next().unwrap();
             assert!(write == write_query);

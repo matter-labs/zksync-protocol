@@ -187,8 +187,8 @@ impl<const B: bool> Precompile for ECAddPrecompile<B> {
 
             if B {
                 round_witness.writes[0] = ok_or_err_query;
-                round_witness.writes[0] = x_result_query;
-                round_witness.writes[1] = y_result_query;
+                round_witness.writes[1] = x_result_query;
+                round_witness.writes[2] = y_result_query;
                 write_history.push(ok_or_err_query);
                 write_history.push(x_result_query);
                 write_history.push(y_result_query);

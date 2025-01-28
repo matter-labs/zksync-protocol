@@ -10,9 +10,12 @@ use crate::base_structures::{
 };
 use crate::fsm_input_output::ClosedFormInputCompactForm;
 use arrayvec::ArrayVec;
-use boojum::algebraic_props::round_function::AlgebraicRoundFunction;
 use boojum::cs::{gates::*, traits::cs::ConstraintSystem};
 use boojum::field::SmallField;
+use boojum::{
+    algebraic_props::round_function::AlgebraicRoundFunction,
+    gadgets::traits::witnessable::WitnessHookable,
+};
 
 use boojum::gadgets::traits::round_function::CircuitRoundFunction;
 use boojum::gadgets::u32::UInt32;
@@ -104,7 +107,8 @@ impl DemuxOutput {
             Self::ECAdd => Some(*zkevm_opcode_defs::system_params::ECADD_PRECOMPILE_FORMAL_ADDRESS),
             Self::ECMul => Some(*zkevm_opcode_defs::system_params::ECMUL_PRECOMPILE_FORMAL_ADDRESS),
             Self::ECPairing => Some(*zkevm_opcode_defs::system_params::ECPAIRING_PRECOMPILE_FORMAL_ADDRESS),
-            // Self::ECMultiPairingNaive => Some(*zkevm_opcode_defs::system_params::ECMULTIPAIRING_NAIVE_PRECOMPILE_ADDRESS),
+            // This must be here - otherwise demux queue thinks this is not a precompile and starts pushing stuff to this queue.
+            Self::ECMultiPairingNaive => Some(*zkevm_opcode_defs::system_params::ECMULTIPAIRING_NAIVE_PRECOMPILE_FORMAL_ADDRESS),
             _ => None,
         }
     }
@@ -167,6 +171,9 @@ where
     });
 
     demultiplex_storage_logs_inner(cs, &mut initial_queue, &mut queue_states, limit);
+    for (i, elem) in queue_states.iter().enumerate() {
+        println!("Queue: {} {:?} ", i, elem.length.witness_hook(cs)());
+    }
 
     use boojum::gadgets::traits::allocatable::CSPlaceholder;
     // form the final state
@@ -262,6 +269,8 @@ pub fn demultiplex_storage_logs_inner<
     let mut aux_byte_equality_map = HashMap::new();
     let mut address_equality_map = HashMap::new();
     let mut shard_id_equality_map = HashMap::new();
+
+    println!("XXXX -- limit is: {}", limit);
 
     for _ in 0..limit {
         assert!(aux_byte_equality_map.is_empty());
