@@ -104,7 +104,8 @@ impl DemuxOutput {
             Self::ECAdd => Some(*zkevm_opcode_defs::system_params::ECADD_PRECOMPILE_FORMAL_ADDRESS),
             Self::ECMul => Some(*zkevm_opcode_defs::system_params::ECMUL_PRECOMPILE_FORMAL_ADDRESS),
             Self::ECPairing => Some(*zkevm_opcode_defs::system_params::ECPAIRING_PRECOMPILE_FORMAL_ADDRESS),
-            // Self::ECMultiPairingNaive => Some(*zkevm_opcode_defs::system_params::ECMULTIPAIRING_NAIVE_PRECOMPILE_ADDRESS),
+            // This must be present here, otherwise Demuxer go crazy (or we should remove this precompile alltogether).
+            Self::ECMultiPairingNaive => Some(*zkevm_opcode_defs::system_params::ECMULTIPAIRING_NAIVE_PRECOMPILE_FORMAL_ADDRESS),
             _ => None,
         }
     }
