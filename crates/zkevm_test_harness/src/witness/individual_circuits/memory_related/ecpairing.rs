@@ -119,6 +119,8 @@ pub(crate) fn ecpairing_decompose_into_per_circuit_witness<
     let mut round_counter = 0;
     let num_requests = precompile_calls.len();
 
+    println!("ECPAIRING - num_requests: {}", num_requests);
+
     // convension
     let mut log_queue_input_state =
         take_queue_state_from_simulator(&demuxed_ecpairing_queue.simulator);
@@ -160,6 +162,8 @@ pub(crate) fn ecpairing_decompose_into_per_circuit_witness<
         use crate::zk_evm::zk_evm_abstractions::precompiles::precompile_abi_in_log;
         let mut precompile_request = precompile_abi_in_log(request);
         let num_rounds = precompile_request.precompile_interpreted_data as usize;
+
+        println!("Num round for ecpairing: {}", num_rounds);
         assert_eq!(num_rounds, round_witness.len());
 
         let mut num_rounds_left = num_rounds;
@@ -174,6 +178,7 @@ pub(crate) fn ecpairing_decompose_into_per_circuit_witness<
         let mut internal_state = one_fq12;
 
         for (round_idx, round) in round_witness.into_iter().enumerate() {
+            println!("Request: {} round: {}", request_idx, round_idx);
             if round_idx == 0 {
                 assert!(round.new_request.is_some());
             }
@@ -237,15 +242,19 @@ pub(crate) fn ecpairing_decompose_into_per_circuit_witness<
                 }
 
                 let completed = precompile_state == ECPairingPrecompileState::Finished;
+
+                println!("State: {:?}, Is completed: {}", precompile_state, completed);
                 let read_words_for_round =
                     precompile_state == ECPairingPrecompileState::RunRoundFunction;
                 let read_precompile_call =
                     precompile_state == ECPairingPrecompileState::GetRequestFromQueue;
 
                 let mut output_offset = precompile_request.output_memory_offset;
-                if completed {
+                if is_last_round {
+                    println!("Incremented output offset");
                     output_offset += 1;
                 }
+                println!("output offset is : {}", output_offset);
 
                 let hidden_fsm_output_state = EcPairingFunctionFSMWitness::<F> {
                     completed,

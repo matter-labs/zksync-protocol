@@ -57,7 +57,7 @@ pub fn create_leaf_witnesses(
         Vec<ZkSyncBaseLayerClosedFormInput<F>>,
     ),
     proofs: Vec<ZkSyncBaseLayerProof>, // proofs coming from the base layer
-    vk: ZkSyncBaseLayerVerificationKey,
+    vk: Option<ZkSyncBaseLayerVerificationKey>,
     leaf_params: (u8, RecursionLeafParametersWitness<F>), // (cirtuit_type, and ??)
 ) -> (
     Vec<(
@@ -69,7 +69,6 @@ pub fn create_leaf_witnesses(
 ) {
     let (circuit_type, queue, closed_form_inputs) = subset;
     assert_eq!(queue.num_items as usize, proofs.len());
-    assert_eq!(circuit_type, vk.numeric_circuit_type() as u64);
 
     assert_eq!(leaf_params.0, circuit_type as u8);
 
@@ -80,6 +79,12 @@ pub fn create_leaf_witnesses(
     let mut recursive_circuits = Vec::with_capacity(queue_splits.len());
 
     for el in queue_splits.into_iter() {
+        let vk = vk.as_ref().expect(&format!(
+            "vk missing for {} when we want to create a leaf",
+            circuit_type
+        ));
+        assert_eq!(circuit_type, vk.numeric_circuit_type() as u64);
+
         let mut proofs = vec![];
         for _ in 0..el.num_items {
             let t = proofs_iter.next().expect("proof");

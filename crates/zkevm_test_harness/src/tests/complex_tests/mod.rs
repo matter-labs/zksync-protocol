@@ -78,7 +78,7 @@ fn basic_test() {
     });
     let options = Options {
         use_production_geometry: false,
-        try_reuse_artifacts: false,
+        try_reuse_artifacts: true,
         ..Default::default()
     };
     run_and_try_create_witness_inner(test_artifact, 800000, blobs, &options);
@@ -427,8 +427,6 @@ fn run_and_try_create_witness_inner(
 
     let mut previous_circuit_type = 0;
 
-    let mut instance_idx = 0;
-
     let mut setup_data = None;
 
     let mut source = LocalFileDataSource::default();
@@ -438,17 +436,22 @@ fn run_and_try_create_witness_inner(
 
     let circuits_len = basic_block_circuits.len();
 
+    for (idx, entry) in basic_block_circuits.iter().enumerate() {
+        let descr = entry.short_description();
+        println!("{}: Circuit: {}", idx, descr);
+    }
+
+    let mut instances_idx = [0usize; 260];
+
     for (idx, el) in basic_block_circuits.clone().into_iter().enumerate() {
         let descr = el.short_description();
         println!("Doing {} / {}: {}", idx, circuits_len, descr);
 
-        if el.numeric_circuit_type() != previous_circuit_type {
-            instance_idx = 0;
-        }
+        let instance_idx = instances_idx[el.numeric_circuit_type() as usize];
+        instances_idx[el.numeric_circuit_type() as usize] += 1;
 
         if options.try_reuse_artifacts {
             if let Ok(_) = source.get_base_layer_proof(el.numeric_circuit_type(), instance_idx) {
-                instance_idx += 1;
                 previous_circuit_type = el.numeric_circuit_type();
                 continue;
             }
@@ -525,8 +528,17 @@ fn run_and_try_create_witness_inner(
                 ZkSyncBaseLayerProof::from_inner(el.numeric_circuit_type(), proof.clone()),
             )
             .unwrap();
+    }
 
-        instance_idx += 1;
+    let basic_circuits = get_all_basic_circuits(&geometry);
+    for circuit in basic_circuits {
+        let circuit_type = circuit.numeric_circuit_type();
+        if source.get_base_layer_vk(circuit_type).is_err() {
+            // FIXME - handle the case when you don't want to re-use artifacts.
+            let (vk, hint) = generate_vk_and_finalization_hint(circuit, &worker);
+            source.set_base_layer_vk(vk).unwrap();
+            source.set_base_layer_finalization_hint(hint).unwrap();
+        }
     }
 
     println!("Assembling keys");
@@ -554,9 +566,11 @@ fn run_and_try_create_witness_inner(
             }
         }
 
-        let vk = source
-            .get_base_layer_vk(circuit_type)
-            .expect(&format!("Cannot find base layer VK for {}", circuit_type));
+        let vk = source.get_base_layer_vk(circuit_type).ok();
+        if vk.is_none() {
+            println!("WARNING: No verification key for {}", circuit_type);
+        }
+        //.expect(&format!("Cannot find base layer VK for {}", circuit_type));
         verification_keys.push(vk);
 
         proofs.push(proofs_for_circuit_type);
