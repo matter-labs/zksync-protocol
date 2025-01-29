@@ -19,12 +19,20 @@ use boojum::gadgets::traits::selectable::Selectable;
 use boojum::gadgets::traits::witnessable::WitnessHookable;
 use serde::{Deserialize, Serialize};
 
+// ECPairing can contain multiple pairs withing a single call -
+// and such call can be split across multiple circuits.
 #[derive(Derivative, CSAllocatable, CSSelectable, WitnessHookable)]
 #[derivative(Clone, Debug)]
 #[DerivePrettyComparison("true")]
 pub struct EcPairingFunctionFSM<F: SmallField> {
+    // Exactly one of the 3 bools below should be true.
+    /// If true, then in the next circuit, we should start reading & processing new precompile call.
     pub read_precompile_call: Boolean<F>,
+    /// If true, then we're in the middle of ECPairing processing, and in the next circuit, we should
+    /// read the next word from memory and process it.
     pub read_words_for_round: Boolean<F>,
+    /// If true, this means that we're fully done with all the pairings.
+    /// So subsequent circuits (if any) have absolutely nothing to do.
     pub completed: Boolean<F>,
     // Accumulated result of all the previous pairings:
     pub pairing_inner_state: BN256Fq12NNField<F>,

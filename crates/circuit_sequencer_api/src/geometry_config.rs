@@ -147,7 +147,7 @@ const fn get_geometry_config_1_5_0() -> GeometryConfig {
     GeometryConfig {
         cycles_per_vm_snapshot: 5390,
         cycles_code_decommitter_sorter: 117500,
-        cycles_per_log_demuxer: 38125, // should change - as we have more 'output queues' now.
+        cycles_per_log_demuxer: 48125, // should change - as we have more 'output queues' now.
         cycles_per_storage_sorter: 46921,
         cycles_per_events_or_l1_messages_sorter: 31287,
         cycles_per_ram_permutation: 136714,

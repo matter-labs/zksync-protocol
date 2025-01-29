@@ -1,4 +1,6 @@
-use circuit_encodings::zkevm_circuits::bn254::ec_pairing::{ input_alternative::EcMultiPairingCircuitInstanceWitness, alternative_precompile_naive::ecmultipairing_naive_function_entry_point,
+use circuit_encodings::zkevm_circuits::bn254::ec_pairing::{
+    alternative_precompile_naive::ecmultipairing_naive_function_entry_point,
+    input_alternative::EcMultiPairingCircuitInstanceWitness,
 };
 use derivative::*;
 

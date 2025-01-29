@@ -77,7 +77,7 @@ fn basic_test() {
         }
     });
     let options = Options {
-        use_production_geometry: false,
+        use_production_geometry: true,
         try_reuse_artifacts: true,
         ..Default::default()
     };
@@ -423,7 +423,7 @@ fn run_and_try_create_witness_inner(
         }
     }
 
-    let worker = Worker::new_with_num_threads(8);
+    let worker = Worker::new_with_num_threads(64);
 
     let mut previous_circuit_type = 0;
 
