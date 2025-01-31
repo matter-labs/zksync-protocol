@@ -31,8 +31,7 @@ pub const SECP256R1_VERIFY_PRECOMPILE_ADDRESS: u16 = 0x100; // As in RIP7212: ht
 pub const MODEXP_PRECOMPILE_ADDRESS: u16 = 0x05; // as in Ethereum
 pub const ECADD_PRECOMPILE_ADDRESS: u16 = 0x06; // as in Ethereum
 pub const ECMUL_PRECOMPILE_ADDRESS: u16 = 0x07; // as in Ethereum
-                                                    //TODO_O_O change address when contract appears
-pub const ECMULTIPAIRING_NAIVE_PRECOMPILE_ADDRESS: u16 = 0x19; // TODO: remove or replace.
+pub const ECMULTIPAIRING_NAIVE_PRECOMPILE_ADDRESS: u16 = 0x08; // TODO: remove or replace.
 
 pub const MAX_PUBDATA_COST_PER_QUERY: i32 = 65;
 pub const INITIAL_STORAGE_WRITE_PUBDATA_BYTES: usize = 64;
@@ -65,6 +64,7 @@ pub const ADDRESS_IDENTITY: u16 = 0x0004;
 pub const ADDRESS_MODEXP: u16 = 0x0005;
 pub const ADDRESS_ECADD: u16 = 0x0006;
 pub const ADDRESS_ECMUL: u16 = 0x0007;
+pub const ADDRESS_ECPAIRING: u16 = 0x0008;
 pub const ADDRESS_BLAKE2F: u16 = 0x0009;
 pub const ADDRESS_POINT_EVALUATION: u16 = 0x000A;
 
