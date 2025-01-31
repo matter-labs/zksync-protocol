@@ -19,7 +19,6 @@ pub struct GeometryConfig {
     pub cycles_per_modexp_circuit: u32,
     pub cycles_per_ecadd_circuit: u32,
     pub cycles_per_ecmul_circuit: u32,
-    pub cycles_per_ecpairing_circuit: u32,
     pub cycles_per_ecmultipairing_naive_circuit: u32,
 
     pub limit_for_l1_messages_pudata_hasher: u32,

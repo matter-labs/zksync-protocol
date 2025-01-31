@@ -4,7 +4,6 @@ mod keccak256;
 // mod sha256;
 mod ecadd;
 mod ecmul;
-mod ecpairing;
 mod ecrecover;
 mod modexp;
 

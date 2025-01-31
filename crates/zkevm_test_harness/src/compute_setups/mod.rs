@@ -278,12 +278,6 @@ pub fn get_all_basic_circuits(geometry: &GeometryConfig) -> Vec<ZkSyncBaseLayerC
             round_function: Arc::new(Poseidon2Goldilocks),
             expected_public_input: None,
         }),
-        ZkSyncBaseLayerCircuit::ECPairing(ZkSyncUniformCircuitInstance {
-            witness: AtomicCell::new(None),
-            config: Arc::new(geometry.cycles_per_ecpairing_circuit as usize),
-            round_function: Arc::new(Poseidon2Goldilocks),
-            expected_public_input: None,
-        }),
         ZkSyncBaseLayerCircuit::ECMultiPairingNaive(ZkSyncUniformCircuitInstance {
             witness: AtomicCell::new(None),
             config: Arc::new(geometry.cycles_per_ecmultipairing_naive_circuit as usize),

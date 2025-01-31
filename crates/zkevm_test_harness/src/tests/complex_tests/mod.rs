@@ -157,8 +157,7 @@ fn get_testing_geometry_config() -> GeometryConfig {
         cycles_per_modexp_circuit: 3,
         cycles_per_ecadd_circuit: 2,
         cycles_per_ecmul_circuit: 2,
-        cycles_per_ecpairing_circuit: 1,
-        cycles_per_ecmultipairing_naive_circuit: 10,
+        cycles_per_ecmultipairing_naive_circuit: 1,
         limit_for_l1_messages_pudata_hasher: 32,
     }
 }
@@ -267,7 +266,6 @@ pub(crate) fn generate_base_layer(
     let mut recursion_queues = vec![];
 
     let (sender, receiver) = sync_channel(1);
-
     let artifacts_receiver_handle = thread::spawn(move || {
         while let Ok(artifact) = receiver.recv() {
             match artifact {
@@ -287,7 +285,6 @@ pub(crate) fn generate_base_layer(
 
         (basic_block_circuits, recursion_queues)
     });
-
     let (scheduler_partial_input, _aux_data) = run(
         Address::zero(),
         test_artifact.entry_point_address,
@@ -1129,7 +1126,7 @@ fn run_and_try_create_witness_inner(
     let node_vk = source.get_recursion_layer_node_vk().unwrap();
     // leaf params
     use crate::zkevm_circuits::recursion::leaf_layer::input::RecursionLeafParametersWitness;
-    let leaf_layer_params: [RecursionLeafParametersWitness<GoldilocksField>; 21] = leaf_vk_commits
+    let leaf_layer_params: [RecursionLeafParametersWitness<GoldilocksField>; 20] = leaf_vk_commits
         .iter()
         .map(|el| el.1.clone())
         .collect::<Vec<_>>()

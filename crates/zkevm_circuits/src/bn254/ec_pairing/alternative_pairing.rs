@@ -5,6 +5,7 @@ use bn256::{fq::ROOT_27_OF_UNITY, Certificate, G1Prepared, G2Prepared, Bn256};
 use bn256::prepare_all_line_functions;
 use bn256::prepare_g1_point;
 use bn256::miller_loop_with_prepared_lines;
+use boojum::gadgets::traits::witnessable::WitnessHookable;
 use boojum::pairing::ff::ScalarEngine;
 use boojum::{
     cs::{Place, Witness}, gadgets::{non_native_field::traits::NonNativeField, traits::witnessable::CSWitnessable}, 
@@ -14,6 +15,7 @@ use itertools::izip;
 use rand::Rng;
 use serde::Serialize;
 use std::iter;
+use std::sync::Arc;
 use boojum::config::CSConfig;
 use boojum::config::CSWitnessEvaluationConfig;
 use boojum::cs::traits::cs::DstBuffer;

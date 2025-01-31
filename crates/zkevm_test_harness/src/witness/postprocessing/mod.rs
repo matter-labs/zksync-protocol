@@ -81,9 +81,6 @@ use circuit_definitions::zkevm_circuits::bn254::ec_add::input::{
 use circuit_definitions::zkevm_circuits::bn254::ec_mul::input::{
     EcMulCircuitFSMInputOutput, EcMulCircuitInstanceWitness,
 };
-use circuit_definitions::zkevm_circuits::bn254::ec_pairing::input::{
-    EcPairingCircuitFSMInputOutput, EcPairingCircuitInstanceWitness,
-};
 use circuit_definitions::zkevm_circuits::modexp::input::{
     ModexpCircuitFSMInputOutput, ModexpCircuitInstanceWitness,
 };
@@ -118,8 +115,6 @@ pub(crate) struct BlockFirstAndLastBasicCircuitsObservableWitnesses {
     pub modexp_precompile_circuits: FirstAndLastCircuitWitness<ModexpObservableWitness<Field>>,
     pub ecadd_precompile_circuits: FirstAndLastCircuitWitness<ECAddObservableWitness<Field>>,
     pub ecmul_precompile_circuits: FirstAndLastCircuitWitness<ECMulObservableWitness<Field>>,
-    pub ecpairing_precompile_circuits:
-        FirstAndLastCircuitWitness<ECPairingObservableWitness<Field>>,
     pub ecmultipairing_naive_precompile_circuits:
         FirstAndLastCircuitWitness<ECMultiPairingNaiveObservableWitness<Field>>,
     pub ram_permutation_circuits:
@@ -315,17 +310,6 @@ impl<F: SmallField> ClosedFormInputField<F> for EcMulCircuitInstanceWitness<F> {
     }
 }
 
-impl<F: SmallField> ClosedFormInputField<F> for EcPairingCircuitInstanceWitness<F> {
-    type T = EcPairingCircuitFSMInputOutput<F>;
-    type IN = PrecompileFunctionInputData<F>;
-    type OUT = PrecompileFunctionOutputData<F>;
-
-    fn closed_form_input(
-        &mut self,
-    ) -> &mut ClosedFormInputWitness<F, Self::T, Self::IN, Self::OUT> {
-        &mut self.closed_form_input
-    }
-}
 impl<F: SmallField> ClosedFormInputField<F> for EcMultiPairingCircuitInstanceWitness<F> {
     type T = EcMultiPairingCircuitFSMInputOutput<F>;
     type IN = PrecompileFunctionInputData<F>;

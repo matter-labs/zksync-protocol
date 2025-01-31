@@ -5,7 +5,6 @@ use zkevm_opcode_defs::{
 
 use crate::precompiles::{ecadd::ECAddPrecompile, ecmultipairing_naive::EcMultiPairingNaivePrecompile};
 use crate::precompiles::ecmul::ECMulPrecompile;
-use crate::precompiles::ecpairing::ECPairingPrecompile;
 use crate::precompiles::modexp::ModexpPrecompile;
 use crate::{
     aux::{MemoryPage, PubdataCost, Timestamp},
@@ -66,7 +65,6 @@ pub enum PrecompileCyclesWitness {
     Modexp(Vec<<ModexpPrecompile<true> as Precompile>::CycleWitness>),
     ECAdd(Vec<<ECAddPrecompile<true> as Precompile>::CycleWitness>),
     ECMul(Vec<<ECMulPrecompile<true> as Precompile>::CycleWitness>),
-    ECPairing(Vec<<ECPairingPrecompile<true> as Precompile>::CycleWitness>),
     ECMultiPairingNaive(Vec<<EcMultiPairingNaivePrecompile<true> as Precompile>::CycleWitness>),
 }
 

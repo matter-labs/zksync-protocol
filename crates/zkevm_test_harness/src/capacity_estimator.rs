@@ -237,11 +237,6 @@ pub fn ecmul_capacity() -> usize {
     compute_size_inner::<SF, _>(SF::geometry(), 20, Some(2), |x: usize| x)
 }
 
-pub fn ecpairing_capacity() -> usize {
-    type SF = ECPairingFunctionInstanceSynthesisFunction;
-
-    compute_size_inner::<SF, _>(SF::geometry(), 20, Some(1), |x: usize| x)
-}
 pub fn ecmultipairing_naive_capacity() -> usize {
     type SF = ECMultiPairingNaiveFunctionInstanceSynthesisFunction;
 
@@ -296,7 +291,6 @@ mod test {
         println!("Size of modexp_capacity: {}", modexp_capacity());
         println!("Size of ecadd_capacity: {}", ecadd_capacity());
         println!("Size of ecmul_capacity: {}", ecmul_capacity());
-        println!("Size of ecpairing_capacity: {}", ecpairing_capacity());
         println!("Size of ecmultipairing_naive_capacity: {}", ecmultipairing_naive_capacity());
     }
 }

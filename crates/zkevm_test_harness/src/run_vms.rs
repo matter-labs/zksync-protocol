@@ -436,11 +436,6 @@ pub fn run_vms<S: Storage>(
                 .as_ref()
                 .map(|wit| wit.observable_output.clone()),
             basic_circuits
-                .ecpairing_precompile_circuits
-                .last
-                .as_ref()
-                .map(|wit| wit.observable_output.clone()),
-            basic_circuits
                 .ecmultipairing_naive_precompile_circuits
                 .last
                 .as_ref()
@@ -458,7 +453,7 @@ pub fn run_vms<S: Storage>(
             previous_memory_state = dst.final_memory_state.clone();
         }
 
-        let [keccak256_observable_output, sha256_observable_output, ecrecover_observable_output, secp256r1_verify_observable_output, modexp_observable_output, ecadd_observable_output, ecmul_observable_output, ecpairing_observable_output, ecmultipairing_naive_observable_output] =
+        let [keccak256_observable_output, sha256_observable_output, ecrecover_observable_output, secp256r1_verify_observable_output, modexp_observable_output, ecadd_observable_output, ecmul_observable_output, ecmultipairing_naive_observable_output] =
             outputs;
 
         // storage sorter must produce empty output
@@ -625,7 +620,6 @@ pub fn run_vms<S: Storage>(
             modexp_observable_output,
             ecadd_observable_output,
             ecmul_observable_output,
-            ecpairing_observable_output,
             storage_sorter_observable_output,
             storage_application_observable_output,
             events_sorter_observable_output,

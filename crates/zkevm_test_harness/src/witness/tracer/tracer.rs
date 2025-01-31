@@ -87,7 +87,6 @@ pub struct WitnessTracer {
     pub modexp_witnesses: Vec<(u32, LogQuery, ModexpRoundWitness)>,
     pub ecadd_witnesses: Vec<(u32, LogQuery, ECAddRoundWitness)>,
     pub ecmul_witnesses: Vec<(u32, LogQuery, ECMulRoundWitness)>,
-    pub ecpairing_witnesses: Vec<(u32, LogQuery, Vec<ECPairingRoundWitness>)>,
     pub ecmultipairing_naive_witnesses: Vec<(u32, LogQuery, EcMultiPairingNaiveRoundWitness)>,
     pub monotonic_query_counter: usize,
     // pub log_frames_stack: Vec<ApplicationData<((usize, usize), (QueryMarker, u32, LogQuery))>>, // keep the unique frame index
@@ -117,7 +116,6 @@ impl<T> NumberedApplicationData<T> {
 
 use circuit_definitions::zk_evm::zk_evm_abstractions::precompiles::ecadd::ECAddRoundWitness;
 use circuit_definitions::zk_evm::zk_evm_abstractions::precompiles::ecmul::ECMulRoundWitness;
-use circuit_definitions::zk_evm::zk_evm_abstractions::precompiles::ecpairing::ECPairingRoundWitness;
 use circuit_definitions::zk_evm::zk_evm_abstractions::precompiles::modexp::ModexpRoundWitness;
 use std::ops::Range;
 
@@ -157,7 +155,6 @@ impl WitnessTracer {
             modexp_witnesses: vec![],
             ecadd_witnesses: vec![],
             ecmul_witnesses: vec![],
-            ecpairing_witnesses: vec![],
             monotonic_query_counter: 0,
             // log_frames_stack: vec![ApplicationData::empty()],
             callstack_with_aux_data: CallstackWithAuxData::empty(),
@@ -411,10 +408,6 @@ impl VmWitnessTracer<8, EncodingModeProduction> for WitnessTracer {
                     call_params,
                     wit.drain(..).next().unwrap(),
                 ));
-            }
-            PrecompileCyclesWitness::ECPairing(wit) => {
-                self.ecpairing_witnesses
-                    .push((monotonic_cycle_counter, call_params, wit));
             }
             PrecompileCyclesWitness::ECMultiPairingNaive(mut wit) => {
                 self.ecmultipairing_naive_witnesses

@@ -44,8 +44,6 @@ pub type ECAddBuilder =
     CircuitBuilderProxy<GoldilocksField, ECAddFunctionInstanceSynthesisFunction>;
 pub type ECMulBuilder =
     CircuitBuilderProxy<GoldilocksField, ECMulFunctionInstanceSynthesisFunction>;
-pub type ECPairingBuilder =
-    CircuitBuilderProxy<GoldilocksField, ECPairingFunctionInstanceSynthesisFunction>;
 pub type ECMultiPairingNaiveBuilder =
     CircuitBuilderProxy<GoldilocksField, ECMultiPairingNaiveFunctionInstanceSynthesisFunction>;
 
@@ -123,9 +121,6 @@ where
         }
         i if i == BaseLayerCircuitType::ECMulPrecompile as u8 => {
             ECMulBuilder::dyn_verifier_builder()
-        }
-        i if i == BaseLayerCircuitType::ECPairingPrecompile as u8 => {
-            ECPairingBuilder::dyn_verifier_builder()
         }
         i if i == BaseLayerCircuitType::ECMultiPairingNaivePrecompile as u8 => {
             ECMultiPairingNaiveBuilder::dyn_verifier_builder()
@@ -209,9 +204,6 @@ where
         }
         i if i == BaseLayerCircuitType::ECMulPrecompile as u8 => {
             ECMulBuilder::dyn_recursive_verifier_builder()
-        }
-        i if i == BaseLayerCircuitType::ECPairingPrecompile as u8 => {
-            ECPairingBuilder::dyn_recursive_verifier_builder()
         }
         i if i == BaseLayerCircuitType::ECMultiPairingNaivePrecompile as u8 => {
             ECMultiPairingNaiveBuilder::dyn_recursive_verifier_builder()
