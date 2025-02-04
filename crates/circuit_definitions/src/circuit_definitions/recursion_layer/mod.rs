@@ -35,7 +35,7 @@ pub const RECURSION_ARITY: usize = 32;
 // in the recursion_layer/vk_1.json (which is a VK for this circuit).
 // This value must be below the domain size (which is currently 1048576).
 // And with the current scheduler code, and SCHEDULER_CAPACITY set to 34100, the value is 1043851.
-pub const SCHEDULER_CAPACITY: usize = 34100;
+pub const SCHEDULER_CAPACITY: usize = 26100;
 
 pub use crate::zkevm_circuits::recursion::recursion_tip::input::RECURSION_TIP_ARITY;
 

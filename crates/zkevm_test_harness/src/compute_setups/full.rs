@@ -438,7 +438,7 @@ mod test {
 
         let pb = Arc::new(Mutex::new(progress_bar));
 
-        generate_base_layer_vks(&mut source, Some(5), || {
+        generate_base_layer_vks(&mut source, None, || {
             pb.lock().unwrap().inc(1);
         })
         .expect("must compute setup");
