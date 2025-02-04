@@ -122,7 +122,8 @@ where
     }
 
     fn size_hint() -> (Option<usize>, Option<usize>) {
-        (Some(TARGET_CIRCUIT_TRACE_LENGTH), Some(1 << 26))
+        // FIXME: Currently this circuit needs 2 times more circuit size.
+        (Some(TARGET_CIRCUIT_TRACE_LENGTH * 2), Some(1 << 26))
     }
 
     fn add_tables<CS: ConstraintSystem<F>>(cs: &mut CS) {

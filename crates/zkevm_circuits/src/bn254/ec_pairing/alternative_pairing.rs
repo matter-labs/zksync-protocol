@@ -1007,6 +1007,11 @@ impl Oracle {
             };
 
             cs.set_values_with_dependencies_vararg(&inputs, &[*tag], value_fn);
+        } else {
+            // FIXME: we should figure out how many line functions to push when we generate setup/VK.
+            for _ in 0..400 {
+                line_functions.push((Fq2::zero(), Fq2::zero()))
+            }
         }
     }
 }

@@ -40,7 +40,7 @@ use self::input_alternative::EcMultiPairingCircuitInstanceWitness;
 
 pub const NUM_MEMORY_READS_PER_CYCLE: usize = 18;
 pub const MEMORY_QUERIES_PER_CALL: usize = 18;
-pub const EXCEPTION_FLAGS_ARR_LEN: usize = 8;
+pub const EXCEPTION_FLAGS_ARR_LEN: usize = 19;
 const NUM_PAIRINGS_IN_MULTIPAIRING: usize = 3;
 #[derive(
     Derivative,
