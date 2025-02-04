@@ -738,11 +738,11 @@ impl Oracle {
         let tag_variable = cs.alloc_variable_without_value();
         let actual_tag = Place::from_variable(tag_variable);
         *tag = actual_tag;
-        for i in 0..300 {
-            let dummy_a = Fq2 { c0: Fq::from_str(&i.to_string()).unwrap(), c1: Fq::from_str("0").unwrap() };
-            let dummy_b = Fq2 { c0: Fq::from_str(&(i + 1).to_string()).unwrap(), c1: Fq::from_str("0").unwrap() };
-            line_functions.push((dummy_a, dummy_b));
-        }
+        // for i in 0..300 {
+        //     let dummy_a = Fq2 { c0: Fq::from_str(&i.to_string()).unwrap(), c1: Fq::from_str("0").unwrap() };
+        //     let dummy_b = Fq2 { c0: Fq::from_str(&(i + 1).to_string()).unwrap(), c1: Fq::from_str("0").unwrap() };
+        //     line_functions.push((dummy_a, dummy_b));
+        // }
         if <CS::Config as CSConfig>::WitnessConfig::EVALUATE_WITNESS == true {
             // populate witness inputs
             let mut inputs = Vec::<Place>::new();
