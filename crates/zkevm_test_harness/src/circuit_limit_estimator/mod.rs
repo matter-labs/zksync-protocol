@@ -213,13 +213,7 @@ pub fn get_circuit_capacity(circuit_type: u8) -> usize {
             },
             None,
         ),
-        22 => compute_inner::<ECPairingFunctionInstanceSynthesisFunction, _>(
-            |x: usize| {
-                x
-            },
-            None,
-        ),
-        23 => compute_inner::<ECMultiPairingNaiveFunctionInstanceSynthesisFunction, _>(
+        22 => compute_inner::<ECMultiPairingNaiveFunctionInstanceSynthesisFunction, _>(
             |x: usize| {
                 x
             },

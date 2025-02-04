@@ -29,8 +29,6 @@ pub(crate) type Secp256r1VerifyObservableWitness<F> =
 pub(crate) type ModexpObservableWitness<F> = ObservableWitness<F, ModexpCircuitInstanceWitness<F>>;
 pub(crate) type ECAddObservableWitness<F> = ObservableWitness<F, EcAddCircuitInstanceWitness<F>>;
 pub(crate) type ECMulObservableWitness<F> = ObservableWitness<F, EcMulCircuitInstanceWitness<F>>;
-pub(crate) type ECPairingObservableWitness<F> =
-    ObservableWitness<F, EcPairingCircuitInstanceWitness<F>>;
 pub(crate) type ECMultiPairingNaiveObservableWitness<F> =
     ObservableWitness<F, EcMultiPairingCircuitInstanceWitness<F>>;
 pub(crate) type RamPermutationObservableWitness<F> =

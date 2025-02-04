@@ -275,14 +275,6 @@ pub(crate) fn base_test_circuit(circuit: ZkSyncBaseLayerCircuit) {
             let _ = cs.pad_and_shrink();
             cs.into_assembly::<std::alloc::Global>()
         }
-        ZkSyncBaseLayerCircuit::ECPairing(inner) => {
-            let builder = inner.configure_builder_proxy(builder);
-            let mut cs = builder.build(num_vars.unwrap());
-            inner.add_tables_proxy(&mut cs);
-            inner.synthesize_proxy(&mut cs);
-            let _ = cs.pad_and_shrink();
-            cs.into_assembly::<std::alloc::Global>()
-        }
         ZkSyncBaseLayerCircuit::ECMultiPairingNaive(inner) => {
             let builder = inner.configure_builder_proxy(builder);
             let mut cs = builder.build(num_vars.unwrap());
@@ -359,7 +351,6 @@ pub(crate) fn test_recursive_circuit(circuit: ZkSyncRecursiveLayerCircuit) {
         | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForModexp(inner)
         | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForECAdd(inner)
         | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForECMul(inner)
-        | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForECPairing(inner) 
         | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForECMultiPairingNaive(inner)=> {
             let builder = inner.configure_builder_proxy(builder);
             let mut cs = builder.build(num_vars.unwrap());

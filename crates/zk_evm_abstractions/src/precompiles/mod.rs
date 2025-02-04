@@ -4,7 +4,6 @@ use crate::vm::*;
 
 pub mod ecadd;
 pub mod ecmul;
-pub mod ecpairing;
 pub mod ecrecover;
 pub mod keccak256;
 pub mod modexp;
@@ -21,8 +20,7 @@ use zkevm_opcode_defs::system_params::{
 };
 
 use zkevm_opcode_defs::{
-    PrecompileCallABI, ECADD_PRECOMPILE_ADDRESS, ECMUL_PRECOMPILE_ADDRESS,
-    ECPAIRING_PRECOMPILE_ADDRESS, MODEXP_PRECOMPILE_ADDRESS,
+    PrecompileCallABI, ECADD_PRECOMPILE_ADDRESS, ECMUL_PRECOMPILE_ADDRESS, MODEXP_PRECOMPILE_ADDRESS,
 };
 
 #[repr(u16)]
@@ -35,7 +33,6 @@ pub enum PrecompileAddress {
     Modexp = MODEXP_PRECOMPILE_ADDRESS,
     ECAdd = ECADD_PRECOMPILE_ADDRESS,
     ECMul = ECMUL_PRECOMPILE_ADDRESS,
-    ECPairing = ECPAIRING_PRECOMPILE_ADDRESS,
     ECMultiPairingNaive = ECMULTIPAIRING_NAIVE_PRECOMPILE_ADDRESS,
 }
 
@@ -214,32 +211,6 @@ impl<const B: bool> PrecompilesProcessor for DefaultPrecompilesProcessor<B> {
                     Some((reads, writes, PrecompileCyclesWitness::ECMul(round_witness)))
                 } else {
                     let _ = ecmul::ecmul_function::<M, B>(monotonic_cycle_counter, query, memory);
-
-                    None
-                }
-            }
-            PrecompileAddress::ECPairing => {
-                // pure function call, non-revertable
-                if B {
-                    let (reads, writes, round_witness) = ecpairing::ecpairing_function::<M, B>(
-                        monotonic_cycle_counter,
-                        query,
-                        memory,
-                    )
-                    .1
-                    .expect("must generate intermediate witness");
-
-                    Some((
-                        reads,
-                        writes,
-                        PrecompileCyclesWitness::ECPairing(round_witness),
-                    ))
-                } else {
-                    let _ = ecpairing::ecpairing_function::<M, B>(
-                        monotonic_cycle_counter,
-                        query,
-                        memory,
-                    );
 
                     None
                 }

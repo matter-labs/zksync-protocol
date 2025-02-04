@@ -192,14 +192,6 @@ fn get_cs_finalization_hint_for_base_layer(
             let (_, finalization_hint) = cs.pad_and_shrink();
             (cs.into_assembly::<std::alloc::Global>(), finalization_hint)
         }
-        ZkSyncBaseLayerCircuit::ECPairing(inner) => {
-            let builder = inner.configure_builder_proxy(builder);
-            let mut cs = builder.build(num_vars.unwrap());
-            inner.add_tables_proxy(&mut cs);
-            inner.synthesize_proxy(&mut cs);
-            let (_, finalization_hint) = cs.pad_and_shrink();
-            (cs.into_assembly::<std::alloc::Global>(), finalization_hint)
-        }
         ZkSyncBaseLayerCircuit::ECMultiPairingNaive(inner) => {
             let builder = inner.configure_builder_proxy(builder);
             let mut cs = builder.build(num_vars.unwrap());
@@ -267,7 +259,6 @@ fn get_cs_finalization_hint_for_recursive_layer(
         | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForModexp(inner)
         | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForECAdd(inner)
         | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForECMul(inner)
-        | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForECPairing(inner) 
         | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForECMultiPairingNaive(inner) => {
             let builder = inner.configure_builder_proxy(builder);
             let mut cs = builder.build(num_vars.unwrap());

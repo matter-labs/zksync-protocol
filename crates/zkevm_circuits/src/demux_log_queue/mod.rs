@@ -56,7 +56,6 @@ pub enum DemuxOutput {
     Modexp,
     ECAdd,
     ECMul,
-    ECPairing,
     ECMultiPairingNaive,
 }
 
@@ -75,7 +74,6 @@ pub const ALL_DEMUX_OUTPUTS: [DemuxOutput; NUM_DEMUX_OUTPUTS] = [
     DemuxOutput::Modexp,
     DemuxOutput::ECAdd,
     DemuxOutput::ECMul,
-    DemuxOutput::ECPairing,
     DemuxOutput::ECMultiPairingNaive,
 ];
 
@@ -106,7 +104,6 @@ impl DemuxOutput {
             Self::Modexp => Some(*zkevm_opcode_defs::system_params::MODEXP_PRECOMPILE_FORMAL_ADDRESS),
             Self::ECAdd => Some(*zkevm_opcode_defs::system_params::ECADD_PRECOMPILE_FORMAL_ADDRESS),
             Self::ECMul => Some(*zkevm_opcode_defs::system_params::ECMUL_PRECOMPILE_FORMAL_ADDRESS),
-            Self::ECPairing => Some(*zkevm_opcode_defs::system_params::ECPAIRING_PRECOMPILE_FORMAL_ADDRESS),
             // This must be here - otherwise demux queue thinks this is not a precompile and starts pushing stuff to this queue.
             Self::ECMultiPairingNaive => Some(*zkevm_opcode_defs::system_params::ECMULTIPAIRING_NAIVE_PRECOMPILE_FORMAL_ADDRESS),
             _ => None,

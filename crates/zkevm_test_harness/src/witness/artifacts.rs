@@ -15,12 +15,10 @@ use crate::zkevm_circuits::storage_validity_by_grand_product::input::StorageDedu
 use circuit_definitions::encodings::decommittment_request::DecommittmentQueueState;
 use circuit_definitions::encodings::*;
 use circuit_definitions::zk_evm::zkevm_opcode_defs::{
-    ECADD_PRECOMPILE_FORMAL_ADDRESS, ECMUL_PRECOMPILE_FORMAL_ADDRESS,
-    ECPAIRING_PRECOMPILE_FORMAL_ADDRESS, MODEXP_PRECOMPILE_FORMAL_ADDRESS, ECMULTIPAIRING_NAIVE_PRECOMPILE_FORMAL_ADDRESS,
+    ECADD_PRECOMPILE_FORMAL_ADDRESS, ECMUL_PRECOMPILE_FORMAL_ADDRESS, MODEXP_PRECOMPILE_FORMAL_ADDRESS, ECMULTIPAIRING_NAIVE_PRECOMPILE_FORMAL_ADDRESS,
 };
 use circuit_definitions::zkevm_circuits::bn254::ec_add::input::EcAddCircuitInstanceWitness;
 use circuit_definitions::zkevm_circuits::bn254::ec_mul::input::EcMulCircuitInstanceWitness;
-use circuit_definitions::zkevm_circuits::bn254::ec_pairing::input::EcPairingCircuitInstanceWitness;
 use circuit_definitions::zkevm_circuits::modexp::input::ModexpCircuitInstanceWitness;
 use circuit_definitions::zkevm_circuits::secp256r1_verify::Secp256r1VerifyCircuitInstanceWitness;
 use circuit_definitions::zkevm_circuits::transient_storage_validity_by_grand_product::input::TransientStorageDeduplicatorInstanceWitness;
@@ -67,7 +65,6 @@ pub struct DemuxedPrecompilesLogQueries {
     pub modexp: Vec<LogQuery>,
     pub ecadd: Vec<LogQuery>,
     pub ecmul: Vec<LogQuery>,
-    pub ecpairing: Vec<LogQuery>,
     pub ecmultipairing_naive: Vec<LogQuery>,
 }
 
@@ -119,9 +116,6 @@ impl DemuxedLogQueries {
                     }
                     a if a == *ECMUL_PRECOMPILE_FORMAL_ADDRESS => {
                         precompiles.ecmul.push(query);
-                    }
-                    a if a == *ECPAIRING_PRECOMPILE_FORMAL_ADDRESS => {
-                        precompiles.ecpairing.push(query);
                     }
                     a if a == *ECMULTIPAIRING_NAIVE_PRECOMPILE_FORMAL_ADDRESS => {
                         precompiles.ecmultipairing_naive.push(query);
@@ -215,10 +209,6 @@ pub(crate) struct MemoryCircuitsArtifacts<F: SmallField> {
         FirstAndLastCircuitWitness<ECMulObservableWitness<F>>,
         Vec<ClosedFormInputCompactFormWitness<F>>,
     ),
-    pub ecpairing_circuits_data: (
-        FirstAndLastCircuitWitness<ECPairingObservableWitness<F>>,
-        Vec<ClosedFormInputCompactFormWitness<F>>,
-    ),
     pub ecmultipairing_naive_circuits_data: (
         FirstAndLastCircuitWitness<ECMultiPairingNaiveObservableWitness<F>>,
         Vec<ClosedFormInputCompactFormWitness<F>>,
@@ -228,8 +218,7 @@ pub(crate) struct MemoryCircuitsArtifacts<F: SmallField> {
 use crate::witness::aux_data_structs::one_per_circuit_accumulator::LastPerCircuitAccumulator;
 
 use super::postprocessing::observable_witness::{
-    CodeDecommitterObservableWitness, ECAddObservableWitness, ECMulObservableWitness,
-    ECPairingObservableWitness, EcrecoverObservableWitness, EventsDeduplicatorObservableWitness,
+    CodeDecommitterObservableWitness, ECAddObservableWitness, ECMulObservableWitness, EcrecoverObservableWitness, EventsDeduplicatorObservableWitness,
     Keccak256RoundFunctionObservableWitness, LinearHasherObservableWitness,
     ModexpObservableWitness, RamPermutationObservableWitness, Secp256r1VerifyObservableWitness,
     Sha256RoundFunctionObservableWitness, StorageApplicationObservableWitness,

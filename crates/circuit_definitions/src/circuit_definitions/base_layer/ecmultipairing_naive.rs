@@ -118,7 +118,7 @@ where
     type RoundFunction = R;
 
     fn description() -> String {
-        "Elliptic Curve Pairing".to_string()
+        "Elliptic Curve MultiPairing".to_string()
     }
 
     fn size_hint() -> (Option<usize>, Option<usize>) {

@@ -146,10 +146,6 @@ impl<F: SmallField> LogDemuxerOutputData<F> {
                 &self.output_queue_states[DemuxOutput::ECMul as usize],
             ),
             (
-                DemuxOutput::ECPairing,
-                &self.output_queue_states[DemuxOutput::ECPairing as usize],
-            ),
-            (
                 DemuxOutput::ECMultiPairingNaive,
                 &self.output_queue_states[DemuxOutput::ECMultiPairingNaive as usize],
             ),

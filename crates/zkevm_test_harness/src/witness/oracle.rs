@@ -986,7 +986,6 @@ use crate::witness::individual_circuits::log_demux::PrecompilesQueuesStates;
 use crate::witness::individual_circuits::memory_related::ram_permutation::compute_ram_circuit_snapshots;
 use crate::zk_evm::zk_evm_abstractions::precompiles::ecadd::ECAddRoundWitness;
 use crate::zk_evm::zk_evm_abstractions::precompiles::ecmul::ECMulRoundWitness;
-use crate::zk_evm::zk_evm_abstractions::precompiles::ecpairing::ECPairingRoundWitness;
 use crate::zk_evm::zk_evm_abstractions::precompiles::modexp::ModexpRoundWitness;
 
 pub(crate) struct PrecompilesInputData {
@@ -997,7 +996,6 @@ pub(crate) struct PrecompilesInputData {
     pub modexp_witnesses: Vec<(Cycle, LogQuery, ModexpRoundWitness)>,
     pub ecadd_witnesses: Vec<(Cycle, LogQuery, ECAddRoundWitness)>,
     pub ecmul_witnesses: Vec<(Cycle, LogQuery, ECMulRoundWitness)>,
-    pub ecpairing_witnesses: Vec<(Cycle, LogQuery, Vec<ECPairingRoundWitness>)>,
     pub ecmultipairing_naive_witnesses: Vec<(Cycle, LogQuery, EcMultiPairingNaiveRoundWitness)>,
     pub logs_queues_states: PrecompilesQueuesStates,
     pub logs_queries: DemuxedPrecompilesLogQueries,
@@ -1453,32 +1451,6 @@ fn process_memory_related_circuits(
         artifacts_callback_sender.clone(),
     );
 
-    // ecpairing precompile
-
-    use crate::witness::individual_circuits::memory_related::ecpairing::ecpairing_decompose_into_per_circuit_witness;
-
-    tracing::debug!("Running ecpairing simulation");
-
-    let ecpairing_circuits_data = ecpairing_decompose_into_per_circuit_witness(
-        implicit_memory_queries.ecpairing_memory_queries,
-        implicit_memory_states.ecpairing_simulator_snapshots,
-        implicit_memory_states.ecpairing_memory_states,
-        precompiles_data.ecpairing_witnesses,
-        precompiles_data.logs_queries.ecpairing,
-        precompiles_data.logs_queues_states.ecpairing,
-        geometry.cycles_per_ecpairing_circuit as usize,
-        round_function,
-    );
-
-    circuits_data.ecpairing_circuits_data = make_circuits(
-        geometry.cycles_per_ecpairing_circuit,
-        BaseLayerCircuitType::ECPairingPrecompile,
-        ecpairing_circuits_data,
-        *round_function,
-        |x| ZkSyncBaseLayerCircuit::ECPairing(x),
-        artifacts_callback_sender.clone(),
-    );
-
     // ecmultipairing_naive precompile
 
     use crate::witness::individual_circuits::memory_related::ecmultipairing_naive::ecmultipairing_naive_decompose_into_per_circuit_witness;
@@ -1563,7 +1535,6 @@ pub(crate) fn create_artifacts_from_tracer<'a>(
         modexp_witnesses,
         ecadd_witnesses,
         ecmul_witnesses,
-        ecpairing_witnesses,
         ecmultipairing_naive_witnesses,
         mut callstack_with_aux_data,
         vm_snapshots,
@@ -1698,7 +1669,6 @@ pub(crate) fn create_artifacts_from_tracer<'a>(
         modexp_witnesses,
         ecadd_witnesses,
         ecmul_witnesses,
-        ecpairing_witnesses,
         logs_queues_states: precompiles_logs_queues_states,
         logs_queries: demuxed_log_queries.precompiles,
         ecmultipairing_naive_witnesses,
@@ -1802,7 +1772,6 @@ pub(crate) fn create_artifacts_from_tracer<'a>(
             modexp_precompile_circuits: memory_circuits_data.modexp_circuits_data.0,
             ecadd_precompile_circuits: memory_circuits_data.ecadd_circuits_data.0,
             ecmul_precompile_circuits: memory_circuits_data.ecmul_circuits_data.0,
-            ecpairing_precompile_circuits: memory_circuits_data.ecpairing_circuits_data.0,
             ecmultipairing_naive_precompile_circuits: memory_circuits_data
                 .ecmultipairing_naive_circuits_data
                 .0,
@@ -1839,7 +1808,6 @@ pub(crate) fn create_artifacts_from_tracer<'a>(
         .chain(memory_circuits_data.modexp_circuits_data.1)
         .chain(memory_circuits_data.ecadd_circuits_data.1)
         .chain(memory_circuits_data.ecmul_circuits_data.1)
-        .chain(memory_circuits_data.ecpairing_circuits_data.1)
         .chain(memory_circuits_data.ecmultipairing_naive_circuits_data.1)
         .collect();
 

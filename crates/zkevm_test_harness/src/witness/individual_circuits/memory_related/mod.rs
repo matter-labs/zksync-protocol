@@ -18,7 +18,6 @@ use crate::witness::individual_circuits::memory_related::ecmultipairing_naive::e
 pub(crate) mod decommit_code;
 pub(crate) mod ecadd;
 pub(crate) mod ecmul;
-pub(crate) mod ecpairing;
 pub(crate) mod ecmultipairing_naive;
 pub(crate) mod ecrecover;
 pub(crate) mod keccak256_round_function;
@@ -38,7 +37,6 @@ pub(crate) struct ImplicitMemoryQueries {
     pub modexp_memory_queries: Vec<MemoryQuery>,
     pub ecadd_memory_queries: Vec<MemoryQuery>,
     pub ecmul_memory_queries: Vec<MemoryQuery>,
-    pub ecpairing_memory_queries: Vec<MemoryQuery>,
     pub ecmultipairing_naive_memory_queries: Vec<MemoryQuery>,
 }
 
@@ -52,7 +50,6 @@ impl ImplicitMemoryQueries {
             + self.modexp_memory_queries.len()
             + self.ecadd_memory_queries.len()
             + self.ecmul_memory_queries.len()
-            + self.ecpairing_memory_queries.len()
             + self.ecmultipairing_naive_memory_queries.len()
     }
 
@@ -66,8 +63,7 @@ impl ImplicitMemoryQueries {
             5 => Some(&self.modexp_memory_queries),
             6 => Some(&self.ecadd_memory_queries),
             7 => Some(&self.ecmul_memory_queries),
-            8 => Some(&self.ecpairing_memory_queries),
-            9 => Some(&self.ecmultipairing_naive_memory_queries),
+            8 => Some(&self.ecmultipairing_naive_memory_queries),
             _ => None,
         }
     }
@@ -132,7 +128,6 @@ pub fn get_implicit_memory_queries(
         modexp_memory_queries: modexp_memory_queries(&precompiles_inputs.modexp_witnesses),
         ecadd_memory_queries: ecadd_memory_queries(&precompiles_inputs.ecadd_witnesses),
         ecmul_memory_queries: ecmul_memory_queries(&precompiles_inputs.ecmul_witnesses),
-        ecpairing_memory_queries: ecpairing_memory_queries(&precompiles_inputs.ecpairing_witnesses),
         ecmultipairing_naive_memory_queries: ecmultipairing_naive_memory_queries(&precompiles_inputs.ecmultipairing_naive_witnesses),
     }
 }
@@ -177,8 +172,6 @@ pub(crate) struct ImplicitMemoryStates<F: SmallField> {
     pub ecadd_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     pub ecmul_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     pub ecmul_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
-    pub ecpairing_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
-    pub ecpairing_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     pub ecmultipairing_naive_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     pub ecmultipairing_naive_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
 }
@@ -193,7 +186,6 @@ impl<F: SmallField> ImplicitMemoryStates<F> {
             + self.modexp_memory_states.len()
             + self.ecadd_memory_states.len()
             + self.ecmul_memory_states.len()
-            + self.ecpairing_memory_states.len()
             + self.ecmultipairing_naive_memory_states.len()
     }
 }
@@ -212,7 +204,6 @@ fn get_simulator_snapshot<F: SmallField>(
 use crate::witness::aux_data_structs::one_per_circuit_accumulator::LastPerCircuitAccumulator;
 use crate::witness::individual_circuits::memory_related::ecadd::ecadd_memory_queries;
 use crate::witness::individual_circuits::memory_related::ecmul::ecmul_memory_queries;
-use crate::witness::individual_circuits::memory_related::ecpairing::ecpairing_memory_queries;
 use crate::witness::individual_circuits::memory_related::modexp::modexp_memory_queries;
 
 pub(crate) fn simulate_implicit_memory_queues<
@@ -284,11 +275,6 @@ pub(crate) fn simulate_implicit_memory_queues<
     implicit_memory_states.ecmul_simulator_snapshots = simulate_subqueue(
         &implicit_memory_queries.ecmul_memory_queries,
         &mut implicit_memory_states.ecmul_memory_states,
-    );
-
-    implicit_memory_states.ecpairing_simulator_snapshots = simulate_subqueue(
-        &implicit_memory_queries.ecpairing_memory_queries,
-        &mut implicit_memory_states.ecpairing_memory_states,
     );
 
     implicit_memory_states.ecmultipairing_naive_simulator_snapshots = simulate_subqueue(
