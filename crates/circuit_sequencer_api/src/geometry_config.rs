@@ -33,11 +33,12 @@ pub enum ProtocolGeometry {
     V1_4_1,
     V1_4_2,
     V1_5_0,
+    V1_7_0,
 }
 
 impl ProtocolGeometry {
     pub const fn latest() -> Self {
-        ProtocolGeometry::V1_5_0
+        ProtocolGeometry::V1_7_0
     }
 
     pub const fn config(self) -> GeometryConfig {
@@ -46,6 +47,7 @@ impl ProtocolGeometry {
             ProtocolGeometry::V1_4_1 => get_geometry_config_1_4_1(),
             ProtocolGeometry::V1_4_2 => get_geometry_config_1_4_2(),
             ProtocolGeometry::V1_5_0 => get_geometry_config_1_5_0(),
+            ProtocolGeometry::V1_7_0 => get_geometry_config_1_7_0(),
         }
     }
 }
@@ -147,8 +149,37 @@ const fn get_geometry_config_1_5_0() -> GeometryConfig {
     GeometryConfig {
         cycles_per_vm_snapshot: 5390,
         cycles_code_decommitter_sorter: 117500,
-        // FIXME: instead of changing this, create new config for 1.6.0
-        cycles_per_log_demuxer: 48125, // should change - as we have more 'output queues' now.
+        cycles_per_log_demuxer: 58125,
+        cycles_per_storage_sorter: 46921,
+        cycles_per_events_or_l1_messages_sorter: 31287,
+        cycles_per_ram_permutation: 136714,
+        cycles_per_code_decommitter: 2845,
+        cycles_per_storage_application: 33,
+        cycles_per_keccak256_circuit: 293,
+        cycles_per_sha256_circuit: 2206,
+        cycles_per_ecrecover_circuit: 7,
+        limit_for_l1_messages_pudata_hasher: 774,
+        cycles_per_transient_storage_sorter: 50875,
+        cycles_per_secp256r1_verify_circuit: 4,
+        // Not supported in this version
+        cycles_per_modexp_circuit: 0,
+        // Not supported in this version
+        cycles_per_ecadd_circuit: 0,
+        // Not supported in this version
+        cycles_per_ecmul_circuit: 0,
+        // Not supported in this version
+        cycles_per_ecpairing_circuit: 0,
+        // Not supported in this version
+        cycles_per_ecmultipairing_naive_circuit: 0,
+    }
+}
+
+/// 1.7.0 with precompiles.
+pub const fn get_geometry_config_1_7_0() -> GeometryConfig {
+    GeometryConfig {
+        cycles_per_vm_snapshot: 5390,
+        cycles_code_decommitter_sorter: 117500,
+        cycles_per_log_demuxer: 55625,
         cycles_per_storage_sorter: 46921,
         cycles_per_events_or_l1_messages_sorter: 31287,
         cycles_per_ram_permutation: 136714,
@@ -161,9 +192,10 @@ const fn get_geometry_config_1_5_0() -> GeometryConfig {
         cycles_per_transient_storage_sorter: 50875,
         cycles_per_secp256r1_verify_circuit: 4,
         cycles_per_modexp_circuit: 13,
-        cycles_per_ecadd_circuit: 1424,
-        cycles_per_ecmul_circuit: 22,
+        cycles_per_ecadd_circuit: 1488,
+        cycles_per_ecmul_circuit: 23,
         cycles_per_ecpairing_circuit: 1,
+        // For now, set to 1. But currently this circuit doesn't fit (even with 1 pairing).
         cycles_per_ecmultipairing_naive_circuit: 1,
     }
 }

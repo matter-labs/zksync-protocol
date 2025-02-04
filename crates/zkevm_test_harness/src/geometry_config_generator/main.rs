@@ -13,14 +13,6 @@ use zkevm_test_harness::capacity_estimator::{
 };
 use zkevm_test_harness::toolset::GeometryConfig;
 
-fn save_geometry_config_file(geometry_config: String, filepath: &str) {
-    let file_content =
-        "// This file is auto-generated, do not edit it manually\n\n".to_owned() + &geometry_config;
-    let mut f = File::create(filepath).expect("Unable to create file");
-    f.write_all(file_content.as_bytes())
-        .expect("Unable to write data");
-}
-
 fn all_runners() -> Vec<Box<dyn Fn() -> usize + Send>> {
     vec![
         Box::new(main_vm_capacity),
@@ -187,8 +179,4 @@ fn main() {
     ));
     function.line("}");
     println!("Generated config:\n {}", scope.to_string());
-    save_geometry_config_file(
-        scope.to_string(),
-        "crates/circuit_sequencer_api/src/geometry_config.rs",
-    );
 }

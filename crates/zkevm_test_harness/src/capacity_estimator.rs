@@ -111,7 +111,8 @@ where
             }
             Err(_e) => {
                 if next_size == start_size {
-                    panic!("Initial search point is too large");
+                    print!("ERROR: Initial search point is too large");
+                    return 0;
                 }
                 if next_size == size + 1 {
                     break;
