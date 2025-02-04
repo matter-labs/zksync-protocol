@@ -1108,9 +1108,15 @@ fn run_and_try_create_witness_inner(
 
     // collect for recursion tip. We know that is this test depth is 0
     let mut recursion_tip_proofs = vec![];
-    for recursive_circuit_type in (ZkSyncRecursionLayerStorageType::LeafLayerCircuitForMainVM as u8)
-        ..=(ZkSyncRecursionLayerStorageType::LeafLayerCircuitForECMultiPairingNaive as u8)
+
+    // Collect recursive proofs, but do it in base layer order.
+    for circuit_type in ((BaseLayerCircuitType::VM as u8)
+        ..=(BaseLayerCircuitType::ECMultiPairingNaivePrecompile as u8))
+        .chain(std::iter::once(BaseLayerCircuitType::EIP4844Repack as u8))
     {
+        let recursive_circuit_type = base_circuit_type_into_recursive_leaf_circuit_type(
+            BaseLayerCircuitType::from_numeric_value(circuit_type),
+        ) as u8;
         match source.get_node_layer_proof(recursive_circuit_type, 0, 0) {
             Ok(proof) => recursion_tip_proofs.push(proof.into_inner()),
             Err(_) => {
@@ -1161,6 +1167,7 @@ fn run_and_try_create_witness_inner(
             );
         }
 
+        // This must be in order of base circuits, with 4844 coming last.
         let input = RecursionTipInputWitness {
             leaf_layer_parameters: leaf_layer_params.clone(),
             node_layer_vk_commitment: node_layer_vk_commitment,

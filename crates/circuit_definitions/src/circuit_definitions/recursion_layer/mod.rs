@@ -35,7 +35,7 @@ pub const RECURSION_ARITY: usize = 32;
 // in the recursion_layer/vk_1.json (which is a VK for this circuit).
 // This value must be below the domain size (which is currently 1048576).
 // And with the current scheduler code, and SCHEDULER_CAPACITY set to 34100, the value is 1043851.
-pub const SCHEDULER_CAPACITY: usize = 34100;
+pub const SCHEDULER_CAPACITY: usize = 24100;
 
 pub use crate::zkevm_circuits::recursion::recursion_tip::input::RECURSION_TIP_ARITY;
 
@@ -276,7 +276,9 @@ impl<T: Clone + std::fmt::Debug + serde::Serialize + serde::de::DeserializeOwned
             ZkSyncRecursionLayerStorage::LeafLayerCircuitForECAdd(..) => "Leaf for ECAdd",
             ZkSyncRecursionLayerStorage::LeafLayerCircuitForECMul(..) => "Leaf for ECMul",
             ZkSyncRecursionLayerStorage::LeafLayerCircuitForECPairing(..) => "Leaf for ECPairing",
-            ZkSyncRecursionLayerStorage::LeafLayerCircuitForECMultiPairingNaive(..) => "Leaf for ECMultiPairingNaive",
+            ZkSyncRecursionLayerStorage::LeafLayerCircuitForECMultiPairingNaive(..) => {
+                "Leaf for ECMultiPairingNaive"
+            }
             ZkSyncRecursionLayerStorage::RecursionTipCircuit(..) => "Recursion tip",
         }
     }
@@ -473,7 +475,10 @@ impl<T: Clone + std::fmt::Debug + serde::Serialize + serde::de::DeserializeOwned
             a if a == ZkSyncRecursionLayerStorageType::LeafLayerCircuitForECPairing as u8 => {
                 Self::LeafLayerCircuitForECPairing(inner)
             }
-            a if a == ZkSyncRecursionLayerStorageType::LeafLayerCircuitForECMultiPairingNaive as u8 => {
+            a if a
+                == ZkSyncRecursionLayerStorageType::LeafLayerCircuitForECMultiPairingNaive
+                    as u8 =>
+            {
                 Self::LeafLayerCircuitForECMultiPairingNaive(inner)
             }
             a if a == ZkSyncRecursionLayerStorageType::RecursionTipCircuit as u8 => {
@@ -522,7 +527,9 @@ impl<T: Clone + std::fmt::Debug + serde::Serialize + serde::de::DeserializeOwned
             BaseLayerCircuitType::ECAddPrecompile => Self::LeafLayerCircuitForECAdd(inner),
             BaseLayerCircuitType::ECMulPrecompile => Self::LeafLayerCircuitForECMul(inner),
             BaseLayerCircuitType::ECPairingPrecompile => Self::LeafLayerCircuitForECPairing(inner),
-            BaseLayerCircuitType::ECMultiPairingNaivePrecompile => Self::LeafLayerCircuitForECMultiPairingNaive(inner),
+            BaseLayerCircuitType::ECMultiPairingNaivePrecompile => {
+                Self::LeafLayerCircuitForECMultiPairingNaive(inner)
+            }
             BaseLayerCircuitType::EIP4844Repack => Self::LeafLayerCircuitForEIP4844Repack(inner),
             circuit_type => {
                 panic!("unknown base circuit type for leaf: {:?}", circuit_type);
@@ -693,7 +700,7 @@ impl ZkSyncRecursiveLayerCircuit {
             | Self::LeafLayerCircuitForECAdd(inner)
             | Self::LeafLayerCircuitForECMul(inner)
             | Self::LeafLayerCircuitForECPairing(inner) => inner.size_hint(),
-            | Self::LeafLayerCircuitForECMultiPairingNaive(inner) => inner.size_hint(),
+            Self::LeafLayerCircuitForECMultiPairingNaive(inner) => inner.size_hint(),
             Self::RecursionTipCircuit(inner) => inner.size_hint(),
         }
     }
@@ -722,7 +729,9 @@ impl ZkSyncRecursiveLayerCircuit {
             | Self::LeafLayerCircuitForECAdd(..)
             | Self::LeafLayerCircuitForECMul(..)
             | Self::LeafLayerCircuitForECPairing(..)
-            | Self::LeafLayerCircuitForECMultiPairingNaive(..) => ZkSyncLeafLayerRecursiveCircuit::geometry(),
+            | Self::LeafLayerCircuitForECMultiPairingNaive(..) => {
+                ZkSyncLeafLayerRecursiveCircuit::geometry()
+            }
             Self::RecursionTipCircuit(..) => ZkSyncRecursionTipCircuit::geometry(),
         }
     }
@@ -832,7 +841,7 @@ impl ZkSyncRecursiveLayerCircuit {
             | Self::LeafLayerCircuitForECAdd(inner)
             | Self::LeafLayerCircuitForECMul(inner)
             | Self::LeafLayerCircuitForECPairing(inner)
-            | Self::LeafLayerCircuitForECMultiPairingNaive(inner) => {  
+            | Self::LeafLayerCircuitForECMultiPairingNaive(inner) => {
                 Self::synthesis_inner::<_, CR>(inner, hint)
             }
             Self::RecursionTipCircuit(inner) => {
@@ -883,7 +892,7 @@ impl ZkSyncRecursiveLayerCircuit {
             | Self::LeafLayerCircuitForModexp(..)
             | Self::LeafLayerCircuitForECAdd(..)
             | Self::LeafLayerCircuitForECMul(..)
-            | Self::LeafLayerCircuitForECPairing(..) 
+            | Self::LeafLayerCircuitForECPairing(..)
             | Self::LeafLayerCircuitForECMultiPairingNaive(..) => {
                 ConcreteNodeLayerCircuitBuilder::dyn_verifier_builder::<EXT>()
             }
@@ -976,7 +985,9 @@ impl ZkSyncRecursiveLayerCircuit {
             BaseLayerCircuitType::ECAddPrecompile => Self::LeafLayerCircuitForECAdd(inner),
             BaseLayerCircuitType::ECMulPrecompile => Self::LeafLayerCircuitForECMul(inner),
             BaseLayerCircuitType::ECPairingPrecompile => Self::LeafLayerCircuitForECPairing(inner),
-            BaseLayerCircuitType::ECMultiPairingNaivePrecompile => Self::LeafLayerCircuitForECMultiPairingNaive(inner),
+            BaseLayerCircuitType::ECMultiPairingNaivePrecompile => {
+                Self::LeafLayerCircuitForECMultiPairingNaive(inner)
+            }
 
             circuit_type => {
                 panic!("unknown base circuit type for leaf: {:?}", circuit_type);

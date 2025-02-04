@@ -229,8 +229,10 @@ pub fn scheduler_function<
     let ecpairing_observable_output =
         PrecompileFunctionOutputData::allocate(cs, witness.ecpairing_observable_output.clone());
 
-    let ecmultipairing_naive_observable_output =
-        PrecompileFunctionOutputData::allocate(cs, witness.ecmultipairing_naive_observable_output.clone());
+    let ecmultipairing_naive_observable_output = PrecompileFunctionOutputData::allocate(
+        cs,
+        witness.ecmultipairing_naive_observable_output.clone(),
+    );
     let storage_sorter_observable_output = StorageDeduplicatorOutputData::allocate(
         cs,
         witness.storage_sorter_observable_output.clone(),
@@ -361,8 +363,8 @@ pub fn scheduler_function<
         log_demuxer_observable_output.output_queue_states[DemuxOutput::ECMul as usize];
     let ecpairing_access_queue_state =
         log_demuxer_observable_output.output_queue_states[DemuxOutput::ECPairing as usize];
-    let ecmultipairing_naive_access_queue_state =
-        log_demuxer_observable_output.output_queue_states[DemuxOutput::ECMultiPairingNaive as usize];
+    let ecmultipairing_naive_access_queue_state = log_demuxer_observable_output.output_queue_states
+        [DemuxOutput::ECMultiPairingNaive as usize];
 
     // precompiles: keccak, sha256, ecrecover, modexp, ecadd, ecmul and ecpairing
     let (keccak_circuit_observable_input_commitment, keccak_circuit_observable_output_commitment) =
@@ -446,8 +448,6 @@ pub fn scheduler_function<
         round_function,
     );
 
-    
-
     // ram permutation and validation
     // NBL this circuit is terminal - it has no actual output
 
@@ -456,7 +456,7 @@ pub fn scheduler_function<
         QueueTailState::allocate(cs, witness.ram_sorted_queue_state.clone());
 
     let ram_validation_circuit_input = RamPermutationInputData {
-        unsorted_queue_initial_state: secp256r1_verify_observable_output.final_memory_state,
+        unsorted_queue_initial_state: ecmultipairing_naive_observable_output.final_memory_state,
         sorted_queue_initial_state: ram_sorted_queue_state,
         non_deterministic_bootloader_memory_snapshot_length: bootloader_heap_memory_state.length,
     };
@@ -926,7 +926,10 @@ pub fn scheduler_function<
             Some(should_skip);
     }
     {
-        let should_skip = ecmultipairing_naive_access_queue_state.tail.length.is_zero(cs);
+        let should_skip = ecmultipairing_naive_access_queue_state
+            .tail
+            .length
+            .is_zero(cs);
 
         let input_state = ecpairing_observable_output.final_memory_state;
         let output_state = ecmultipairing_naive_observable_output.final_memory_state;
