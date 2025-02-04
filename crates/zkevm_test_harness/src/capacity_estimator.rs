@@ -240,7 +240,7 @@ pub fn ecmul_capacity() -> usize {
 pub fn ecmultipairing_naive_capacity() -> usize {
     type SF = ECMultiPairingNaiveFunctionInstanceSynthesisFunction;
 
-    compute_size_inner::<SF, _>(SF::geometry(), 20, Some(1), |x: usize| x)
+    compute_size_inner::<SF, _>(SF::geometry(), 21, Some(1), |x: usize| x)
 }
 
 #[cfg(test)]
