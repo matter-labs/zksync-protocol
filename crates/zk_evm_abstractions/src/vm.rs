@@ -3,10 +3,12 @@ use zkevm_opcode_defs::{
     FatPointer,
 };
 
-use crate::precompiles::{ecadd::ECAddPrecompile, ecmultipairing_naive::EcMultiPairingNaivePrecompile};
 use crate::precompiles::ecmul::ECMulPrecompile;
 use crate::precompiles::ecpairing::ECPairingPrecompile;
 use crate::precompiles::modexp::ModexpPrecompile;
+use crate::precompiles::{
+    ecadd::ECAddPrecompile, ecmultipairing_naive::EcMultiPairingNaivePrecompile,
+};
 use crate::{
     aux::{MemoryPage, PubdataCost, Timestamp},
     precompiles::{

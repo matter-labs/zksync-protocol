@@ -1,7 +1,7 @@
 use snark_wrapper::boojum::field::goldilocks::{GoldilocksExt2, GoldilocksField};
 
-use super::*;
 use super::base_layer::ecmultipairing_naive::ECMultiPairingNaiveFunctionInstanceSynthesisFunction;
+use super::*;
 
 use crate::boojum::cs::traits::circuit::CircuitBuilderProxy;
 use crate::circuit_definitions::base_layer::*;

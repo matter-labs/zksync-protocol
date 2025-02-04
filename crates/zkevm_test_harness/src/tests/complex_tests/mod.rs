@@ -156,10 +156,9 @@ fn get_testing_geometry_config() -> GeometryConfig {
         cycles_per_modexp_circuit: 10,
         cycles_per_ecadd_circuit: 10,
         cycles_per_ecmul_circuit: 10,
-        cycles_per_ecpairing_circuit: 10,
-        cycles_per_ecmultipairing_naive_circuit: 10,
+        cycles_per_ecpairing_circuit: 1,
+        cycles_per_ecmultipairing_naive_circuit: 1,
         limit_for_l1_messages_pudata_hasher: 32,
-
     }
 }
 

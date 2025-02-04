@@ -17,23 +17,8 @@ impl<T> PerCircuitAccumulatorContainer<T> {
         }
     }
 
-    pub fn with_flat_capacity(cycles_per_circuit: usize, flat_capacity: usize) -> Self {
-        assert!(cycles_per_circuit != 0);
-
-        let num_circuits = (flat_capacity + cycles_per_circuit - 1) / cycles_per_circuit;
-
-        // TODO reserve in sub-vectors
-        let mut _self = Self::new(cycles_per_circuit);
-        _self.circuits_data.reserve_exact(num_circuits);
-        _self
-    }
-
     pub fn len(&self) -> usize {
         self.accumulated
-    }
-
-    pub fn amount_of_circuits_accumulated(&self) -> usize {
-        self.circuits_data.len()
     }
 
     pub fn last(&self) -> Option<&T> {
@@ -88,14 +73,6 @@ impl<T> PerCircuitAccumulatorContainer<T> {
         }
 
         self.circuits_data[len - 1].shrink_to_fit();
-    }
-
-    pub fn iter(&self) -> PerCircuitAccumulatorIterator<T> {
-        PerCircuitAccumulatorIterator {
-            container: self,
-            batch_index: 0,
-            inner_index: 0,
-        }
     }
 
     pub fn into_iter(self) -> PerCircuitAccumulatorIntoIter<T> {
@@ -172,37 +149,12 @@ pub struct PerCircuitAccumulator<T> {
 }
 
 impl<T> PerCircuitAccumulator<T> {
-    pub fn with_flat_capacity(cycles_per_circuit: usize, flat_capacity: usize) -> Self {
-        Self {
-            container: PerCircuitAccumulatorContainer::with_flat_capacity(
-                cycles_per_circuit,
-                flat_capacity,
-            ),
-        }
-    }
-
-    pub fn len(&self) -> usize {
-        self.container.len()
-    }
-
-    pub fn amount_of_circuits_accumulated(&self) -> usize {
-        self.container.amount_of_circuits_accumulated()
-    }
-
     pub fn push(&mut self, val: T) {
         assert!(self.container.cycles_per_circuit != 0);
         let idx = self.container.len();
 
         let circuit_index = idx / self.container.cycles_per_circuit;
         self.container.push_for_circuit(circuit_index, val);
-    }
-
-    pub fn into_circuits(self, amount_of_circuits: usize) -> Vec<Vec<T>> {
-        self.container.into_circuits(amount_of_circuits)
-    }
-
-    pub fn iter(&self) -> PerCircuitAccumulatorIterator<T> {
-        self.container.iter()
     }
 }
 

@@ -63,7 +63,9 @@ use circuit_definitions::zkevm_circuits::storage_validity_by_grand_product::inpu
 use circuit_definitions::zkevm_circuits::transient_storage_validity_by_grand_product::input::TransientStorageDeduplicatorInstanceWitness;
 use circuit_definitions::zkevm_circuits::transient_storage_validity_by_grand_product::input::*;
 use circuit_definitions::Field;
-use circuit_encodings::zkevm_circuits::bn254::ec_pairing::input_alternative::{EcMultiPairingCircuitInstanceWitness, EcMultiPairingCircuitFSMInputOutput};
+use circuit_encodings::zkevm_circuits::bn254::ec_pairing::input_alternative::{
+    EcMultiPairingCircuitFSMInputOutput, EcMultiPairingCircuitInstanceWitness,
+};
 use crossbeam::atomic::AtomicCell;
 use derivative::Derivative;
 use observable_witness::ObservableWitness;

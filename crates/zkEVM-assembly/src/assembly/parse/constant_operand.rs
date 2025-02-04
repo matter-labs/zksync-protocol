@@ -7,7 +7,7 @@ use crate::assembly::mnemonic::all_until1_include_terminator;
 
 use crate::assembly::operand::ConstantOperand;
 
-pub(crate) fn parse_constant_operand<'a>(input: &'a str) -> IResult<&str, FullOperand> {
+pub(crate) fn parse_constant_operand<'a>(input: &'a str) -> IResult<&'a str, FullOperand> {
     // we try to parse something like @label[reg + imm],
     // so we first do try to take @|label|[.... and we do not consume []
 

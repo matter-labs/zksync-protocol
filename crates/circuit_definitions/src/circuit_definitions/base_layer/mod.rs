@@ -32,8 +32,8 @@ pub mod vm_main;
 // pub mod l1_messages_sort_dedup; // equal to one above
 pub mod ecadd;
 pub mod ecmul;
-pub mod ecpairing;
 pub mod ecmultipairing_naive;
+pub mod ecpairing;
 pub mod eip4844;
 pub mod linear_hasher;
 pub mod modexp;
@@ -84,8 +84,10 @@ pub type ECMulCircuit =
     ZkSyncUniformCircuitInstance<GoldilocksField, ECMulFunctionInstanceSynthesisFunction>;
 pub type ECPairingCircuit =
     ZkSyncUniformCircuitInstance<GoldilocksField, ECPairingFunctionInstanceSynthesisFunction>;
-pub type ECMultiPairingNaiveCircuit =
-    ZkSyncUniformCircuitInstance<GoldilocksField, ECMultiPairingNaiveFunctionInstanceSynthesisFunction>;
+pub type ECMultiPairingNaiveCircuit = ZkSyncUniformCircuitInstance<
+    GoldilocksField,
+    ECMultiPairingNaiveFunctionInstanceSynthesisFunction,
+>;
 pub type RAMPermutationCircuit =
     ZkSyncUniformCircuitInstance<GoldilocksField, RAMPermutationInstanceSynthesisFunction>;
 pub type StorageSorterCircuit =
@@ -283,7 +285,9 @@ impl<T: Clone + std::fmt::Debug + serde::Serialize + serde::de::DeserializeOwned
             a if a == BaseLayerCircuitType::ECAddPrecompile as u8 => Self::ECAdd(inner),
             a if a == BaseLayerCircuitType::ECMulPrecompile as u8 => Self::ECMul(inner),
             a if a == BaseLayerCircuitType::ECPairingPrecompile as u8 => Self::ECPairing(inner),
-            a if a == BaseLayerCircuitType::ECMultiPairingNaivePrecompile as u8 => Self::ECMultiPairingNaive(inner),
+            a if a == BaseLayerCircuitType::ECMultiPairingNaivePrecompile as u8 => {
+                Self::ECMultiPairingNaive(inner)
+            }
             a @ _ => panic!("unknown numeric type {}", a),
         }
     }
@@ -386,7 +390,6 @@ where
             ZkSyncBaseLayerCircuit::ECMul(inner) => inner.size_hint(),
             ZkSyncBaseLayerCircuit::ECPairing(inner) => inner.size_hint(),
             ZkSyncBaseLayerCircuit::ECMultiPairingNaive(inner) => inner.size_hint(),
-
         }
     }
 
@@ -488,7 +491,9 @@ where
             ZkSyncBaseLayerCircuit::ECAdd(inner) => Self::synthesis_inner::<_, CR>(inner, hint),
             ZkSyncBaseLayerCircuit::ECMul(inner) => Self::synthesis_inner::<_, CR>(inner, hint),
             ZkSyncBaseLayerCircuit::ECPairing(inner) => Self::synthesis_inner::<_, CR>(inner, hint),
-            ZkSyncBaseLayerCircuit::ECMultiPairingNaive(inner) => Self::synthesis_inner::<_, CR>(inner, hint),
+            ZkSyncBaseLayerCircuit::ECMultiPairingNaive(inner) => {
+                Self::synthesis_inner::<_, CR>(inner, hint)
+            }
         }
     }
 
@@ -633,7 +638,7 @@ where
             ZkSyncBaseLayerCircuit::ECMul(..) => BaseLayerCircuitType::ECMulPrecompile as u8,
             ZkSyncBaseLayerCircuit::ECPairing(..) => {
                 BaseLayerCircuitType::ECPairingPrecompile as u8
-            },
+            }
             ZkSyncBaseLayerCircuit::ECMultiPairingNaive(..) => {
                 BaseLayerCircuitType::ECMultiPairingNaivePrecompile as u8
             }
