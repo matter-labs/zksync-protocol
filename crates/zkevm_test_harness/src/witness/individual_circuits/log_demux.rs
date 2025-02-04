@@ -32,8 +32,8 @@ use crate::zk_evm::zkevm_opcode_defs::system_params::{
 };
 use crate::zk_evm::zkevm_opcode_defs::MODEXP_PRECOMPILE_FORMAL_ADDRESS;
 use circuit_definitions::zk_evm::zkevm_opcode_defs::{
-    ECADD_PRECOMPILE_FORMAL_ADDRESS, ECMUL_PRECOMPILE_FORMAL_ADDRESS,
-    ECPAIRING_PRECOMPILE_FORMAL_ADDRESS, ECMULTIPAIRING_NAIVE_PRECOMPILE_FORMAL_ADDRESS,
+    ECADD_PRECOMPILE_FORMAL_ADDRESS, ECMULTIPAIRING_NAIVE_PRECOMPILE_FORMAL_ADDRESS,
+    ECMUL_PRECOMPILE_FORMAL_ADDRESS, ECPAIRING_PRECOMPILE_FORMAL_ADDRESS,
 };
 use std::collections::HashMap;
 
@@ -94,8 +94,9 @@ impl DemuxedQueuesStatesSimulator {
                 DemuxOutput::ECAdd => geometry.cycles_per_ecadd_circuit,
                 DemuxOutput::ECMul => geometry.cycles_per_ecmul_circuit,
                 DemuxOutput::ECPairing => geometry.cycles_per_ecpairing_circuit,
-                DemuxOutput::ECMultiPairingNaive => geometry.cycles_per_ecmultipairing_naive_circuit,
-                
+                DemuxOutput::ECMultiPairingNaive => {
+                    geometry.cycles_per_ecmultipairing_naive_circuit
+                }
             };
 
             let state = if let DemuxOutput::PorterStorage = output {
@@ -156,7 +157,9 @@ impl DemuxedQueuesStatesSimulator {
                     a if a == *ECADD_PRECOMPILE_FORMAL_ADDRESS => Some(DemuxOutput::ECAdd),
                     a if a == *ECMUL_PRECOMPILE_FORMAL_ADDRESS => Some(DemuxOutput::ECMul),
                     a if a == *ECPAIRING_PRECOMPILE_FORMAL_ADDRESS => Some(DemuxOutput::ECPairing),
-                    a if a == *ECMULTIPAIRING_NAIVE_PRECOMPILE_FORMAL_ADDRESS => Some(DemuxOutput::ECMultiPairingNaive),
+                    a if a == *ECMULTIPAIRING_NAIVE_PRECOMPILE_FORMAL_ADDRESS => {
+                        Some(DemuxOutput::ECMultiPairingNaive)
+                    }
                     _ => None,
                 }
             }

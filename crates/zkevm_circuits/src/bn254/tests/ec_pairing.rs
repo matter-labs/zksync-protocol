@@ -251,14 +251,14 @@ pub mod test {
             // Printing the number of constraints if needed
             if DEBUG_PERFORMANCE {
                 //let cs1 = owned_cs.into_assembly::<std::alloc::Global>();
-                
+
                 let worker = Worker::new_with_num_threads(8);
 
                 //drop(cs1);
                 owned_cs.pad_and_shrink();
                 let mut owned_cs = owned_cs.into_assembly::<Global>();
                 assert!(owned_cs.check_if_satisfied(&worker));
-                
+
                 owned_cs.print_gate_stats();
             }
 
@@ -307,7 +307,7 @@ pub mod test {
                 owned_cs.pad_and_shrink();
                 let mut owned_cs = owned_cs.into_assembly::<Global>();
                 assert!(owned_cs.check_if_satisfied(&worker));
-                
+
                 owned_cs.print_gate_stats();
             }
 

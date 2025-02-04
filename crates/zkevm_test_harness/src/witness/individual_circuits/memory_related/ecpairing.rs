@@ -250,8 +250,9 @@ pub(crate) fn ecpairing_decompose_into_per_circuit_witness<
                     precompile_state == ECPairingPrecompileState::GetRequestFromQueue;
 
                 let mut output_offset = precompile_request.output_memory_offset;
+                // We increase the offset after we did the write, which happens when we
+                // fully finished the precompile.
                 if is_last_round {
-                    println!("Incremented output offset");
                     output_offset += 1;
                 }
                 println!("output offset is : {}", output_offset);

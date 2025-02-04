@@ -7,6 +7,7 @@ use sha256_round_function::sha256_memory_queries;
 use super::*;
 use crate::ethereum_types::U256;
 
+use crate::witness::individual_circuits::memory_related::ecmultipairing_naive::ecmultipairing_naive_memory_queries;
 use crate::zk_evm::aux_structures::DecommittmentQuery;
 use crate::zk_evm::aux_structures::LogQuery as LogQuery_;
 use crate::zk_evm::aux_structures::MemoryQuery;
@@ -14,12 +15,11 @@ use crate::zk_evm::zk_evm_abstractions::precompiles::ecrecover::ECRecoverRoundWi
 use crate::zk_evm::zk_evm_abstractions::precompiles::keccak256::Keccak256RoundWitness;
 use crate::zk_evm::zk_evm_abstractions::precompiles::secp256r1_verify::Secp256r1VerifyRoundWitness;
 use crate::zk_evm::zk_evm_abstractions::precompiles::sha256::Sha256RoundWitness;
-use crate::witness::individual_circuits::memory_related::ecmultipairing_naive::ecmultipairing_naive_memory_queries;
 pub(crate) mod decommit_code;
 pub(crate) mod ecadd;
 pub(crate) mod ecmul;
-pub(crate) mod ecpairing;
 pub(crate) mod ecmultipairing_naive;
+pub(crate) mod ecpairing;
 pub(crate) mod ecrecover;
 pub(crate) mod keccak256_round_function;
 pub(crate) mod modexp;
@@ -133,7 +133,9 @@ pub fn get_implicit_memory_queries(
         ecadd_memory_queries: ecadd_memory_queries(&precompiles_inputs.ecadd_witnesses),
         ecmul_memory_queries: ecmul_memory_queries(&precompiles_inputs.ecmul_witnesses),
         ecpairing_memory_queries: ecpairing_memory_queries(&precompiles_inputs.ecpairing_witnesses),
-        ecmultipairing_naive_memory_queries: ecmultipairing_naive_memory_queries(&precompiles_inputs.ecmultipairing_naive_witnesses),
+        ecmultipairing_naive_memory_queries: ecmultipairing_naive_memory_queries(
+            &precompiles_inputs.ecmultipairing_naive_witnesses,
+        ),
     }
 }
 
@@ -179,8 +181,10 @@ pub(crate) struct ImplicitMemoryStates<F: SmallField> {
     pub ecmul_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     pub ecpairing_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     pub ecpairing_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
-    pub ecmultipairing_naive_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
-    pub ecmultipairing_naive_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
+    pub ecmultipairing_naive_simulator_snapshots:
+        Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
+    pub ecmultipairing_naive_memory_states:
+        Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
 }
 
 impl<F: SmallField> ImplicitMemoryStates<F> {

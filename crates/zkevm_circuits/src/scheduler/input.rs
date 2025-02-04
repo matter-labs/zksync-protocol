@@ -112,7 +112,8 @@ impl<F: SmallField, H: RecursiveTreeHasher<F, Num<F>>, EXT: FieldExtension<2, Ba
             ecadd_observable_output: PrecompileFunctionOutputData::placeholder_witness(),
             ecmul_observable_output: PrecompileFunctionOutputData::placeholder_witness(),
             ecpairing_observable_output: PrecompileFunctionOutputData::placeholder_witness(),
-            ecmultipairing_naive_observable_output: PrecompileFunctionOutputData::placeholder_witness(),
+            ecmultipairing_naive_observable_output:
+                PrecompileFunctionOutputData::placeholder_witness(),
 
             storage_sorter_observable_output: StorageDeduplicatorOutputData::placeholder_witness(),
             storage_application_observable_output:

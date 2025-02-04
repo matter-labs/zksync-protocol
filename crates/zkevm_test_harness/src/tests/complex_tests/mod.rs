@@ -154,11 +154,11 @@ fn get_testing_geometry_config() -> GeometryConfig {
         cycles_per_events_or_l1_messages_sorter: 4,
         cycles_per_secp256r1_verify_circuit: 2,
         cycles_per_transient_storage_sorter: 16,
-        cycles_per_modexp_circuit: 3,
-        cycles_per_ecadd_circuit: 2,
-        cycles_per_ecmul_circuit: 2,
+        cycles_per_modexp_circuit: 10,
+        cycles_per_ecadd_circuit: 10,
+        cycles_per_ecmul_circuit: 10,
         cycles_per_ecpairing_circuit: 1,
-        cycles_per_ecmultipairing_naive_circuit: 10,
+        cycles_per_ecmultipairing_naive_circuit: 1,
         limit_for_l1_messages_pudata_hasher: 32,
     }
 }

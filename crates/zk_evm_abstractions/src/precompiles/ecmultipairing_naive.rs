@@ -1,15 +1,15 @@
-use anyhow::{Error, Result};
-use zkevm_opcode_defs::bn254::bn256::{Fq, Fq12, Fq2, G1Affine, G2Affine};
-use zkevm_opcode_defs::bn254::ff::{Field, PrimeField};
-use zkevm_opcode_defs::bn254::CurveAffine;
-use zkevm_opcode_defs::ethereum_types::U256;
-pub use zkevm_opcode_defs::sha2::Digest;
-use zkevm_opcode_defs::bn254::*;
+use super::*;
 use crate::precompiles::ecmultipairing_naive::bn256::Bn256;
+use anyhow::{Error, Result};
+use zkevm_opcode_defs::bn254::bn256::miller_loop_with_prepared_lines;
 use zkevm_opcode_defs::bn254::bn256::prepare_all_line_functions;
 use zkevm_opcode_defs::bn254::bn256::prepare_g1_point;
-use zkevm_opcode_defs::bn254::bn256::miller_loop_with_prepared_lines;
-use super::*;
+use zkevm_opcode_defs::bn254::bn256::{Fq, Fq12, Fq2};
+use zkevm_opcode_defs::bn254::ff::{Field, PrimeField};
+use zkevm_opcode_defs::bn254::CurveAffine;
+use zkevm_opcode_defs::bn254::*;
+use zkevm_opcode_defs::ethereum_types::U256;
+pub use zkevm_opcode_defs::sha2::Digest;
 
 // we need 3 pairs of the points (G1, G2), total elements (2 + 4) * 3 = 18 total memory read
 pub const MEMORY_READS_PER_CYCLE: usize = 18;
@@ -74,9 +74,10 @@ impl<const B: bool> Precompile for EcMultiPairingNaivePrecompile<B> {
 
         let mut read_idx = 0;
 
-        let mut check_tuples = Vec::<EcPairingInputTuple>::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING);
+        let mut check_tuples =
+            Vec::<EcPairingInputTuple>::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING);
 
-        for i in 0..NUM_PAIRINGS_IN_MULTIPAIRING{
+        for _ in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
             let x = MemoryQuery {
                 timestamp: timestamp_to_read,
                 location: current_read_location,
@@ -91,7 +92,7 @@ impl<const B: bool> Precompile for EcMultiPairingNaivePrecompile<B> {
                 read_idx += 1;
                 read_history.push(x);
             }
-    
+
             current_read_location.index.0 += 1;
             let y = MemoryQuery {
                 timestamp: timestamp_to_read,
@@ -107,7 +108,7 @@ impl<const B: bool> Precompile for EcMultiPairingNaivePrecompile<B> {
                 read_idx += 1;
                 read_history.push(y);
             }
-    
+
             current_read_location.index.0 += 1;
             let x_c0 = MemoryQuery {
                 timestamp: timestamp_to_read,
@@ -123,7 +124,7 @@ impl<const B: bool> Precompile for EcMultiPairingNaivePrecompile<B> {
                 read_idx += 1;
                 read_history.push(x_c0);
             }
-    
+
             current_read_location.index.0 += 1;
             let x_c1 = MemoryQuery {
                 timestamp: timestamp_to_read,
@@ -139,7 +140,7 @@ impl<const B: bool> Precompile for EcMultiPairingNaivePrecompile<B> {
                 read_idx += 1;
                 read_history.push(x_c1);
             }
-    
+
             current_read_location.index.0 += 1;
             let y_c0 = MemoryQuery {
                 timestamp: timestamp_to_read,
@@ -172,9 +173,10 @@ impl<const B: bool> Precompile for EcMultiPairingNaivePrecompile<B> {
                 read_history.push(y_c1);
             }
             // Setting check tuples
-            check_tuples.push([x_value, y_value, x_c0_value, x_c1_value, y_c0_value, y_c1_value]);
+            check_tuples.push([
+                x_value, y_value, x_c0_value, x_c1_value, y_c0_value, y_c1_value,
+            ]);
         }
-
 
         let multipairing_naive_check = ecmultipairing_naive_inner(check_tuples.to_vec());
 
@@ -264,7 +266,9 @@ impl<const B: bool> Precompile for EcMultiPairingNaivePrecompile<B> {
 /// but for multi-pairing we expect exactly 3 of these (NUM_PAIRINGS_IN_MULTIPAIRING = 3).
 pub fn ecmultipairing_naive_inner(inputs: Vec<[U256; 6]>) -> Result<bool> {
     if inputs.len() != 3 {
-        return Err(Error::msg("ecmultipairing_naive_inner expects exactly 3 sets of coordinates"));
+        return Err(Error::msg(
+            "ecmultipairing_naive_inner expects exactly 3 sets of coordinates",
+        ));
     }
 
     let mut prepared_g1s = Vec::with_capacity(inputs.len());
