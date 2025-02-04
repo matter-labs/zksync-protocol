@@ -195,6 +195,7 @@ pub const fn get_geometry_config_1_7_0() -> GeometryConfig {
         cycles_per_ecadd_circuit: 1488,
         cycles_per_ecmul_circuit: 23,
         cycles_per_ecpairing_circuit: 1,
-        cycles_per_ecmultipairing_naive_circuit: 0,
+        // For now, set to 1. But currently this circuit doesn't fit (even with 1 pairing).
+        cycles_per_ecmultipairing_naive_circuit: 1,
     }
 }
