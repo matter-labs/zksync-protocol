@@ -19,33 +19,23 @@ use boojum::gadgets::u160::UInt160;
 use boojum::gadgets::u256::UInt256;
 use boojum::gadgets::u32::UInt32;
 use boojum::gadgets::u8::UInt8;
-use boojum::pairing::bn256;
 use cs_derive::*;
 use derivative::Derivative;
 use zkevm_opcode_defs::system_params::PRECOMPILE_AUX_BYTE;
 
 use super::*;
-use crate::base_structures::log_query::*;
-use crate::base_structures::memory_query::*;
 use crate::base_structures::precompile_input_outputs::PrecompileFunctionOutputData;
 use crate::bn254::ec_pairing::input_alternative::EcMultiPairingCircuitInputOutput;
-use crate::bn254::validation::{
-    is_affine_infinity, is_on_curve, is_on_twist_curve, is_twist_affine_infinity, validate_in_field,
-};
+use crate::bn254::validation::validate_in_field;
 use crate::demux_log_queue::StorageLogQueue;
-use crate::ethereum_types::U256;
 use crate::fsm_input_output::circuit_inputs::INPUT_OUTPUT_COMMITMENT_LENGTH;
-use crate::fsm_input_output::*;
 use crate::storage_application::ConditionalWitnessAllocator;
 use boojum::cs::Variable;
-use boojum::gadgets::non_native_field::traits::NonNativeField;
-use boojum::gadgets::tower_extension::fq12::Fq12;
 use boojum::gadgets::traits::allocatable::CSAllocatable;
 use boojum::gadgets::traits::encodable::CircuitVarLengthEncodable;
 use boojum::gadgets::traits::encodable::WitnessVarLengthEncodable;
 
 use self::ec_mul::implementation::convert_uint256_to_field_element;
-use self::implementation::ec_pairing;
 use self::input_alternative::EcMultiPairingCircuitInstanceWitness;
 
 pub const NUM_MEMORY_READS_PER_CYCLE: usize = 18;

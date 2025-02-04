@@ -369,7 +369,7 @@ fn parse_brackets_content<'a>(input: &'a str) -> IResult<&'a str, &'a str> {
 
 pub(crate) fn parse_absolute_addressing_single<'a>(
     input: &'a str,
-) -> IResult<&str, (RegisterOperand, u64)> {
+) -> IResult<&'a str, (RegisterOperand, u64)> {
     // we want either rX +/- imm
 
     // so we want may be space | may be rX | may be space | may be + or - | may be space | may be immediate
@@ -541,12 +541,12 @@ pub(crate) fn parse_arith_separated<'a>(
     Ok(("", results))
 }
 
-fn parse_immediate<'a>(input: &'a str) -> IResult<&str, u64> {
+fn parse_immediate<'a>(input: &'a str) -> IResult<&'a str, u64> {
     let (rest, _) = nom::bytes::complete::tag::<_, _, nom::error::Error<_>>("#")(input)?;
     parse_immediate_value(rest)
 }
 
-fn parse_immediate_value<'a>(input: &'a str) -> IResult<&str, u64> {
+fn parse_immediate_value<'a>(input: &'a str) -> IResult<&'a str, u64> {
     let rest = input;
     let mut hex_parser = nom::sequence::tuple::<_, _, nom::error::Error<_>, _>((
         all_from_tag_until_1_noconsume(

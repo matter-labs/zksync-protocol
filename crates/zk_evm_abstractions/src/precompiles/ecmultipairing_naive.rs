@@ -4,7 +4,7 @@ use anyhow::{Error, Result};
 use zkevm_opcode_defs::bn254::bn256::miller_loop_with_prepared_lines;
 use zkevm_opcode_defs::bn254::bn256::prepare_all_line_functions;
 use zkevm_opcode_defs::bn254::bn256::prepare_g1_point;
-use zkevm_opcode_defs::bn254::bn256::{Fq, Fq12, Fq2, G1Affine, G2Affine};
+use zkevm_opcode_defs::bn254::bn256::{Fq, Fq12, Fq2};
 use zkevm_opcode_defs::bn254::ff::{Field, PrimeField};
 use zkevm_opcode_defs::bn254::CurveAffine;
 use zkevm_opcode_defs::bn254::*;
@@ -77,7 +77,7 @@ impl<const B: bool> Precompile for EcMultiPairingNaivePrecompile<B> {
         let mut check_tuples =
             Vec::<EcPairingInputTuple>::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING);
 
-        for i in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
+        for _ in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
             let x = MemoryQuery {
                 timestamp: timestamp_to_read,
                 location: current_read_location,

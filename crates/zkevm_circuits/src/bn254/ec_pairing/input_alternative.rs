@@ -1,6 +1,5 @@
 use std::collections::VecDeque;
 
-use super::alternative_precompile_naive::EcMultiPairingPrecompileCallParams;
 use super::*;
 
 use crate::base_structures::precompile_input_outputs::*;
