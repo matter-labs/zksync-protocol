@@ -435,6 +435,8 @@ fn run_and_try_create_witness_inner(
     use crate::data_source::*;
 
     let circuits_len = basic_block_circuits.len();
+    // Number of circuits of a given type.
+    let mut instances_idx = [0usize; 255];
 
     for (idx, entry) in basic_block_circuits.iter().enumerate() {
         let descr = entry.short_description();
@@ -530,11 +532,16 @@ fn run_and_try_create_witness_inner(
             .unwrap();
     }
 
+    // There is a possiblity that the basic_test.json file didn't use all the possible base circuits.
+    // In such case, let's set the VK & finalization hints for the missing ones.
     let basic_circuits = get_all_basic_circuits(&geometry);
     for circuit in basic_circuits {
         let circuit_type = circuit.numeric_circuit_type();
-        if source.get_base_layer_vk(circuit_type).is_err() {
-            // FIXME - handle the case when you don't want to re-use artifacts.
+        // If there is no exising VK - then always regenerate.
+        // Otherwise, regenerate only if we are not in 'reuse artifacts' mode (and we didn't generate it in the for loop above)
+        if source.get_base_layer_vk(circuit_type).is_err()
+            || (instances_idx[circuit_type as usize] == 0 && !options.try_reuse_artifacts)
+        {
             let (vk, hint) = generate_vk_and_finalization_hint(circuit, &worker);
             source.set_base_layer_vk(vk).unwrap();
             source.set_base_layer_finalization_hint(hint).unwrap();
@@ -578,10 +585,7 @@ fn run_and_try_create_witness_inner(
 
     println!("Computing leaf vks");
 
-    for base_circuit_type in ((BaseLayerCircuitType::VM as u8)
-        ..=(BaseLayerCircuitType::ECMultiPairingNaivePrecompile as u8))
-        .chain(std::iter::once(BaseLayerCircuitType::EIP4844Repack as u8))
-    {
+    for base_circuit_type in BaseLayerCircuitType::as_iter_u8() {
         let recursive_circuit_type = base_circuit_type_into_recursive_leaf_circuit_type(
             BaseLayerCircuitType::from_numeric_value(base_circuit_type),
         );
@@ -1110,10 +1114,7 @@ fn run_and_try_create_witness_inner(
     let mut recursion_tip_proofs = vec![];
 
     // Collect recursive proofs, but do it in base layer order.
-    for circuit_type in ((BaseLayerCircuitType::VM as u8)
-        ..=(BaseLayerCircuitType::ECMultiPairingNaivePrecompile as u8))
-        .chain(std::iter::once(BaseLayerCircuitType::EIP4844Repack as u8))
-    {
+    for circuit_type in BaseLayerCircuitType::as_iter_u8() {
         let recursive_circuit_type = base_circuit_type_into_recursive_leaf_circuit_type(
             BaseLayerCircuitType::from_numeric_value(circuit_type),
         ) as u8;

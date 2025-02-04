@@ -88,7 +88,7 @@ impl BaseLayerCircuitType {
     }
 
     pub fn as_iter_u8() -> impl Iterator<Item = u8> {
-        (BaseLayerCircuitType::VM as u8..=BaseLayerCircuitType::Secp256r1Verify as u8)
+        (BaseLayerCircuitType::VM as u8..=BaseLayerCircuitType::ECMultiPairingNaivePrecompile as u8)
             .chain(once(BaseLayerCircuitType::EIP4844Repack as u8))
     }
 }
