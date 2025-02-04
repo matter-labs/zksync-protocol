@@ -422,8 +422,6 @@ fn run_and_try_create_witness_inner(
 
     let mut previous_circuit_type = 0;
 
-    let mut instance_idx = 0;
-
     let mut setup_data = None;
 
     let mut source = LocalFileDataSource::default();
@@ -432,18 +430,18 @@ fn run_and_try_create_witness_inner(
     use crate::data_source::*;
 
     let circuits_len = basic_block_circuits.len();
+    // Number of circuits of a given type.
+    let mut instances_idx = [0usize; 255];
 
     for (idx, el) in basic_block_circuits.clone().into_iter().enumerate() {
         let descr = el.short_description();
         println!("Doing {} / {}: {}", idx, circuits_len, descr);
 
-        if el.numeric_circuit_type() != previous_circuit_type {
-            instance_idx = 0;
-        }
+        let instance_idx = instances_idx[el.numeric_circuit_type() as usize];
+        instances_idx[el.numeric_circuit_type() as usize] += 1;
 
         if options.try_reuse_artifacts {
             if let Ok(_) = source.get_base_layer_proof(el.numeric_circuit_type(), instance_idx) {
-                instance_idx += 1;
                 previous_circuit_type = el.numeric_circuit_type();
                 continue;
             }
@@ -520,8 +518,22 @@ fn run_and_try_create_witness_inner(
                 ZkSyncBaseLayerProof::from_inner(el.numeric_circuit_type(), proof.clone()),
             )
             .unwrap();
+    }
 
-        instance_idx += 1;
+    // There is a possiblity that the basic_test.json file didn't use all the possible base circuits.
+    // In such case, let's set the VK & finalization hints for the missing ones.
+    let basic_circuits = get_all_basic_circuits(&geometry);
+    for circuit in basic_circuits {
+        let circuit_type = circuit.numeric_circuit_type();
+        // If there is no exising VK - then always regenerate.
+        // Otherwise, regenerate only if we are not in 'reuse artifacts' mode (and we didn't generate it in the for loop above)
+        if source.get_base_layer_vk(circuit_type).is_err()
+            || (instances_idx[circuit_type as usize] == 0 && !options.try_reuse_artifacts)
+        {
+            let (vk, hint) = generate_vk_and_finalization_hint(circuit, &worker);
+            source.set_base_layer_vk(vk).unwrap();
+            source.set_base_layer_finalization_hint(hint).unwrap();
+        }
     }
 
     println!("Assembling keys");
@@ -557,10 +569,7 @@ fn run_and_try_create_witness_inner(
 
     println!("Computing leaf vks");
 
-    for base_circuit_type in ((BaseLayerCircuitType::VM as u8)
-        ..=(BaseLayerCircuitType::Secp256r1Verify as u8))
-        .chain(std::iter::once(BaseLayerCircuitType::EIP4844Repack as u8))
-    {
+    for base_circuit_type in BaseLayerCircuitType::as_iter_u8() {
         let recursive_circuit_type = base_circuit_type_into_recursive_leaf_circuit_type(
             BaseLayerCircuitType::from_numeric_value(base_circuit_type),
         );
@@ -1087,9 +1096,12 @@ fn run_and_try_create_witness_inner(
 
     // collect for recursion tip. We know that is this test depth is 0
     let mut recursion_tip_proofs = vec![];
-    for recursive_circuit_type in (ZkSyncRecursionLayerStorageType::LeafLayerCircuitForMainVM as u8)
-        ..=(ZkSyncRecursionLayerStorageType::LeafLayerCircuitForEIP4844Repack as u8)
-    {
+
+    // Collect recursive proofs, but do it in base layer order.
+    for circuit_type in BaseLayerCircuitType::as_iter_u8() {
+        let recursive_circuit_type = base_circuit_type_into_recursive_leaf_circuit_type(
+            BaseLayerCircuitType::from_numeric_value(circuit_type),
+        ) as u8;
         match source.get_node_layer_proof(recursive_circuit_type, 0, 0) {
             Ok(proof) => recursion_tip_proofs.push(proof.into_inner()),
             Err(_) => {
