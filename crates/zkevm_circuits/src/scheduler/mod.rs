@@ -456,7 +456,7 @@ pub fn scheduler_function<
         QueueTailState::allocate(cs, witness.ram_sorted_queue_state.clone());
 
     let ram_validation_circuit_input = RamPermutationInputData {
-        unsorted_queue_initial_state: secp256r1_verify_observable_output.final_memory_state,
+        unsorted_queue_initial_state: ecmultipairing_naive_observable_output.final_memory_state,
         sorted_queue_initial_state: ram_sorted_queue_state,
         non_deterministic_bootloader_memory_snapshot_length: bootloader_heap_memory_state.length,
     };
