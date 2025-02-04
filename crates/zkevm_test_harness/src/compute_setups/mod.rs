@@ -167,7 +167,7 @@ fn get_compression_for_wrapper_circuits(
 
 /// Returns all types of basic circuits, with empty witnesses.
 /// Can be used for things like verification key generation.
-fn get_all_basic_circuits(geometry: &GeometryConfig) -> Vec<ZkSyncBaseLayerCircuit> {
+pub fn get_all_basic_circuits(geometry: &GeometryConfig) -> Vec<ZkSyncBaseLayerCircuit> {
     vec![
         ZkSyncBaseLayerCircuit::MainVM(ZkSyncUniformCircuitInstance {
             witness: AtomicCell::new(None),
