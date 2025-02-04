@@ -520,7 +520,7 @@ fn run_and_try_create_witness_inner(
             .unwrap();
     }
 
-    // There is a possiblity that we the basic_test.json file didn't use all the possible base circuits.
+    // There is a possiblity that the basic_test.json file didn't use all the possible base circuits.
     // In such case, let's set the VK & finalization hints for the missing ones.
     let basic_circuits = get_all_basic_circuits(&geometry);
     for circuit in basic_circuits {
