@@ -210,7 +210,7 @@ pub fn generate_base_layer_vks<CB: Fn() + Send + Sync>(
     Ok(())
 }
 
-fn generate_vk_and_finalization_hint(
+pub fn generate_vk_and_finalization_hint(
     circuit: ZkSyncBaseLayerCircuit,
     worker: &Worker,
 ) -> (
