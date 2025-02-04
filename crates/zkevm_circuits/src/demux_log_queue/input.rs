@@ -153,7 +153,6 @@ impl<F: SmallField> LogDemuxerOutputData<F> {
                 DemuxOutput::ECMultiPairingNaive,
                 &self.output_queue_states[DemuxOutput::ECMultiPairingNaive as usize],
             ),
-
         ];
         assert_eq!(tuples.len(), NUM_DEMUX_OUTPUTS);
 

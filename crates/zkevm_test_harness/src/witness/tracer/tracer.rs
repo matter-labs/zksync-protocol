@@ -162,7 +162,7 @@ impl WitnessTracer {
             // log_frames_stack: vec![ApplicationData::empty()],
             callstack_with_aux_data: CallstackWithAuxData::empty(),
             vm_snapshots: vec![],
-            ecmultipairing_naive_witnesses:  vec![],
+            ecmultipairing_naive_witnesses: vec![],
         }
     }
 }
@@ -417,8 +417,11 @@ impl VmWitnessTracer<8, EncodingModeProduction> for WitnessTracer {
                     .push((monotonic_cycle_counter, call_params, wit));
             }
             PrecompileCyclesWitness::ECMultiPairingNaive(mut wit) => {
-                self.ecmultipairing_naive_witnesses
-                    .push((monotonic_cycle_counter, call_params, wit.drain(..).next().unwrap()));
+                self.ecmultipairing_naive_witnesses.push((
+                    monotonic_cycle_counter,
+                    call_params,
+                    wit.drain(..).next().unwrap(),
+                ));
             }
         }
     }

@@ -1,21 +1,24 @@
 use super::*;
-use std::convert::TryInto;
-use crate::zk_evm::zkevm_opcode_defs::ethereum_types::U256;
 use crate::witness::artifacts::LogQueueStates;
+use crate::zk_evm::zkevm_opcode_defs::ethereum_types::U256;
 use crate::zkevm_circuits::base_structures::log_query::*;
 use crate::zkevm_circuits::bn254::ec_pairing::input_alternative::{
-    EcMultiPairingCircuitFSMInputOutputWitness, EcMultiPairingCircuitInputOutputWitness, EcMultiPairingCircuitInstanceWitness,
+    EcMultiPairingCircuitFSMInputOutputWitness, EcMultiPairingCircuitInputOutputWitness,
+    EcMultiPairingCircuitInstanceWitness,
 };
 use circuit_definitions::encodings::*;
 use circuit_definitions::zk_evm::zk_evm_abstractions::precompiles::ecmultipairing_naive::EcMultiPairingNaiveRoundWitness;
 use circuit_encodings::zkevm_circuits::bn254::ec_pairing::input_alternative::EcMultiPairingCircuitFSMInputOutput;
+use std::convert::TryInto;
 
 pub(crate) fn ecmultipairing_naive_memory_queries(
     ecmultipairing_witnesses: &Vec<(u32, LogQuery_, EcMultiPairingNaiveRoundWitness)>,
 ) -> Vec<MemoryQuery> {
-    let amount_of_queries = ecmultipairing_witnesses.iter().fold(0, |inner, (_, _, witness)| {
-        inner + witness.reads.len() + witness.writes.len()
-    });
+    let amount_of_queries = ecmultipairing_witnesses
+        .iter()
+        .fold(0, |inner, (_, _, witness)| {
+            inner + witness.reads.len() + witness.writes.len()
+        });
 
     let mut ecmultipairing_naive_memory_queries = Vec::with_capacity(amount_of_queries);
 
@@ -26,7 +29,10 @@ pub(crate) fn ecmultipairing_naive_memory_queries(
         ecmultipairing_naive_memory_queries.extend_from_slice(&witness.reads);
         ecmultipairing_naive_memory_queries.extend_from_slice(&witness.writes);
 
-        assert_eq!(ecmultipairing_naive_memory_queries.len() - initial_memory_len, 20);
+        assert_eq!(
+            ecmultipairing_naive_memory_queries.len() - initial_memory_len,
+            20
+        );
     }
     ecmultipairing_naive_memory_queries
 }
@@ -40,7 +46,9 @@ pub(crate) fn ecmultipairing_naive_decompose_into_per_circuit_witness<
     R: BuildableCircuitRoundFunction<F, 8, 12, 4> + AlgebraicRoundFunction<F, 8, 12, 4>,
 >(
     ecmultipairing_naive_memory_queries: Vec<MemoryQuery>,
-    ecmultipairing_naive_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
+    ecmultipairing_naive_simulator_snapshots: Vec<
+        SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>,
+    >,
     ecmultipairing_naive_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     ecmultipairing_witnesses: Vec<(u32, LogQuery_, EcMultiPairingNaiveRoundWitness)>,
     ecmultipairing_naive_queries: Vec<LogQuery_>,
@@ -48,7 +56,10 @@ pub(crate) fn ecmultipairing_naive_decompose_into_per_circuit_witness<
     num_rounds_per_circuit: usize,
     round_function: &R,
 ) -> Vec<EcMultiPairingCircuitInstanceWitness<F>> {
-    assert_eq!(ecmultipairing_naive_memory_queries.len(), ecmultipairing_naive_memory_states.len());
+    assert_eq!(
+        ecmultipairing_naive_memory_queries.len(),
+        ecmultipairing_naive_memory_states.len()
+    );
 
     let memory_simulator_before = &ecmultipairing_naive_simulator_snapshots[0];
     let memory_simulator_after = &ecmultipairing_naive_simulator_snapshots[1];
@@ -60,7 +71,11 @@ pub(crate) fn ecmultipairing_naive_decompose_into_per_circuit_witness<
     let mut result = vec![];
 
     let precompile_calls = ecmultipairing_naive_queries;
-    let simulator_witness: Vec<_> = demuxed_ecmultipairing_naive_queue.simulator.witness.clone().into();
+    let simulator_witness: Vec<_> = demuxed_ecmultipairing_naive_queue
+        .simulator
+        .witness
+        .clone()
+        .into();
     let round_function_witness = ecmultipairing_witnesses;
 
     // check basic consistency
@@ -76,7 +91,8 @@ pub(crate) fn ecmultipairing_naive_decompose_into_per_circuit_witness<
     let num_requests = precompile_calls.len();
 
     // convension
-    let mut log_queue_input_state = take_queue_state_from_simulator(&demuxed_ecmultipairing_naive_queue.simulator);
+    let mut log_queue_input_state =
+        take_queue_state_from_simulator(&demuxed_ecmultipairing_naive_queue.simulator);
     let mut memory_queries_it = ecmultipairing_naive_memory_queries.into_iter();
 
     let mut memory_read_witnesses = vec![];
@@ -199,7 +215,8 @@ pub(crate) fn ecmultipairing_naive_decompose_into_per_circuit_witness<
 
             result.push(witness);
 
-            log_queue_input_state = take_queue_state_from_simulator(&demuxed_ecmultipairing_naive_queue.simulator);
+            log_queue_input_state =
+                take_queue_state_from_simulator(&demuxed_ecmultipairing_naive_queue.simulator);
             memory_queue_input_state = current_memory_queue_state.clone();
         }
 

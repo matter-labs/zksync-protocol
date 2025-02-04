@@ -1479,13 +1479,14 @@ fn process_memory_related_circuits(
         artifacts_callback_sender.clone(),
     );
 
-        // ecmultipairing_naive precompile
+    // ecmultipairing_naive precompile
 
-        use crate::witness::individual_circuits::memory_related::ecmultipairing_naive::ecmultipairing_naive_decompose_into_per_circuit_witness;
+    use crate::witness::individual_circuits::memory_related::ecmultipairing_naive::ecmultipairing_naive_decompose_into_per_circuit_witness;
 
-        tracing::debug!("Running ecmultipairing_naive simulation");
-    
-        let ecmultipairing_naive_circuits_data = ecmultipairing_naive_decompose_into_per_circuit_witness(
+    tracing::debug!("Running ecmultipairing_naive simulation");
+
+    let ecmultipairing_naive_circuits_data =
+        ecmultipairing_naive_decompose_into_per_circuit_witness(
             implicit_memory_queries.ecmultipairing_naive_memory_queries,
             implicit_memory_states.ecmultipairing_naive_simulator_snapshots,
             implicit_memory_states.ecmultipairing_naive_memory_states,
@@ -1495,15 +1496,15 @@ fn process_memory_related_circuits(
             geometry.cycles_per_ecmultipairing_naive_circuit as usize,
             round_function,
         );
-    
-        circuits_data.ecmultipairing_naive_circuits_data = make_circuits(
-            geometry.cycles_per_ecmultipairing_naive_circuit,
-            BaseLayerCircuitType::ECMultiPairingNaivePrecompile,
-            ecmultipairing_naive_circuits_data,
-            *round_function,
-            |x| ZkSyncBaseLayerCircuit::ECMultiPairingNaive(x),
-            artifacts_callback_sender.clone(),
-        );
+
+    circuits_data.ecmultipairing_naive_circuits_data = make_circuits(
+        geometry.cycles_per_ecmultipairing_naive_circuit,
+        BaseLayerCircuitType::ECMultiPairingNaivePrecompile,
+        ecmultipairing_naive_circuits_data,
+        *round_function,
+        |x| ZkSyncBaseLayerCircuit::ECMultiPairingNaive(x),
+        artifacts_callback_sender.clone(),
+    );
 
     circuits_data
 }
@@ -1802,7 +1803,9 @@ pub(crate) fn create_artifacts_from_tracer<'a>(
             ecadd_precompile_circuits: memory_circuits_data.ecadd_circuits_data.0,
             ecmul_precompile_circuits: memory_circuits_data.ecmul_circuits_data.0,
             ecpairing_precompile_circuits: memory_circuits_data.ecpairing_circuits_data.0,
-            ecmultipairing_naive_precompile_circuits: memory_circuits_data.ecmultipairing_naive_circuits_data.0,
+            ecmultipairing_naive_precompile_circuits: memory_circuits_data
+                .ecmultipairing_naive_circuits_data
+                .0,
             ram_permutation_circuits: memory_circuits_data.ram_permutation_artifacts.0,
             storage_sorter_circuits: log_circuits_data.storage_deduplicator_artifacts.0,
             storage_application_circuits: log_circuits_data.storage_application_artifacts.0,

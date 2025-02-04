@@ -396,8 +396,8 @@ pub fn prove_recursion_layer_circuit<POW: PoWRunner>(
         | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForModexp(inner)
         | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForECAdd(inner)
         | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForECMul(inner)
-        | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForECPairing(inner) 
-        | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForECMultiPairingNaive(inner)=> {
+        | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForECPairing(inner)
+        | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForECMultiPairingNaive(inner) => {
             let builder = inner.configure_builder_proxy(builder);
             let mut cs = builder.build(num_vars.unwrap());
             inner.add_tables(&mut cs);

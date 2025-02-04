@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
-use super::*;
 use super::alternative_precompile_naive::EcMultiPairingPrecompileCallParams;
+use super::*;
 
 use crate::base_structures::precompile_input_outputs::*;
 use crate::base_structures::vm_state::*;
@@ -69,5 +69,5 @@ pub type EcMultiPairingCircuitInputOutputWitness<F> = ClosedFormInputWitness<
 pub struct EcMultiPairingCircuitInstanceWitness<F: SmallField> {
     pub closed_form_input: EcMultiPairingCircuitInputOutputWitness<F>,
     pub requests_queue_witness: CircuitQueueRawWitness<F, LogQuery<F>, 4, LOG_QUERY_PACKED_WIDTH>,
-    pub memory_reads_witness:  VecDeque<[U256; MEMORY_QUERIES_PER_CALL]>,
+    pub memory_reads_witness: VecDeque<[U256; MEMORY_QUERIES_PER_CALL]>,
 }
