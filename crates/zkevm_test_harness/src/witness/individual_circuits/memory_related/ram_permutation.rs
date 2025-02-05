@@ -352,18 +352,14 @@ pub(crate) fn compute_ram_circuit_snapshots(
                 },
             },
             // we will need witnesses to pop elements from the front of the queue
-            unsorted_queue_witness: FullStateCircuitQueueRawWitness {
-                elements: unsorted_queries_in_chunk
-                    .into_iter()
-                    .map(|x| (x.reflect(), [Field::ZERO; FULL_SPONGE_QUEUE_STATE_WIDTH]))
-                    .collect(),
-            },
-            sorted_queue_witness: FullStateCircuitQueueRawWitness {
-                elements: sorted_queries_in_chunk
-                    .into_iter()
-                    .map(|x| (x.reflect(), [Field::ZERO; FULL_SPONGE_QUEUE_STATE_WIDTH]))
-                    .collect(),
-            },
+            unsorted_queue_witness: unsorted_queries_in_chunk
+                .into_par_iter()
+                .map(|x| x.reflect())
+                .collect(),
+            sorted_queue_witness: sorted_queries_in_chunk
+                .into_par_iter()
+                .map(|x| x.reflect())
+                .collect(),
         };
 
         if sorted_states_len % per_circuit_capacity != 0 {
