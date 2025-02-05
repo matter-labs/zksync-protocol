@@ -437,7 +437,11 @@ fn run_and_try_create_witness_inner(
     // Number of circuits of a given type.
     let mut instances_idx = [0usize; 256];
 
-    dbg!(basic_block_circuits.clone().into_iter().map(|v| v.short_description()).collect::<Vec<&str>>());
+    dbg!(basic_block_circuits
+        .clone()
+        .into_iter()
+        .map(|v| v.short_description())
+        .collect::<Vec<&str>>());
 
     for (idx, el) in basic_block_circuits.clone().into_iter().enumerate() {
         let descr = el.short_description();
