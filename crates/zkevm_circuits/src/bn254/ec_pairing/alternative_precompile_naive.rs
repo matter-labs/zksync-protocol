@@ -296,7 +296,7 @@ where
         }
 
         let (success,  result) = precompile_inner(cs, &p_points, &q_points);
-        ;
+
 
         let success_as_u32 = unsafe { UInt32::from_variable_unchecked(success.get_variable()) };
         let mut success = zero_u256;
