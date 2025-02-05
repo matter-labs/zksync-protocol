@@ -23,7 +23,7 @@ use boojum::pairing::{CurveAffine, CurveProjective};
 use boojum::pairing::Engine;
 
 
-const NUM_PAIRINGS_IN_MULTIPAIRING: usize = 3;
+const NUM_PAIRINGS_IN_MULTIPAIRING: usize = 6;
 const NUM_LIMBS: usize = 17;
 // multipairing circuit logic is the following:
 // by contract design we assume, that input is always padded if necessary on the contract side (by points on infinity), 
@@ -1868,7 +1868,7 @@ fn cs_geometry() -> CSReferenceImplementation<
     impl StaticToolboxHolder,
 > {
     let geometry = CSGeometry {
-        num_columns_under_copy_permutation: 150,
+        num_columns_under_copy_permutation: 200,
         num_witness_columns: 0,
         num_constant_columns: 8,
         max_allowed_constraint_degree: 4,
@@ -1882,7 +1882,7 @@ fn cs_geometry() -> CSReferenceImplementation<
     let builder = builder.allow_lookup(
         LookupParameters::UseSpecializedColumnsWithTableIdAsConstant {
             width: 1,
-            num_repetitions: 15,
+            num_repetitions: 30,
             share_table_id: true,
         },
     );
