@@ -43,6 +43,8 @@ fn ecpairing_test_inner(
         (page_number + 1, vec![]),
     ]);
 
+    let num_pairings = tuples.len() as u64;
+
     // fill the memory
     let num_words_used = fill_memory(tuples, page_number, &mut memory);
 
@@ -53,7 +55,7 @@ fn ecpairing_test_inner(
         output_memory_length: 1,
         memory_page_to_read: page_number,
         memory_page_to_write: page_number,
-        precompile_interpreted_data: 0,
+        precompile_interpreted_data: num_pairings,
     };
     let precompile_call_params_encoded = precompile_call_params.to_u256();
 
