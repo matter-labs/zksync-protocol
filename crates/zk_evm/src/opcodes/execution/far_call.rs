@@ -122,7 +122,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
 
         let new_base_memory_page = vm_state.new_base_memory_page_on_call();
 
-        let call_to_evm_simulator;
+        let call_to_evm_emulator;
 
         // NOTE: our far-call MUST take ergs to cover storage read, but we also have a contribution
         // that depends on the actual code length, so we work with it here
@@ -208,7 +208,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
                 false
             };
 
-            let can_call_evm_simulator = if is_valid_as_blob_hash {
+            let can_call_evm_emulator = if is_valid_as_blob_hash {
                 let is_code_at_rest = BlobSha256Format::is_code_at_rest_if_valid(&buffer);
                 let is_constructed = BlobSha256Format::is_in_construction_if_valid(&buffer);
 
@@ -233,7 +233,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
                 false
             };
 
-            call_to_evm_simulator = can_call_evm_simulator;
+            call_to_evm_emulator = can_call_evm_emulator;
 
             if bytecode_hash_is_empty {
                 if dst_is_kernel == false {
@@ -245,13 +245,13 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
 
             assert!(
                 (mask_to_default_aa as u64)
-                    + (can_call_evm_simulator as u64)
+                    + (can_call_evm_emulator as u64)
                     + (can_call_code_without_masking as u64)
                     < 2
             );
 
             let unknown_hash = mask_to_default_aa == false
-                && can_call_evm_simulator == false
+                && can_call_evm_emulator == false
                 && can_call_code_without_masking == false;
             if unknown_hash {
                 exceptions.set(FarCallExceptionFlags::INVALID_CODE_HASH_FORMAT, true);
@@ -261,11 +261,11 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
             let (header, normalized_preimage, code_length_in_words) = {
                 if can_call_code_without_masking {
                     // masking is not needed
-                } else if can_call_evm_simulator {
-                    // overwrite buffer with evm simulator bytecode hash
+                } else if can_call_evm_emulator {
+                    // overwrite buffer with evm emulator bytecode hash
                     vm_state
                         .block_properties
-                        .evm_simulator_code_hash
+                        .evm_emulator_code_hash
                         .to_big_endian(&mut buffer);
                 } else if mask_to_default_aa {
                     // overwrite buffer with default AA code hash
@@ -280,7 +280,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
                 if exceptions.is_empty() {
                     assert!(
                         can_call_code_without_masking
-                            || can_call_evm_simulator
+                            || can_call_evm_emulator
                             || mask_to_default_aa
                     );
                     // true values
@@ -587,7 +587,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
             }
         };
 
-        let is_static_to_set = if call_to_evm_simulator {
+        let is_static_to_set = if call_to_evm_emulator {
             false
         } else {
             new_context_is_static
@@ -598,7 +598,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
         let memory_stipend = if address_is_kernel(&address_for_next) {
             zkevm_opcode_defs::system_params::NEW_KERNEL_FRAME_MEMORY_STIPEND
         } else {
-            if call_to_evm_simulator {
+            if call_to_evm_emulator {
                 zkevm_opcode_defs::system_params::NEW_EVM_FRAME_MEMORY_STIPEND
             } else {
                 zkevm_opcode_defs::system_params::NEW_FRAME_MEMORY_STIPEND
@@ -656,7 +656,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
         if far_call_abi.to_system {
             r2_value.0[0] |= 1u64 << 1;
         }
-        if call_to_evm_simulator {
+        if call_to_evm_emulator {
             r2_value.0[0] |= (new_context_is_static as u64) << 2;
         }
 

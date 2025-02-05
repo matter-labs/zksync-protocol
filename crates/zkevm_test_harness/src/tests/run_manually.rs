@@ -193,7 +193,9 @@ pub struct Options {
     pub other_contracts: Vec<(H160, Vec<[u8; 32]>)>,
     // How many cycles should a single VM handle (default is DEFAULT_CYCLES_PER_VM_SNAPSHOT = 5)
     pub cycles_per_vm_snapshot: u32,
-    pub evm_interpreter: Option<Vec<[u8; 32]>>,
+    // Bytecode of the EVM emulator, if it is used
+    pub evm_emulator: Option<Vec<[u8; 32]>>,
+    // Additional EVM "contracts" that should be deployed
     pub other_evm_contracts: Vec<H160>,
 }
 
@@ -203,7 +205,7 @@ impl Default for Options {
             cycle_limit: DEFAULT_CYCLE_LIMIT,
             other_contracts: Default::default(),
             cycles_per_vm_snapshot: DEFAULT_CYCLES_PER_VM_SNAPSHOT,
-            evm_interpreter: None,
+            evm_emulator: None,
             other_evm_contracts: Default::default(),
         }
     }
@@ -254,9 +256,9 @@ pub(crate) fn run_with_options(entry_point_bytecode: Vec<[u8; 32]>, options: Opt
     // We must pass a correct empty code hash (with proper version) into the run method.
     let empty_code_hash = U256::from_big_endian(&bytecode_to_code_hash(&[[0; 32]]).unwrap());
 
-    let evm_simulator_hash = if options.evm_interpreter.is_some() {
+    let evm_emulator_hash = if options.evm_emulator.is_some() {
         U256::from_big_endian(
-            &bytecode_to_code_hash(options.evm_interpreter.as_ref().unwrap()).unwrap(),
+            &bytecode_to_code_hash(options.evm_emulator.as_ref().unwrap()).unwrap(),
         )
     } else {
         empty_code_hash
@@ -274,6 +276,9 @@ pub(crate) fn run_with_options(entry_point_bytecode: Vec<[u8; 32]>, options: Opt
     let mut tree = ZKSyncTestingTree::empty();
 
     if !options.other_evm_contracts.is_empty() {
+        // We do not support actual EVM emulator here (it's bytecode is to complex).
+        // Simplified version of emulator doesn't use actual bytecodes of contracts, but we still need to mark them as EVM contracts.
+        // So we just put some stubs (marked as EVM bytecodes) at required addresses.
         let mut evm_stub_hash = empty_code_hash;
         let versioned_hash = VersionedHashGeneric::<BlobSha256>::from_digest_and_preimage_length(
             evm_stub_hash.into(),
@@ -290,8 +295,8 @@ pub(crate) fn run_with_options(entry_point_bytecode: Vec<[u8; 32]>, options: Opt
         )
     }
 
-    if options.evm_interpreter.is_some() {
-        used_bytecodes_and_hashes.insert(evm_simulator_hash, options.evm_interpreter.unwrap());
+    if options.evm_emulator.is_some() {
+        used_bytecodes_and_hashes.insert(evm_emulator_hash, options.evm_emulator.unwrap());
     }
 
     let mut known_contracts = HashMap::new();
@@ -327,7 +332,7 @@ pub(crate) fn run_with_options(entry_point_bytecode: Vec<[u8; 32]>, options: Opt
         vec![],
         false,
         empty_code_hash,
-        evm_simulator_hash,
+        evm_emulator_hash,
         used_bytecodes_and_hashes,
         vec![],
         options.cycle_limit,

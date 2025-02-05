@@ -38,7 +38,7 @@ pub fn run<S: Storage>(
     initial_heap_content: Vec<u8>,   // bootloader starts with non-deterministic heap
     zk_porter_is_available: bool,
     default_aa_code_hash: U256,
-    evm_simulator_code_hash: U256,
+    evm_emulator_code_hash: U256,
     used_bytecodes: std::collections::HashMap<U256, Vec<[u8; 32]>>, // auxilary information to avoid passing a full set of all used codes
     ram_verification_queries: Vec<(u32, U256)>, // we may need to check that after the bootloader's memory is filled
     cycle_limit: usize,
@@ -62,7 +62,7 @@ pub fn run<S: Storage>(
         initial_heap_content,
         zk_porter_is_available,
         default_aa_code_hash,
-        evm_simulator_code_hash,
+        evm_emulator_code_hash,
         used_bytecodes,
         ram_verification_queries,
         cycle_limit,

@@ -1393,7 +1393,7 @@ pub(crate) fn create_artifacts_from_tracer<'a>(
     num_non_deterministic_heap_queries: usize,
     zk_porter_is_available: bool,
     default_aa_code_hash: U256,
-    evm_simulator_code_hash: U256,
+    evm_emulator_code_hash: U256,
     eip_4844_repack_inputs: [Option<Vec<u8>>; MAX_4844_BLOBS_PER_BLOCK],
     trusted_setup_path: String,
     artifacts_callback_sender: SyncSender<WitnessGenerationArtifact>,
@@ -1596,7 +1596,7 @@ pub(crate) fn create_artifacts_from_tracer<'a>(
     let in_circuit_global_context = GlobalContextWitness {
         zkporter_is_available: zk_porter_is_available,
         default_aa_code_hash,
-        evm_simulator_code_hash,
+        evm_emulator_code_hash,
     };
 
     // Prepares inputs and makes circuit instances and compact forms for MainVM circuits

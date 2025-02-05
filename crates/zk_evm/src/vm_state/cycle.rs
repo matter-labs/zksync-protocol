@@ -292,7 +292,7 @@ impl<
         &mut self,
         tracer: &mut DT,
     ) -> anyhow::Result<()> {
-        // for sanity - check that default AA code hash and EVM simulator code hash are well-formed
+        // for sanity - check that default AA code hash and EVM emulator code hash are well-formed
         let mut buffer = [0u8; 32];
         self.block_properties
             .default_aa_code_hash
@@ -305,13 +305,13 @@ impl<
             &buffer,
         );
         self.block_properties
-            .evm_simulator_code_hash
+            .evm_emulator_code_hash
             .to_big_endian(&mut buffer);
         assert!(
             zkevm_opcode_defs::definitions::versioned_hash::ContractCodeSha256Format::is_valid(
                 &buffer
             ),
-            "EVM simulator bytecode hash is malfored: {:?}",
+            "EVM emulator bytecode hash is malfored: {:?}",
             &buffer,
         );
 
