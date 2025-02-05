@@ -57,7 +57,7 @@ jobs:
       - name: Circuit tests
         run: cargo nextest run --release --manifest-path crates/zkevm_circuits/Cargo.toml --test-threads 2
       - name: ZKEVM tests
-        run: cargo nextest run --release --manifest-path crates/zkevm/Cargo.toml
+        run: cargo nextest run --release --manifest-path crates/zk_evm/Cargo.toml
       - name: ZKEVM abstractions tests
         run: cargo nextest run --release --manifest-path crates/zk_evm_abstractions/Cargo.toml
       - name: ZKEVM assembly tests
