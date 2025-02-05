@@ -70,7 +70,7 @@ pub fn run_vms<S: Storage>(
     initial_heap_content: Vec<u8>,   // bootloader starts with non-deterministic heap
     zk_porter_is_available: bool,
     default_aa_code_hash: U256,
-    evm_simulator_code_hash: U256,
+    evm_emulator_code_hash: U256,
     used_bytecodes: std::collections::HashMap<U256, Vec<[u8; 32]>>, // auxilary information to avoid passing a full set of all used codes
     ram_verification_queries: Vec<(u32, U256)>, // we may need to check that after the bootloader's memory is filled
     cycle_limit: usize,
@@ -156,7 +156,7 @@ pub fn run_vms<S: Storage>(
     let block_properties = create_out_of_circuit_global_context(
         zk_porter_is_available,
         default_aa_code_hash,
-        evm_simulator_code_hash,
+        evm_emulator_code_hash,
     );
 
     use crate::toolset::create_out_of_circuit_vm;
@@ -246,7 +246,7 @@ pub fn run_vms<S: Storage>(
         num_non_deterministic_heap_queries,
         zk_porter_is_available,
         default_aa_code_hash,
-        evm_simulator_code_hash,
+        evm_emulator_code_hash,
         eip_4844_repack_inputs.clone(),
         trusted_setup_path,
         artifacts_callback_sender,
@@ -277,7 +277,7 @@ pub fn run_vms<S: Storage>(
             bootloader_code_hash: entry_point_code_hash_as_u256,
             default_aa_code_hash: default_aa_code_hash,
             zkporter_is_available: zk_porter_is_available,
-            evm_simulator_code_hash: evm_simulator_code_hash,
+            evm_emulator_code_hash: evm_emulator_code_hash,
         };
 
         use crate::zkevm_circuits::base_structures::vm_state::QUEUE_STATE_WIDTH;

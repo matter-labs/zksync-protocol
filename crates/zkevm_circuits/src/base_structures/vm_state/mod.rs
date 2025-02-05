@@ -175,7 +175,7 @@ impl<F: SmallField> CSPlaceholder<F> for VmLocalState<F> {
 pub struct GlobalContext<F: SmallField> {
     pub zkporter_is_available: Boolean<F>,
     pub default_aa_code_hash: UInt256<F>,
-    pub evm_simulator_code_hash: UInt256<F>,
+    pub evm_emulator_code_hash: UInt256<F>,
 }
 
 impl<F: SmallField> CSPlaceholder<F> for GlobalContext<F> {
@@ -185,7 +185,7 @@ impl<F: SmallField> CSPlaceholder<F> for GlobalContext<F> {
         Self {
             zkporter_is_available: boolean_false,
             default_aa_code_hash: zero_u256,
-            evm_simulator_code_hash: zero_u256,
+            evm_emulator_code_hash: zero_u256,
         }
     }
 }

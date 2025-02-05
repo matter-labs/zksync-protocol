@@ -135,7 +135,7 @@ pub(crate) fn compute_ram_circuit_snapshots(
             RoundFunction,
             FULL_SPONGE_QUEUE_STATE_WIDTH,
             { MEMORY_QUERY_PACKED_WIDTH + 1 },
-            2,
+            DEFAULT_NUM_PERMUTATION_ARGUMENT_REPETITIONS,
         >(
             memory_queue_simulator.take_sponge_like_queue_state().tail,
             sorted_memory_queries_simulator
