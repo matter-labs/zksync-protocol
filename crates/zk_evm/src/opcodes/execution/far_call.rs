@@ -122,7 +122,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
 
         let new_base_memory_page = vm_state.new_base_memory_page_on_call();
 
-        let call_to_evm_simulator;
+        let call_to_evm_emulator;
 
         // NOTE: our far-call MUST take ergs to cover storage read, but we also have a contribution
         // that depends on the actual code length, so we work with it here
@@ -208,7 +208,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
                 false
             };
 
-            let can_call_evm_simulator = if is_valid_as_blob_hash {
+            let can_call_evm_emulator = if is_valid_as_blob_hash {
                 let is_code_at_rest = BlobSha256Format::is_code_at_rest_if_valid(&buffer);
                 let is_constructed = BlobSha256Format::is_in_construction_if_valid(&buffer);
 
@@ -233,7 +233,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
                 false
             };
 
-            call_to_evm_simulator = can_call_evm_simulator;
+            call_to_evm_emulator = can_call_evm_emulator;
 
             if bytecode_hash_is_empty {
                 if dst_is_kernel == false {
@@ -245,13 +245,13 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
 
             assert!(
                 (mask_to_default_aa as u64)
-                    + (can_call_evm_simulator as u64)
+                    + (can_call_evm_emulator as u64)
                     + (can_call_code_without_masking as u64)
                     < 2
             );
 
             let unknown_hash = mask_to_default_aa == false
-                && can_call_evm_simulator == false
+                && can_call_evm_emulator == false
                 && can_call_code_without_masking == false;
             if unknown_hash {
                 exceptions.set(FarCallExceptionFlags::INVALID_CODE_HASH_FORMAT, true);
@@ -261,11 +261,11 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
             let (header, normalized_preimage, code_length_in_words) = {
                 if can_call_code_without_masking {
                     // masking is not needed
-                } else if can_call_evm_simulator {
-                    // overwrite buffer with evm simulator bytecode hash
+                } else if can_call_evm_emulator {
+                    // overwrite buffer with evm emulator bytecode hash
                     vm_state
                         .block_properties
-                        .evm_simulator_code_hash
+                        .evm_emulator_code_hash
                         .to_big_endian(&mut buffer);
                 } else if mask_to_default_aa {
                     // overwrite buffer with default AA code hash
@@ -280,7 +280,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
                 if exceptions.is_empty() {
                     assert!(
                         can_call_code_without_masking
-                            || can_call_evm_simulator
+                            || can_call_evm_emulator
                             || mask_to_default_aa
                     );
                     // true values
@@ -382,17 +382,16 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
             let current_stack_mut = vm_state.local_state.callstack.get_current_stack_mut();
 
             // potentially pay for memory growth
-            let memory_growth_in_bytes = match far_call_abi.forwarding_mode {
+            let remaining_ergs_after_growth = match far_call_abi.forwarding_mode {
                 a @ FarCallForwardPageType::UseHeap | a @ FarCallForwardPageType::UseAuxHeap => {
-                    // pointer is already validated, so we do not need to check that start + length do not overflow
-                    let mut upper_bound = far_call_abi.memory_quasi_fat_pointer.start
-                        + far_call_abi.memory_quasi_fat_pointer.length;
-
-                    let penalize_out_of_bounds_growth = pointer_validation_exceptions
-                        .contains(FatPointerValidationException::DEREF_BEYOND_HEAP_RANGE);
-                    if penalize_out_of_bounds_growth {
-                        upper_bound = u32::MAX;
-                    }
+                    let upper_bound = if pointer_validation_exceptions
+                        .contains(FatPointerValidationException::DEREF_BEYOND_HEAP_RANGE)
+                    {
+                        u32::MAX
+                    } else {
+                        far_call_abi.memory_quasi_fat_pointer.start
+                            + far_call_abi.memory_quasi_fat_pointer.length
+                    };
 
                     let current_bound = if a == FarCallForwardPageType::UseHeap {
                         current_stack_mut.heap_bound
@@ -401,43 +400,34 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
                     } else {
                         unreachable!();
                     };
-                    let (mut diff, uf) = upper_bound.overflowing_sub(current_bound);
-                    if uf {
-                        // heap bound is already beyond what we pass
-                        diff = 0u32;
-                    } else {
-                        // save new upper bound in context.
-                        // Note that we are ok so save even penalizing upper bound because we will burn
-                        // all the ergs in this frame anyway, and no further resizes are possible
-                        if a == FarCallForwardPageType::UseHeap {
-                            current_stack_mut.heap_bound = upper_bound;
-                        } else if a == FarCallForwardPageType::UseAuxHeap {
-                            current_stack_mut.aux_heap_bound = upper_bound;
-                        } else {
-                            unreachable!();
-                        }
-                    }
 
-                    diff
+                    let growth_cost = upper_bound.saturating_sub(current_bound);
+
+                    if remaining_ergs >= growth_cost {
+                        if upper_bound > current_bound {
+                            if a == FarCallForwardPageType::UseHeap {
+                                current_stack_mut.heap_bound = upper_bound;
+                            } else if a == FarCallForwardPageType::UseAuxHeap {
+                                current_stack_mut.aux_heap_bound = upper_bound;
+                            } else {
+                                unreachable!();
+                            }
+                        }
+
+                        remaining_ergs - growth_cost
+                    } else {
+                        exceptions.set(FarCallExceptionFlags::NOT_ENOUGH_ERGS_TO_GROW_MEMORY, true);
+                        // we do not need to mask fat pointer, as we will jump to the page number 0,
+                        // that can not even read it
+
+                        0
+                    }
                 }
-                FarCallForwardPageType::ForwardFatPointer => 0u32,
+                FarCallForwardPageType::ForwardFatPointer => remaining_ergs,
             };
 
             #[allow(dropping_references)]
             drop(current_stack_mut);
-
-            // MEMORY_GROWTH_ERGS_PER_BYTE is always 1
-            let cost_of_memory_growth =
-                memory_growth_in_bytes.wrapping_mul(zkevm_opcode_defs::MEMORY_GROWTH_ERGS_PER_BYTE);
-            let remaining_ergs_after_growth = if remaining_ergs >= cost_of_memory_growth {
-                remaining_ergs - cost_of_memory_growth
-            } else {
-                exceptions.set(FarCallExceptionFlags::NOT_ENOUGH_ERGS_TO_GROW_MEMORY, true);
-                // we do not need to mask fat pointer, as we will jump to the page number 0,
-                // that can not even read it
-
-                0
-            };
 
             let (mut callee_stipend, mut extra_ergs_from_caller_to_callee) =
                 get_stipend_and_extra_cost(&called_address, far_call_abi.to_system);
@@ -455,11 +445,6 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
 
                     0
                 };
-
-            if can_call_evm_simulator {
-                assert_eq!(callee_stipend, 0);
-                callee_stipend = zkevm_opcode_defs::system_params::EVM_SIMULATOR_STIPEND;
-            }
 
             let (code_memory_page, remaining_ergs_after_decommittment) = if exceptions.is_empty()
                 == false
@@ -602,7 +587,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
             }
         };
 
-        let is_static_to_set = if call_to_evm_simulator {
+        let is_static_to_set = if call_to_evm_emulator {
             false
         } else {
             new_context_is_static
@@ -613,7 +598,11 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
         let memory_stipend = if address_is_kernel(&address_for_next) {
             zkevm_opcode_defs::system_params::NEW_KERNEL_FRAME_MEMORY_STIPEND
         } else {
-            zkevm_opcode_defs::system_params::NEW_FRAME_MEMORY_STIPEND
+            if call_to_evm_emulator {
+                zkevm_opcode_defs::system_params::NEW_EVM_FRAME_MEMORY_STIPEND
+            } else {
+                zkevm_opcode_defs::system_params::NEW_FRAME_MEMORY_STIPEND
+            }
         };
 
         let new_stack = CallStackEntry {
@@ -667,7 +656,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
         if far_call_abi.to_system {
             r2_value.0[0] |= 1u64 << 1;
         }
-        if call_to_evm_simulator {
+        if call_to_evm_emulator {
             r2_value.0[0] |= (new_context_is_static as u64) << 2;
         }
 

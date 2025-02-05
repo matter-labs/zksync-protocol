@@ -143,7 +143,6 @@ pub(crate) fn apply_uma<
     heap_growth = heap_growth.mask_negated(cs, uf); // of we access in bounds then it's 0
     let new_heap_upper_bound =
         UInt32::conditionally_select(cs, uf, &heap_bound, &heap_max_accessed);
-    let grow_heap = Boolean::multi_and(cs, &[access_heap, should_apply]);
 
     let aux_heap_max_accessed = max_accessed.mask(cs, access_aux_heap);
     let aux_heap_bound = draft_vm_state
@@ -155,7 +154,6 @@ pub(crate) fn apply_uma<
     aux_heap_growth = aux_heap_growth.mask_negated(cs, uf); // of we access in bounds then it's 0
     let new_aux_heap_upper_bound =
         UInt32::conditionally_select(cs, uf, &aux_heap_bound, &aux_heap_max_accessed);
-    let grow_aux_heap = Boolean::multi_and(cs, &[access_aux_heap, should_apply]);
 
     let mut growth_cost = heap_growth.mask(cs, access_heap);
     growth_cost = UInt32::conditionally_select(cs, access_aux_heap, &aux_heap_growth, &growth_cost);
@@ -978,6 +976,9 @@ pub(crate) fn apply_uma<
     );
 
     let should_update_dst1 = Boolean::multi_and(cs, &[apply_any, is_read_access, increment_offset]);
+
+    let grow_heap = Boolean::multi_and(cs, &[access_heap, should_apply, no_panic]);
+    let grow_aux_heap = Boolean::multi_and(cs, &[access_aux_heap, should_apply, no_panic]);
 
     let can_write_into_memory =
         UMA_HEAP_READ_OPCODE.can_write_dst0_into_memory(SUPPORTED_ISA_VERSION);

@@ -15,6 +15,21 @@ mod tests {
         )
     }
 
+    /// Regression test: it should not be possible to allocate the entire heap,
+    /// paying only 66 ergs for it.
+    #[test_log::test]
+    fn test_unpaid_heap_allocation() {
+        run_asm_based_test(
+            "src/tests/simple_tests/testdata/uma/unpaid_heap_allocation",
+            &[800000],
+            Options {
+                cycle_limit: 100,
+                cycles_per_vm_snapshot: 1,
+                ..Default::default()
+            },
+        )
+    }
+
     #[test_log::test]
     fn test_uma_static_reads() {
         run_asm_based_test(

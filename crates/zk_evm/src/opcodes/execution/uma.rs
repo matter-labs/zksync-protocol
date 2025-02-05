@@ -155,7 +155,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
         let current_callstack_mut = vm_state.local_state.callstack.get_current_stack_mut();
 
         // potentially pay for memory growth
-        let memory_growth_in_bytes = match inner_variant {
+        match inner_variant {
             UMAOpcode::HeapRead
             | UMAOpcode::HeapWrite
             | UMAOpcode::AuxHeapRead
@@ -170,59 +170,47 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
                     }
                 };
 
-                // here do do not care about potential overflow, and later on penalize
-                // for it
                 let upper_bound = incremented_offset;
-                let (mut diff, uf) = upper_bound.overflowing_sub(current_bound);
-                if uf {
-                    // heap bound is already beyond what we pass
-                    diff = 0u32;
+
+                // if we try to go "too far" in memory that our normal memory growth payment routines
+                // are short-circuited, we still account for net cost here
+                let growth_cost = if exceptions.contains(UMAExceptionFlags::DEREF_BEYOND_HEAP_RANGE)
+                {
+                    u32::MAX
                 } else {
-                    match inner_variant {
-                        UMAOpcode::HeapRead | UMAOpcode::HeapWrite => {
-                            current_callstack_mut.heap_bound = upper_bound;
-                        }
-                        UMAOpcode::AuxHeapRead | UMAOpcode::AuxHeapWrite => {
-                            current_callstack_mut.aux_heap_bound = upper_bound;
-                        }
-                        _ => {
-                            unreachable!()
-                        }
-                    };
+                    upper_bound.saturating_sub(current_bound)
                 };
 
-                diff
+                if let Some(ergs_after_memory_growth) = current_callstack_mut
+                    .ergs_remaining
+                    .checked_sub(growth_cost)
+                {
+                    current_callstack_mut.ergs_remaining = ergs_after_memory_growth;
+
+                    if upper_bound > current_bound {
+                        match inner_variant {
+                            UMAOpcode::HeapRead | UMAOpcode::HeapWrite => {
+                                current_callstack_mut.heap_bound = upper_bound;
+                            }
+                            UMAOpcode::AuxHeapRead | UMAOpcode::AuxHeapWrite => {
+                                current_callstack_mut.aux_heap_bound = upper_bound;
+                            }
+                            _ => unreachable!(),
+                        };
+                    }
+                } else {
+                    current_callstack_mut.ergs_remaining = 0;
+                    // out of ergs common exception
+                    exceptions.set(UMAExceptionFlags::NOT_ENOUGH_ERGS_TO_GROW_MEMORY, true);
+                }
             }
+
             UMAOpcode::FatPointerRead
             | UMAOpcode::StaticMemoryRead
             | UMAOpcode::StaticMemoryWrite => {
                 // cost was paid somewhere, and we if try to go out of bound we will just not read
-                0u32
             }
         };
-
-        let mut cost_of_memory_growth =
-            memory_growth_in_bytes.wrapping_mul(zkevm_opcode_defs::MEMORY_GROWTH_ERGS_PER_BYTE);
-
-        // if we try to go "too far" in memory that our normal memory growth payment routines
-        // are short-circuited, we still account for net cost here
-
-        let penalize_for_out_of_bounds =
-            exceptions.contains(UMAExceptionFlags::DEREF_BEYOND_HEAP_RANGE); // offset is not U32
-
-        if penalize_for_out_of_bounds {
-            cost_of_memory_growth = u32::MAX;
-        }
-
-        let (mut ergs_after_memory_growth, uf) = current_callstack_mut
-            .ergs_remaining
-            .overflowing_sub(cost_of_memory_growth);
-        if uf {
-            ergs_after_memory_growth = 0;
-            // out of ergs common exception
-            exceptions.set(UMAExceptionFlags::NOT_ENOUGH_ERGS_TO_GROW_MEMORY, true);
-        }
-        current_callstack_mut.ergs_remaining = ergs_after_memory_growth;
 
         #[allow(dropping_references)]
         drop(current_callstack_mut);
