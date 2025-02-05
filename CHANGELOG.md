@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.151.0](https://github.com/matter-labs/zksync-protocol/compare/v0.150.20...v0.151.0) - 2025-02-05
+
+### Added
+
+- [**breaking**] Simplify ram circuit input (#48)
+
+### Fixed
+
+- [**breaking**] Changes for protocol v27 (#101)
+- *(ci)* Update github-hosted runner label (#90)
+- Fixing complex_test (#97)
+
 ## [0.150.20](https://github.com/matter-labs/zksync-protocol/compare/v0.150.19...v0.150.20) - 2025-01-15
 
 ### Other
