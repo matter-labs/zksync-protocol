@@ -609,8 +609,7 @@ where
             target_is_userspace,
         ],
     );
-    let mask_to_default_aa =
-        Boolean::multi_or(cs, &[mask_to_default_aa, should_mask_evm_emulator]);
+    let mask_to_default_aa = Boolean::multi_or(cs, &[mask_to_default_aa, should_mask_evm_emulator]);
     let exception_over_evm_emulator_bytecode_format = Boolean::multi_and(
         cs,
         &[can_not_call_evm_emulator_without_masking, target_is_kernel],
