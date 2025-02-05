@@ -596,24 +596,23 @@ where
     let exception_over_native_bytecode_format =
         Boolean::multi_and(cs, &[can_not_call_native_without_masking, target_is_kernel]);
 
-    // same logic for EVM simulator
-    let can_call_evm_simulator_without_masking =
+    // same logic for EVM emulator
+    let can_call_evm_emulator_without_masking =
         Boolean::multi_and(cs, &[markers_match, versioned_byte_is_evm_bytecode]);
 
-    let can_not_call_evm_simulator_without_masking =
+    let can_not_call_evm_emulator_without_masking =
         Boolean::multi_and(cs, &[markers_mismatch, versioned_byte_is_evm_bytecode]);
-    let should_mask_evm_simulator = Boolean::multi_and(
+    let should_mask_evm_emulator = Boolean::multi_and(
         cs,
         &[
-            can_not_call_evm_simulator_without_masking,
+            can_not_call_evm_emulator_without_masking,
             target_is_userspace,
         ],
     );
-    let mask_to_default_aa =
-        Boolean::multi_or(cs, &[mask_to_default_aa, should_mask_evm_simulator]);
-    let exception_over_evm_simulator_bytecode_format = Boolean::multi_and(
+    let mask_to_default_aa = Boolean::multi_or(cs, &[mask_to_default_aa, should_mask_evm_emulator]);
+    let exception_over_evm_emulator_bytecode_format = Boolean::multi_and(
         cs,
-        &[can_not_call_evm_simulator_without_masking, target_is_kernel],
+        &[can_not_call_evm_emulator_without_masking, target_is_kernel],
     );
 
     // and over empty bytecode
@@ -626,7 +625,7 @@ where
     if crate::config::CIRCUIT_VERSOBE {
         if execute.witness_hook(&*cs)().unwrap() {
             dbg!(exception_over_native_bytecode_format.witness_hook(&*cs)().unwrap());
-            dbg!(exception_over_evm_simulator_bytecode_format.witness_hook(&*cs)().unwrap());
+            dbg!(exception_over_evm_emulator_bytecode_format.witness_hook(&*cs)().unwrap());
             dbg!(exception_over_empty_bytecode.witness_hook(&*cs)().unwrap());
         }
     }
@@ -634,7 +633,7 @@ where
         cs,
         &[
             exception_over_native_bytecode_format,
-            exception_over_evm_simulator_bytecode_format,
+            exception_over_evm_emulator_bytecode_format,
             exception_over_empty_bytecode,
         ],
     );
@@ -650,8 +649,8 @@ where
     );
     let masked_bytecode_hash = UInt256::conditionally_select(
         cs,
-        can_call_evm_simulator_without_masking,
-        &global_context.evm_simulator_code_hash,
+        can_call_evm_emulator_without_masking,
+        &global_context.evm_emulator_code_hash,
         &masked_bytecode_hash,
     );
     let masked_bytecode_hash =
@@ -735,7 +734,7 @@ where
         if execute.witness_hook(&*cs)().unwrap() {
             dbg!(exceptions_collapsed.witness_hook(&*cs)().unwrap());
             dbg!(can_call_native_without_masking.witness_hook(&*cs)().unwrap());
-            dbg!(can_call_evm_simulator_without_masking.witness_hook(&*cs)().unwrap());
+            dbg!(can_call_evm_emulator_without_masking.witness_hook(&*cs)().unwrap());
             dbg!(fat_ptr_expected_exception.witness_hook(&*cs)().unwrap());
             dbg!(bytecode_hash_from_storage.witness_hook(&*cs)().unwrap());
             dbg!(mask_to_default_aa.witness_hook(&*cs)().unwrap());
@@ -1104,7 +1103,7 @@ where
         cs,
         &[is_static_call, current_callstack_entry.is_static_execution],
     );
-    // if we call EVM simulator we actually reset static flag
+    // if we call EVM emulator we actually reset static flag
     let next_is_static_masked = next_is_static.mask_negated(cs, versioned_byte_is_evm_bytecode);
 
     // actually parts to the new one
@@ -1226,7 +1225,7 @@ where
     // we put markers of:
     // - constructor call
     // - system call
-    // - if EVM simulator - if original code was static
+    // - if EVM emulator - if original code was static
 
     let original_call_was_static = next_is_static.mask(cs, versioned_byte_is_evm_bytecode);
     let r2_low = Num::linear_combination(
