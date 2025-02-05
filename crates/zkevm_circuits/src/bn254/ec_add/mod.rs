@@ -36,6 +36,7 @@ use crate::fsm_input_output::circuit_inputs::INPUT_OUTPUT_COMMITMENT_LENGTH;
 use crate::fsm_input_output::*;
 use crate::storage_application::ConditionalWitnessAllocator;
 
+use super::utils::{add_read_values_to_queue, check_precompile_meta, compute_final_requests_and_memory_states, hook_witness_and_generate_input_commitment};
 use super::*;
 
 use self::ec_mul::implementation::{
@@ -215,53 +216,28 @@ where
         let timestamp_to_use_for_read = request.timestamp;
         let timestamp_to_use_for_write = timestamp_to_use_for_read.add_no_overflow(cs, one_u32);
 
-        Num::conditionally_enforce_equal(
+        check_precompile_meta(
             cs,
             should_process,
-            &Num::from_variable(request.aux_byte.get_variable()),
-            &Num::from_variable(aux_byte_for_precompile.get_variable()),
+            precompile_address,
+            request,
+            aux_byte_for_precompile
         );
-        for (a, b) in request
-            .address
-            .inner
-            .iter()
-            .zip(precompile_address.inner.iter())
-        {
-            Num::conditionally_enforce_equal(
-                cs,
-                should_process,
-                &Num::from_variable(a.get_variable()),
-                &Num::from_variable(b.get_variable()),
-            );
-        }
 
         let mut read_values = [zero_u256; NUM_MEMORY_READS_PER_CYCLE];
-        let mut bias_variable = should_process.get_variable();
-        for dst in read_values.iter_mut() {
-            let read_query_value = read_queries_allocator.conditionally_allocate_biased(
-                cs,
-                should_process,
-                bias_variable,
-            );
-            bias_variable = read_query_value.inner[0].get_variable();
-
-            *dst = read_query_value;
-
-            let read_query = MemoryQuery {
-                timestamp: timestamp_to_use_for_read,
-                memory_page: precompile_call_params.input_page,
-                index: precompile_call_params.input_offset,
-                rw_flag: boolean_false,
-                is_ptr: boolean_false,
-                value: read_query_value,
-            };
-
-            let _ = memory_queue.push(cs, read_query, should_process);
-
-            precompile_call_params.input_offset = precompile_call_params
-                .input_offset
-                .add_no_overflow(cs, one_u32);
-        }
+        
+        add_read_values_to_queue(
+            cs,
+            should_process,
+            &mut read_values,
+            &read_queries_allocator,
+            &mut memory_queue,
+            timestamp_to_use_for_read,
+            precompile_call_params.input_page,
+            &mut precompile_call_params.input_offset,
+            boolean_false,
+            one_u32
+        );
 
         let [x1, y1, x2, y2] = read_values;
 
@@ -328,34 +304,20 @@ where
         let _ = memory_queue.push(cs, y_query, should_process);
     }
 
-    requests_queue.enforce_consistency(cs);
-
-    let done = requests_queue.is_empty(cs);
-    structured_input.completion_flag = done;
-    structured_input.observable_output = PrecompileFunctionOutputData::placeholder(cs);
-
-    let final_memory_state = memory_queue.into_state();
-    let final_requests_state = requests_queue.into_state();
-
-    structured_input.observable_output.final_memory_state = QueueState::conditionally_select(
+    let (final_requests_state, final_memory_state) = compute_final_requests_and_memory_states(
         cs,
-        structured_input.completion_flag,
-        &final_memory_state,
-        &structured_input.observable_output.final_memory_state,
+        requests_queue,
+        &mut structured_input,
+        memory_queue
     );
 
     structured_input.hidden_fsm_output.log_queue_state = final_requests_state;
     structured_input.hidden_fsm_output.memory_queue_state = final_memory_state;
 
-    structured_input.hook_compare_witness(cs, &closed_form_input);
-
-    let compact_form =
-        ClosedFormInputCompactForm::from_full_form(cs, &structured_input, round_function);
-    let input_commitment = commit_variable_length_encodable_item(cs, &compact_form, round_function);
-    for el in input_commitment.iter() {
-        let gate = PublicInputGate::new(el.get_variable());
-        gate.add_to_cs(cs);
-    }
-
-    input_commitment
+    hook_witness_and_generate_input_commitment(
+        cs,
+        round_function,
+        structured_input,
+        closed_form_input
+    )
 }
