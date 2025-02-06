@@ -30,7 +30,7 @@ use zkevm_opcode_defs::system_params::PRECOMPILE_AUX_BYTE;
 
 use crate::base_structures::log_query::*;
 use crate::base_structures::memory_query::*;
-use crate::bn254::utils::{add_read_values_to_queue, check_precompile_meta, compute_final_requests_and_memory_states, create_requests_state_and_memory_state, hook_witness_and_generate_input_commitment};
+use crate::bn254::utils::{add_query_to_queue, add_read_values_to_queue, check_precompile_meta, compute_final_requests_and_memory_states, create_requests_state_and_memory_state, hook_witness_and_generate_input_commitment};
 use crate::ethereum_types::U256;
 use crate::fsm_input_output::circuit_inputs::INPUT_OUTPUT_COMMITMENT_LENGTH;
 use crate::modexp::implementation::u256::modexp_32_32_32;
@@ -168,16 +168,19 @@ where
             }
         }
 
-        let result_query = MemoryQuery {
-            timestamp: timestamp_to_use_for_write,
-            memory_page: precompile_call_params.output_page,
-            index: precompile_call_params.output_offset,
-            rw_flag: boolean_true,
-            is_ptr: boolean_false,
-            value: result,
-        };
-
-        let _ = memory_queue.push(cs, result_query, should_process);
+        add_query_to_queue(
+            cs,
+            should_process,
+            &mut memory_queue,
+            timestamp_to_use_for_write,
+            precompile_call_params.output_page,
+            &mut precompile_call_params.output_offset,
+            boolean_true,
+            boolean_false,
+            result,
+            one_u32,
+            false
+        );
     }
 
     let (final_requests_state, final_memory_state) = compute_final_requests_and_memory_states(

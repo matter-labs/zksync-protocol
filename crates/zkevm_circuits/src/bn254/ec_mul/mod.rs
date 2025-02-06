@@ -32,7 +32,7 @@ use crate::fsm_input_output::circuit_inputs::INPUT_OUTPUT_COMMITMENT_LENGTH;
 use crate::fsm_input_output::*;
 use crate::storage_application::ConditionalWitnessAllocator;
 
-use super::utils::{add_read_values_to_queue, check_precompile_meta, compute_final_requests_and_memory_states, create_requests_state_and_memory_state, hook_witness_and_generate_input_commitment};
+use super::utils::{add_query_to_queue, add_read_values_to_queue, check_precompile_meta, compute_final_requests_and_memory_states, create_requests_state_and_memory_state, hook_witness_and_generate_input_commitment};
 use super::*;
 
 use self::implementation::{
@@ -247,44 +247,47 @@ where
             }
         }
 
-        let success_query = MemoryQuery {
-            timestamp: timestamp_to_use_for_write,
-            memory_page: precompile_call_params.output_page,
-            index: precompile_call_params.output_offset,
-            rw_flag: boolean_true,
-            is_ptr: boolean_false,
-            value: success,
-        };
+        add_query_to_queue(
+            cs,
+            should_process,
+            &mut memory_queue,
+            timestamp_to_use_for_write,
+            precompile_call_params.output_page,
+            &mut precompile_call_params.output_offset,
+            boolean_true,
+            boolean_false,
+            success,
+            one_u32,
+            true
+        );
 
-        let _ = memory_queue.push(cs, success_query, should_process);
-        precompile_call_params.output_offset = precompile_call_params
-            .output_offset
-            .add_no_overflow(cs, one_u32);
+        add_query_to_queue(
+            cs,
+            should_process,
+            &mut memory_queue,
+            timestamp_to_use_for_write,
+            precompile_call_params.output_page,
+            &mut precompile_call_params.output_offset,
+            boolean_true,
+            boolean_false,
+            x,
+            one_u32,
+            true
+        );
 
-        let x_query = MemoryQuery {
-            timestamp: timestamp_to_use_for_write,
-            memory_page: precompile_call_params.output_page,
-            index: precompile_call_params.output_offset,
-            rw_flag: boolean_true,
-            is_ptr: boolean_false,
-            value: x,
-        };
-
-        let _ = memory_queue.push(cs, x_query, should_process);
-        precompile_call_params.output_offset = precompile_call_params
-            .output_offset
-            .add_no_overflow(cs, one_u32);
-
-        let y_query = MemoryQuery {
-            timestamp: timestamp_to_use_for_write,
-            memory_page: precompile_call_params.output_page,
-            index: precompile_call_params.output_offset,
-            rw_flag: boolean_true,
-            is_ptr: boolean_false,
-            value: y,
-        };
-
-        let _ = memory_queue.push(cs, y_query, should_process);
+        add_query_to_queue(
+            cs,
+            should_process,
+            &mut memory_queue,
+            timestamp_to_use_for_write,
+            precompile_call_params.output_page,
+            &mut precompile_call_params.output_offset,
+            boolean_true,
+            boolean_false,
+            y,
+            one_u32,
+            false
+        );
     }
 
     let (final_requests_state, final_memory_state) = compute_final_requests_and_memory_states(

@@ -1,10 +1,8 @@
-use std::collections::VecDeque;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use boojum::algebraic_props::round_function::AlgebraicRoundFunction;
 use boojum::cs::gates::PublicInputGate;
 use boojum::cs::traits::cs::ConstraintSystem;
-use boojum::ethereum_types::U256;
 use boojum::field::SmallField;
 use boojum::gadgets::num::Num;
 use boojum::gadgets::queue::full_state_queue::FullStateCircuitQueue;
@@ -218,4 +216,43 @@ pub fn create_requests_state_and_memory_state
     let memory_queue = MemoryQueue::<F, R>::from_state(cs, memory_queue_state);
 
     (requests_queue, memory_queue)
+}
+
+pub fn add_query_to_queue
+<
+    F: SmallField,
+    CS: ConstraintSystem<F>,
+    R: CircuitRoundFunction<F, 8, 12, 4> + AlgebraicRoundFunction<F, 8, 12, 4>,
+>
+(
+    cs: &mut CS,
+    should_process: Boolean<F>,
+    memory_queue: &mut FullStateCircuitQueue<F, MemoryQuery<F>, 8, 12, 4, 8, R>,
+    timestamp: UInt32<F>,
+    memory_page: UInt32<F>,
+    index: &mut UInt32<F>,
+    rw_flag: Boolean<F>,
+    is_ptr: Boolean<F>,
+    value: UInt256<F>,
+    one_u32: UInt32<F>,
+    should_increment_offset: bool
+)
+where
+    [(); <MemoryQuery<F> as CSAllocatableExt<F>>::INTERNAL_STRUCT_LEN]:,
+{
+    let query = MemoryQuery {
+        timestamp,
+        memory_page,
+        index: *index,
+        rw_flag,
+        is_ptr,
+        value,
+    };
+
+    let _ = memory_queue.push(cs, query, should_process);
+    
+    if should_increment_offset {
+        *index = index
+            .add_no_overflow(cs, one_u32);
+    }
 }
