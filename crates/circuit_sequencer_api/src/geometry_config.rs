@@ -28,12 +28,12 @@ pub enum ProtocolGeometry {
     V1_4_1,
     V1_4_2,
     V1_5_0,
-    V1_6_0
+    V1_5_1
 }
 
 impl ProtocolGeometry {
     pub const fn latest() -> Self {
-        ProtocolGeometry::V1_6_0
+        ProtocolGeometry::V1_5_1
     }
 
     pub const fn config(self) -> GeometryConfig {
@@ -42,7 +42,7 @@ impl ProtocolGeometry {
             ProtocolGeometry::V1_4_1 => get_geometry_config_1_4_1(),
             ProtocolGeometry::V1_4_2 => get_geometry_config_1_4_2(),
             ProtocolGeometry::V1_5_0 => get_geometry_config_1_5_0(),
-            ProtocolGeometry::V1_6_0 => get_geometry_config_1_6_0()
+            ProtocolGeometry::V1_5_1 => get_geometry_config_1_5_1()
         }
     }
 }
@@ -130,7 +130,7 @@ const fn get_geometry_config_1_5_0() -> GeometryConfig {
 }
 
 
-const fn get_geometry_config_1_6_0() -> GeometryConfig {
+const fn get_geometry_config_1_5_1() -> GeometryConfig {
     GeometryConfig {
         cycles_per_vm_snapshot: 5390,
         cycles_code_decommitter_sorter: 117500,
