@@ -32,7 +32,11 @@ use crate::fsm_input_output::circuit_inputs::INPUT_OUTPUT_COMMITMENT_LENGTH;
 use crate::fsm_input_output::*;
 use crate::storage_application::ConditionalWitnessAllocator;
 
-use super::utils::{add_query_to_queue, add_read_values_to_queue, check_precompile_meta, compute_final_requests_and_memory_states, create_requests_state_and_memory_state, hook_witness_and_generate_input_commitment};
+use super::utils::{
+    add_query_to_queue, add_read_values_to_queue, check_precompile_meta,
+    compute_final_requests_and_memory_states, create_requests_state_and_memory_state,
+    hook_witness_and_generate_input_commitment,
+};
 use super::*;
 
 use self::ec_mul::implementation::{
@@ -208,7 +212,7 @@ where
         );
 
         let mut read_values = [zero_u256; NUM_MEMORY_READS_PER_CYCLE];
-        
+
         add_read_values_to_queue::<F, CS, R>(
             cs,
             should_process,
@@ -294,7 +298,7 @@ where
         cs,
         requests_queue,
         &mut structured_input,
-        memory_queue
+        memory_queue,
     );
 
     structured_input.hidden_fsm_output.log_queue_state = final_requests_state;

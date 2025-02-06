@@ -30,7 +30,11 @@ use zkevm_opcode_defs::system_params::PRECOMPILE_AUX_BYTE;
 
 use crate::base_structures::log_query::*;
 use crate::base_structures::memory_query::*;
-use crate::bn254::utils::{add_query_to_queue, add_read_values_to_queue, check_precompile_meta, compute_final_requests_and_memory_states, create_requests_state_and_memory_state, hook_witness_and_generate_input_commitment};
+use crate::bn254::utils::{
+    add_query_to_queue, add_read_values_to_queue, check_precompile_meta,
+    compute_final_requests_and_memory_states, create_requests_state_and_memory_state,
+    hook_witness_and_generate_input_commitment,
+};
 use crate::ethereum_types::U256;
 use crate::fsm_input_output::circuit_inputs::INPUT_OUTPUT_COMMITMENT_LENGTH;
 use crate::modexp::implementation::u256::modexp_32_32_32;
@@ -145,7 +149,7 @@ where
         );
 
         let mut read_values = [zero_u256; NUM_MEMORY_READS_PER_CYCLE];
-        
+
         add_read_values_to_queue::<F, CS, R>(
             cs,
             should_process,
