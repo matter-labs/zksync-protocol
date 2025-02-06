@@ -28,7 +28,7 @@ pub enum ProtocolGeometry {
     V1_4_1,
     V1_4_2,
     V1_5_0,
-    V1_5_1
+    V1_5_1,
 }
 
 impl ProtocolGeometry {
@@ -42,7 +42,7 @@ impl ProtocolGeometry {
             ProtocolGeometry::V1_4_1 => get_geometry_config_1_4_1(),
             ProtocolGeometry::V1_4_2 => get_geometry_config_1_4_2(),
             ProtocolGeometry::V1_5_0 => get_geometry_config_1_5_0(),
-            ProtocolGeometry::V1_5_1 => get_geometry_config_1_5_1()
+            ProtocolGeometry::V1_5_1 => get_geometry_config_1_5_1(),
         }
     }
 }
@@ -128,7 +128,6 @@ const fn get_geometry_config_1_5_0() -> GeometryConfig {
         cycles_per_secp256r1_verify_circuit: 4,
     }
 }
-
 
 const fn get_geometry_config_1_5_1() -> GeometryConfig {
     GeometryConfig {
