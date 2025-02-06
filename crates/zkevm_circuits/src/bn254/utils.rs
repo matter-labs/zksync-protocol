@@ -1,10 +1,14 @@
+use std::collections::VecDeque;
+use std::sync::{Arc, RwLock};
+
 use boojum::algebraic_props::round_function::AlgebraicRoundFunction;
 use boojum::cs::gates::PublicInputGate;
 use boojum::cs::traits::cs::ConstraintSystem;
+use boojum::ethereum_types::U256;
 use boojum::field::SmallField;
 use boojum::gadgets::num::Num;
 use boojum::gadgets::queue::full_state_queue::FullStateCircuitQueue;
-use boojum::gadgets::queue::{CircuitQueue, QueueState};
+use boojum::gadgets::queue::{CircuitQueue, CircuitQueueRawWitness, CircuitQueueWitness, QueueState};
 use boojum::gadgets::traits::allocatable::{CSAllocatable, CSAllocatableExt, CSPlaceholder};
 use boojum::gadgets::traits::auxiliary::PrettyComparison;
 use boojum::gadgets::traits::encodable::{CircuitVarLengthEncodable, WitnessVarLengthEncodable};
@@ -14,8 +18,9 @@ use boojum::gadgets::traits::witnessable::WitnessHookable;
 use boojum::gadgets::{u8::UInt8, u32::UInt32, u160::UInt160, u256::UInt256, boolean::Boolean};
 
 use crate::base_structures::log_query::LogQuery;
-use crate::base_structures::memory_query::MemoryQuery;
+use crate::base_structures::memory_query::{MemoryQuery, MemoryQueue};
 use crate::base_structures::precompile_input_outputs::{PrecompileFunctionInputData, PrecompileFunctionOutputData};
+use crate::demux_log_queue::StorageLogQueue;
 use crate::fsm_input_output::{commit_variable_length_encodable_item, ClosedFormInput, ClosedFormInputCompactForm, ClosedFormInputWitness};
 use crate::storage_application::ConditionalWitnessAllocator;
 
@@ -166,4 +171,51 @@ where
     }
 
     input_commitment
+}
+
+pub fn create_requests_state_and_memory_state
+<
+    F: SmallField,
+    CS: ConstraintSystem<F>,
+    R: CircuitRoundFunction<F, 8, 12, 4> + AlgebraicRoundFunction<F, 8, 12, 4>,
+    T: Clone + std::fmt::Debug + CSAllocatable<F> + CircuitVarLengthEncodable<F> + WitnessVarLengthEncodable<F> + WitnessHookable<F> + PrettyComparison<F>,
+>
+(
+    cs: &mut CS,
+    structured_input: &ClosedFormInput<F, T, PrecompileFunctionInputData<F>, PrecompileFunctionOutputData<F>>,
+    requests_queue_state_from_input: &QueueState<F, 4>,
+    requests_queue_state_from_fsm: &QueueState<F, 4>,
+    memory_queue_state_from_fsm: &QueueState<F, 12>,
+    start_flag: Boolean<F>,
+    requests_queue_witness: CircuitQueueRawWitness<F, LogQuery<F>, 4, 20>,
+)
+-> (CircuitQueue<F, LogQuery<F>, 8, 12, 4, 4, 20, R>, FullStateCircuitQueue<F, MemoryQuery<F>, 8, 12, 4, 8, R>) where
+    <T as CSAllocatable<F>>::Witness: serde::Serialize + serde::de::DeserializeOwned + Eq,
+{
+
+    let requests_queue_state = QueueState::conditionally_select(
+        cs,
+        structured_input.start_flag,
+        requests_queue_state_from_input,
+        requests_queue_state_from_fsm,
+    );
+
+    let mut requests_queue = StorageLogQueue::<F, R>::from_state(cs, requests_queue_state);
+    let queue_witness = CircuitQueueWitness::from_inner_witness(requests_queue_witness);
+    requests_queue.witness = Arc::new(queue_witness);
+
+    let memory_queue_state_from_input =
+        structured_input.observable_input.initial_memory_queue_state;
+    memory_queue_state_from_input.enforce_trivial_head(cs);
+
+    let memory_queue_state = QueueState::conditionally_select(
+        cs,
+        start_flag,
+        &memory_queue_state_from_input,
+        &memory_queue_state_from_fsm,
+    );
+
+    let memory_queue = MemoryQueue::<F, R>::from_state(cs, memory_queue_state);
+
+    (requests_queue, memory_queue)
 }

@@ -11,15 +11,12 @@ use std::sync::{Arc, RwLock};
 
 use boojum::algebraic_props::round_function::AlgebraicRoundFunction;
 
-use boojum::cs::gates::PublicInputGate;
 use boojum::cs::traits::cs::ConstraintSystem;
 use boojum::field::SmallField;
 use boojum::gadgets::boolean::Boolean;
 
 use boojum::gadgets::num::Num;
-use boojum::gadgets::queue::CircuitQueueWitness;
-use boojum::gadgets::queue::QueueState;
-use boojum::gadgets::traits::allocatable::{CSAllocatableExt, CSPlaceholder};
+use boojum::gadgets::traits::allocatable::CSAllocatableExt;
 use boojum::gadgets::traits::round_function::CircuitRoundFunction;
 use boojum::gadgets::traits::selectable::Selectable;
 use boojum::gadgets::traits::witnessable::WitnessHookable;
@@ -33,12 +30,9 @@ use zkevm_opcode_defs::system_params::PRECOMPILE_AUX_BYTE;
 
 use crate::base_structures::log_query::*;
 use crate::base_structures::memory_query::*;
-use crate::base_structures::precompile_input_outputs::PrecompileFunctionOutputData;
-use crate::bn254::utils::{add_read_values_to_queue, check_precompile_meta, compute_final_requests_and_memory_states, hook_witness_and_generate_input_commitment};
-use crate::demux_log_queue::StorageLogQueue;
+use crate::bn254::utils::{add_read_values_to_queue, check_precompile_meta, compute_final_requests_and_memory_states, create_requests_state_and_memory_state, hook_witness_and_generate_input_commitment};
 use crate::ethereum_types::U256;
 use crate::fsm_input_output::circuit_inputs::INPUT_OUTPUT_COMMITMENT_LENGTH;
-use crate::fsm_input_output::*;
 use crate::modexp::implementation::u256::modexp_32_32_32;
 use crate::modexp::input::{ModexpCircuitInputOutput, ModexpCircuitInstanceWitness};
 use crate::storage_application::ConditionalWitnessAllocator;
@@ -105,32 +99,18 @@ where
     requests_queue_state_from_input.enforce_trivial_head(cs);
 
     let requests_queue_state_from_fsm = structured_input.hidden_fsm_input.log_queue_state;
-
-    let requests_queue_state = QueueState::conditionally_select(
-        cs,
-        start_flag,
-        &requests_queue_state_from_input,
-        &requests_queue_state_from_fsm,
-    );
-
-    let mut requests_queue = StorageLogQueue::<F, R>::from_state(cs, requests_queue_state);
-    let queue_witness = CircuitQueueWitness::from_inner_witness(requests_queue_witness);
-    requests_queue.witness = Arc::new(queue_witness);
-
-    let memory_queue_state_from_input =
-        structured_input.observable_input.initial_memory_queue_state;
-    memory_queue_state_from_input.enforce_trivial_head(cs);
-
     let memory_queue_state_from_fsm = structured_input.hidden_fsm_input.memory_queue_state;
 
-    let memory_queue_state = QueueState::conditionally_select(
+    let (mut requests_queue, mut memory_queue) = create_requests_state_and_memory_state(
         cs,
-        start_flag,
-        &memory_queue_state_from_input,
+        &structured_input,
+        &requests_queue_state_from_input,
+        &requests_queue_state_from_fsm,
         &memory_queue_state_from_fsm,
+        start_flag,
+        requests_queue_witness
     );
 
-    let mut memory_queue = MemoryQueue::<F, R>::from_state(cs, memory_queue_state);
     let read_queries_allocator = ConditionalWitnessAllocator::<F, UInt256<F>> {
         witness_source: Arc::new(RwLock::new(memory_reads_witness)),
     };
@@ -166,7 +146,7 @@ where
 
         let mut read_values = [zero_u256; NUM_MEMORY_READS_PER_CYCLE];
         
-        add_read_values_to_queue(
+        add_read_values_to_queue::<F, CS, R>(
             cs,
             should_process,
             &mut read_values,
