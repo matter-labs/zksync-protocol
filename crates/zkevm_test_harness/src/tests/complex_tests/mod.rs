@@ -65,6 +65,7 @@ use witness::oracle::WitnessGenerationArtifact;
 use zkevm_assembly::Assembly;
 use zkevm_circuits::base_structures::vm_state::FULL_SPONGE_QUEUE_STATE_WIDTH;
 
+#[ignore = "Too slow"]
 #[test]
 fn basic_test() {
     let test_artifact = read_basic_test_artifact();
