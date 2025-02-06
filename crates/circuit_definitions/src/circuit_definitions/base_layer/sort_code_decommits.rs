@@ -25,7 +25,7 @@ where
 {
     fn geometry() -> CSGeometry {
         CSGeometry {
-            num_columns_under_copy_permutation: 130,
+            num_columns_under_copy_permutation: 140,
             num_witness_columns: 0,
             num_constant_columns: 4,
             max_allowed_constraint_degree: 8,
