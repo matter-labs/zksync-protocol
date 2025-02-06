@@ -2,7 +2,7 @@
   "RAMPermutation": {
     "row_finalization_hints": [
       [
-        17,
+        15,
         0,
         0,
         0,
@@ -44,24 +44,24 @@
         0
       ]
     ],
-    "nop_gates_to_add": 4480,
+    "nop_gates_to_add": 20183,
     "final_trace_len": 1048576,
     "public_inputs": [
       [
         0,
-        1044095
+        1028392
       ],
       [
         1,
-        1044095
+        1028392
       ],
       [
         2,
-        1044095
+        1028392
       ],
       [
         3,
-        1044095
+        1028392
       ]
     ]
   }

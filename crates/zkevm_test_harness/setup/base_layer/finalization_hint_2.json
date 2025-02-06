@@ -2,7 +2,7 @@
   "CodeDecommittmentsSorter": {
     "row_finalization_hints": [
       [
-        13,
+        36,
         0,
         0,
         0,
@@ -44,24 +44,24 @@
         0
       ]
     ],
-    "nop_gates_to_add": 26721,
+    "nop_gates_to_add": 2831,
     "final_trace_len": 1048576,
     "public_inputs": [
       [
         0,
-        1021854
+        1045744
       ],
       [
         1,
-        1021854
+        1045744
       ],
       [
         2,
-        1021854
+        1045744
       ],
       [
         3,
-        1021854
+        1045744
       ]
     ]
   }

@@ -2,7 +2,7 @@
   "StorageSorter": {
     "row_finalization_hints": [
       [
-        3,
+        15,
         0,
         0,
         0,
@@ -44,24 +44,24 @@
         0
       ]
     ],
-    "nop_gates_to_add": 2258,
+    "nop_gates_to_add": 3283,
     "final_trace_len": 1048576,
     "public_inputs": [
       [
         0,
-        1046317
+        1045292
       ],
       [
         1,
-        1046317
+        1045292
       ],
       [
         2,
-        1046317
+        1045292
       ],
       [
         3,
-        1046317
+        1045292
       ]
     ]
   }
