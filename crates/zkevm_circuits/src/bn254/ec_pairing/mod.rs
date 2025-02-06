@@ -1,3 +1,6 @@
+use alternative_precompile_naive::hack_ecpairing_precompile_inner;
+use alternative_precompile_naive::G1AffineCoord;
+use alternative_precompile_naive::G2AffineCoord;
 use arrayvec::ArrayVec;
 
 use std::sync::{Arc, RwLock};
@@ -117,6 +120,17 @@ fn pair<F: SmallField, CS: ConstraintSystem<F>>(
     q_y_c0: &UInt256<F>,
     q_y_c1: &UInt256<F>,
 ) -> (Boolean<F>, BN256Fq12NNField<F>) {
+    let p = G1AffineCoord { x: *p_x, y: *p_y };
+    let q = G2AffineCoord {
+        x_c0: *q_x_c0,
+        x_c1: *q_x_c1,
+        y_c0: *q_y_c0,
+        y_c1: *q_y_c1,
+    };
+
+    return hack_ecpairing_precompile_inner(cs, &[p], &[q]);
+    /*
+
     let base_field_params = &Arc::new(bn254_base_field_params());
 
     // We need to check for infinity prior to potential masking coordinates.
@@ -170,7 +184,7 @@ fn pair<F: SmallField, CS: ConstraintSystem<F>>(
     let success = Boolean::multi_and(cs, &are_valid_inputs[..]);
     let result = result.mask(cs, success);
 
-    (success, result)
+    (success, result)*/
 }
 
 pub fn ecpairing_precompile_inner<
@@ -349,6 +363,7 @@ where
 
         let [p_x, p_y, q_x_c1, q_x_c0, q_y_c1, q_y_c0] = read_values;
 
+        // TODO: replace this with 'precompile_inner' call from alternative_precompile_naive
         let (success, mut result) = pair(cs, &p_x, &p_y, &q_x_c0, &q_x_c1, &q_y_c0, &q_y_c1);
         NonNativeField::normalize(&mut result, cs);
 

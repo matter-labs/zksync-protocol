@@ -38,10 +38,12 @@ use boojum::gadgets::traits::encodable::WitnessVarLengthEncodable;
 use self::ec_mul::implementation::convert_uint256_to_field_element;
 use self::input_alternative::EcMultiPairingCircuitInstanceWitness;
 
-pub const NUM_MEMORY_READS_PER_CYCLE: usize = 18;
-pub const MEMORY_QUERIES_PER_CALL: usize = 18;
-pub const EXCEPTION_FLAGS_ARR_LEN: usize = 19;
-const NUM_PAIRINGS_IN_MULTIPAIRING: usize = 3;
+pub use self::alternative_pairing::NUM_PAIRINGS_IN_MULTIPAIRING;
+
+pub const NUM_MEMORY_READS_PER_CYCLE: usize = NUM_PAIRINGS_IN_MULTIPAIRING * 6;
+pub const MEMORY_QUERIES_PER_CALL: usize = NUM_PAIRINGS_IN_MULTIPAIRING * 6;
+pub const EXCEPTION_FLAGS_ARR_LEN: usize = NUM_PAIRINGS_IN_MULTIPAIRING * 6 + 1;
+//const NUM_PAIRINGS_IN_MULTIPAIRING: usize = 1;
 #[derive(
     Derivative,
     CSAllocatable,
@@ -102,6 +104,14 @@ pub struct G2AffineCoord<F: SmallField> {
     pub x_c1: UInt256<F>,
     pub y_c0: UInt256<F>,
     pub y_c1: UInt256<F>,
+}
+
+pub fn hack_ecpairing_precompile_inner<F: SmallField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    p_points: &[G1AffineCoord<F>],
+    q_points: &[G2AffineCoord<F>],
+) -> (Boolean<F>, BN256Fq12NNField<F>) {
+    precompile_inner(cs, p_points, q_points)
 }
 
 fn precompile_inner<F: SmallField, CS: ConstraintSystem<F>>(

@@ -27,7 +27,7 @@ use rand::Rng;
 use serde::Serialize;
 use std::iter;
 
-const NUM_PAIRINGS_IN_MULTIPAIRING: usize = 3;
+pub const NUM_PAIRINGS_IN_MULTIPAIRING: usize = 1;
 const NUM_LIMBS: usize = 17;
 // multipairing circuit logic is the following:
 // by contract design we assume, that input is always padded if necessary on the contract side (by points on infinity),
