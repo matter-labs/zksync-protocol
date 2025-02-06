@@ -172,7 +172,7 @@ where
         &requests_queue_state_from_fsm,
         &memory_queue_state_from_fsm,
         start_flag,
-        requests_queue_witness
+        requests_queue_witness,
     );
 
     let read_queries_allocator = ConditionalWitnessAllocator::<F, UInt256<F>> {
@@ -205,7 +205,7 @@ where
             should_process,
             precompile_address,
             request,
-            aux_byte_for_precompile
+            aux_byte_for_precompile,
         );
 
         let mut read_values = [zero_u256; NUM_MEMORY_READS_PER_CYCLE];
@@ -220,7 +220,7 @@ where
             precompile_call_params.input_page,
             &mut precompile_call_params.input_offset,
             boolean_false,
-            one_u32
+            one_u32,
         );
 
         let [x, y, scalar] = read_values;
@@ -258,7 +258,7 @@ where
             boolean_false,
             success,
             one_u32,
-            true
+            true,
         );
 
         add_query_to_queue(
@@ -272,7 +272,7 @@ where
             boolean_false,
             x,
             one_u32,
-            true
+            true,
         );
 
         add_query_to_queue(
@@ -286,7 +286,7 @@ where
             boolean_false,
             y,
             one_u32,
-            false
+            false,
         );
     }
 
@@ -294,7 +294,7 @@ where
         cs,
         requests_queue,
         &mut structured_input,
-        memory_queue
+        memory_queue,
     );
 
     structured_input.hidden_fsm_output.log_queue_state = final_requests_state;
@@ -304,6 +304,6 @@ where
         cs,
         round_function,
         structured_input,
-        closed_form_input
+        closed_form_input,
     )
 }
