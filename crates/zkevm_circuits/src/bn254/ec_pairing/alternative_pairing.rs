@@ -2,27 +2,28 @@ use super::*;
 use bn256::miller_loop_with_prepared_lines;
 use bn256::prepare_all_line_functions;
 use bn256::prepare_g1_point;
-use bn256::{fq::ROOT_27_OF_UNITY, Bn256, Certificate, G1Prepared, G2Prepared};
+use bn256::{fq::ROOT_27_OF_UNITY, Bn256, Certificate};
 use boojum::config::CSConfig;
 use boojum::config::CSWitnessEvaluationConfig;
+use boojum::cs::gates::ConstantsAllocatorGate;
 use boojum::cs::traits::cs::DstBuffer;
-use boojum::pairing::ff::ScalarEngine;
+use boojum::pairing::CurveAffine;
 use boojum::pairing::Engine;
-use boojum::pairing::{CurveAffine, CurveProjective};
 use boojum::{
-    cs::{Place, Witness},
+    cs::Place,
     gadgets::{non_native_field::traits::NonNativeField, traits::witnessable::CSWitnessable},
     pairing::{
         bn256::{
-            Fq, Fq12, Fq2, Fq6, G1Affine, G2Affine, FROBENIUS_COEFF_FQ6_C1, G1, G2,
-            XI_TO_Q_MINUS_1_OVER_2,
+            Fq, Fq12, Fq2, Fq6, G1Affine, G2Affine, FROBENIUS_COEFF_FQ6_C1, XI_TO_Q_MINUS_1_OVER_2,
         },
-        ff::{Field, PrimeField},
+        ff::Field,
     },
 };
 use itertools::izip;
+use rand::Rand;
 use rand::Rng;
-use serde::Serialize;
+use rand::SeedableRng;
+use rand::XorShiftRng;
 use std::iter;
 
 const NUM_PAIRINGS_IN_MULTIPAIRING: usize = 1;
@@ -1001,7 +1002,7 @@ impl Oracle {
                 line_functions.extend(line_functions_unflattened.iter().flat_map(|arr| {
                     std::iter::once(arr[row_idx]).chain(std::iter::once(arr[row_idx + 1]))
                 }));
-                row_idx += 2;
+                // row_idx += 2;
                 // assert_eq!(row_idx, num_of_line_functions_per_tuple);
 
                 dst.push(F::ZERO);
@@ -1461,7 +1462,7 @@ impl Bn256HardPartMethod {
     /// The final returned value is in compressed toru form
     pub fn final_exp_easy_part<F: SmallField, CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        mut elem: &Fp12<F>,
+        elem: &Fp12<F>,
         params: &Arc<BN256BaseNNFieldParams>,
         is_safe_version: bool,
     ) -> (BN256TorusWrapper<F>, Boolean<F>) {
@@ -1873,8 +1874,8 @@ pub(crate) unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
     let (wrapped_f, is_trivial) = Bn256HardPartMethod::final_exp_easy_part(cs, &f, &params, true);
     let chain = Bn256HardPartMethod::get_optinal();
     let candidate = chain.final_exp_hard_part(cs, &wrapped_f, true, &params);
-    let mut final_res = candidate.decompress(cs);
-    let mut fp12_one = Fp12::<F>::one(cs, &params);
+    let final_res = candidate.decompress(cs);
+    let fp12_one = Fp12::<F>::one(cs, &params);
 
     let no_exeption = is_trivial.negated(cs);
     validity_checks.push(no_exeption);
@@ -1890,638 +1891,659 @@ pub(crate) unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
     (result, miller_loop_res, success)
 }
 
-use crate::boojum::cs::*;
-use crate::boojum::field::goldilocks::GoldilocksField;
-use boojum::config::DevCSConfig;
-use boojum::cs::cs_builder::*;
-use boojum::cs::cs_builder_reference::CsReferenceImplementationBuilder;
-use boojum::cs::gates::*;
-use boojum::cs::traits::gate::GatePlacementStrategy;
-use boojum::dag::CircuitResolverOpts;
-use boojum::gadgets::tables::create_range_check_16_bits_table;
-use boojum::gadgets::tables::RangeCheck16BitsTable;
-use boojum::worker::Worker;
-use rand::*;
-use std::alloc::Global;
-use std::env;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-type F = GoldilocksField;
-type P = GoldilocksField;
-
-type Fr = <Bn256 as ScalarEngine>::Fr;
-
-/// Creates a test constraint system for testing purposes that includes the
-/// majority (even possibly unneeded) of the gates and tables.
-// #[test]
-// fn test_alternative_circuit_complex(
-// ) {
-//     use tests::utils::cs::create_test_cs;
-
-//     let skip_flags : [bool; NUM_PAIRINGS_IN_MULTIPAIRING] = [true, true, true];
-
-//     let mut owned_cs = create_test_cs(1 << 20);
-//     let cs = &mut owned_cs;
-
-//     let params = RnsParams::create();
-//     let params = std::sync::Arc::new(params);
-
-//     let mut cs_point_tuples = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING);
-//     let mut rng = rand::thread_rng();
-
-//     let last_idx = skip_flags.iter().cloned().rfind(|flag| !flag).unwrap_or(NUM_PAIRINGS_IN_MULTIPAIRING);
-//     let mut dlog_relation = Fr::zero();
-
-//     for (pos, skip_flag) in skip_flags.iter().enumerate() {
-//         let points_tuple = if !is_last {
-//             let mut g1_scalar = Fr::rand(&mut rng);
-//             let g2_scalar = Fr::rand(&mut rng);
-
-//             let mut p = g1_generator.clone();
-//             let mut q = g2_generator.clone();
-
-//             p.mul_assign(g1_scalar.into_repr());
-//             q.mul_assign(g2_scalar.into_repr());
-
-//             g1_scalar.mul_assign(&g2_scalar);
-//             dlog_relation.add_assign(&g1_scalar);
-
-//             let g1 = AffinePoint::allocate(cs, p.into_affine(), &params);
-//             let g2 = TwistedCurvePoint::allocate(cs, q.into_affine(), &params);
-//             (g1, g2)
-//         } else {
-//             let mut g1_scalar = Fr::rand(&mut rng);
-//             // g1 * g2 = -dlog_rel
-//             dlog_relation.negate();
-//             dlog_relation.mul_assign(&g1_scalar.inverse().unwrap());
-
-//             let mut p = g1_generator.clone();
-//             let mut q = g2_generator.clone();
-
-//             p.mul_assign(g1_scalar.into_repr());
-//             q.mul_assign(dlog_relation.into_repr());
-
-//             let g1 = AffinePoint::allocate(cs, p.into_affine(), &params);
-//             let g2 = TwistedCurvePoint::allocate(cs, q.into_affine(), &params);
-//             (g1, g2)
-//         };
-
-//         cs_point_tuples.push(points_tuple);
-//     }
-
-//     let p_point_at_infty = G1Affine::zero();
-//     let (x, y) = p_point_at_infty.into_xy_unchecked();
-//     println!("init x: {}, y: {}", x, y);
-//     let q = G2Affine::rand(&mut rng);
-
-//     let g1 = AffinePoint::allocate(cs, p_point_at_infty, &params);
-//     let g2 = TwistedCurvePoint::allocate(cs, q, &params);
-//     cs_point_tuples.push((g1, g2));
-
-//     let equality_flags = unsafe {
-//         multipairing_robust(cs, &mut cs_point_tuples)
-//     };
-//     let candidate_witness : Vec<_> = equality_flags.into_iter().map(|c| c.witness_hook(cs)).collect();
-
-//     let worker = Worker::new_with_num_threads(8);
-
-//     drop(cs);
-//     owned_cs.pad_and_shrink();
-//     let mut owned_cs = owned_cs.into_assembly::<Global>();
-//     assert!(owned_cs.check_if_satisfied(&worker));
-//     owned_cs.print_gate_stats();
-
-//     // let lines = prepare_all_line_functions(q);
-//     // let p_prepared = prepare_g1_point(p);
-//     // let actual_miller_loop_f = miller_loop_with_prepared_lines(&[p_prepared], &[lines]);
-
-//     for c in candidate_witness.into_iter() {
-//         println!("flag wit: {}", c().unwrap());
-//     }
-
-//     // // unwrap candidate witness
-//     // let candidate_witness_wrapper = candidate_witness().unwrap();
-//     // let candidate_miller_loop_f = Fq12 {
-//     //     c0: Fq6 {
-//     //         c0: Fq2 { c0: candidate_witness_wrapper.0.0.0.get(), c1: candidate_witness_wrapper.0.0.1.get() },
-//     //         c1: Fq2 { c0: candidate_witness_wrapper.0.1.0.get(), c1: candidate_witness_wrapper.0.1.1.get() },
-//     //         c2: Fq2 { c0: candidate_witness_wrapper.0.2.0.get(), c1: candidate_witness_wrapper.0.2.1.get() },
-//     //     },
-//     //     c1: Fq6 {
-//     //         c0: Fq2 { c0: candidate_witness_wrapper.1.0.0.get(), c1: candidate_witness_wrapper.1.0.1.get() },
-//     //         c1: Fq2 { c0: candidate_witness_wrapper.1.1.0.get(), c1: candidate_witness_wrapper.1.1.1.get() },
-//     //         c2: Fq2 { c0: candidate_witness_wrapper.1.2.0.get(), c1: candidate_witness_wrapper.1.2.1.get() },
-//     //     },
-//     // };
-
-//     // assert_eq!(actual_miller_loop_f, candidate_miller_loop_f);
-// }
-
-#[test]
-fn test_alternative_circuit() {
-    //env::set_var("RUST_MIN_STACK", "100000000");
-    use tests::utils::cs::create_test_cs;
-
-    // let geometry = CSGeometry {
-    //     num_columns_under_copy_permutation: 30,
-    //     num_witness_columns: 0,
-    //     num_constant_columns: 4,
-    //     max_allowed_constraint_degree: 4,
-    // };
-
-    // type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
-    // let builder_impl =
-    //     CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 22);
-    // let builder = new_builder::<_, F>(builder_impl);
-
-    // let builder = builder.allow_lookup(
-    //     LookupParameters::UseSpecializedColumnsWithTableIdAsConstant {
-    //         width: 1,
-    //         num_repetitions: 10,
-    //         share_table_id: true,
-    //     },
-    // );
-
-    // let builder = ConstantsAllocatorGate::configure_builder(
-    //     builder,
-    //     GatePlacementStrategy::UseGeneralPurposeColumns,
-    // );
-    // let builder = FmaGateInBaseFieldWithoutConstant::configure_builder(
-    //     builder,
-    //     GatePlacementStrategy::UseGeneralPurposeColumns,
-    // );
-    // let builder = ReductionGate::<F, 4>::configure_builder(
-    //     builder,
-    //     GatePlacementStrategy::UseGeneralPurposeColumns,
-    // );
-    // let builder = DotProductGate::<4>::configure_builder(
-    //     builder,
-    //     GatePlacementStrategy::UseGeneralPurposeColumns,
-    // );
-    // let builder = UIntXAddGate::<16>::configure_builder(
-    //     builder,
-    //     GatePlacementStrategy::UseGeneralPurposeColumns,
-    // );
-    // let builder = SelectionGate::configure_builder(
-    //     builder,
-    //     GatePlacementStrategy::UseGeneralPurposeColumns,
-    // );
-    // let builder = ZeroCheckGate::configure_builder(
-    //     builder,
-    //     GatePlacementStrategy::UseGeneralPurposeColumns,
-    //     false
-    // );
-
-    // let builder = NopGate::configure_builder(builder, GatePlacementStrategy::UseGeneralPurposeColumns);
-
-    // let mut owned_cs = builder.build(CircuitResolverOpts::new(1 << 26));
-
-    // add tables
-    // let table = create_range_check_16_bits_table();
-    // owned_cs.add_lookup_table::<RangeCheck16BitsTable, 1>(table);
-    // let cs = &mut owned_cs;
-
-    let mut owned_cs = create_test_cs(1 << 20);
-    let cs = &mut owned_cs;
-
-    let params = RnsParams::create();
-    let params = std::sync::Arc::new(params);
-
-    //let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
-
-    let g1_generator = G1::one();
-    let g2_generator = G2::one();
-    let mut cs_point_tuples = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING);
-    let mut rng = rand::thread_rng();
-
-    let mut dlog_relation = Fr::zero();
-    for (_is_first, is_last, _) in (0..NUM_PAIRINGS_IN_MULTIPAIRING - 1).identify_first_last() {
-        let points_tuple = if !is_last {
-            let mut g1_scalar = Fr::rand(&mut rng);
-            let g2_scalar = Fr::rand(&mut rng);
-
-            let mut p = g1_generator.clone();
-            let mut q = g2_generator.clone();
-
-            p.mul_assign(g1_scalar.into_repr());
-            q.mul_assign(g2_scalar.into_repr());
-
-            g1_scalar.mul_assign(&g2_scalar);
-            dlog_relation.add_assign(&g1_scalar);
-
-            let g1 = AffinePoint::allocate(cs, p.into_affine(), &params);
-            let g2 = TwistedCurvePoint::allocate(cs, q.into_affine(), &params);
-            (g1, g2)
-        } else {
-            let mut g1_scalar = Fr::rand(&mut rng);
-            // g1 * g2 = -dlog_rel
-            dlog_relation.negate();
-            dlog_relation.mul_assign(&g1_scalar.inverse().unwrap());
-
-            let mut p = g1_generator.clone();
-            let mut q = g2_generator.clone();
-
-            p.mul_assign(g1_scalar.into_repr());
-            q.mul_assign(dlog_relation.into_repr());
-
-            let g1 = AffinePoint::allocate(cs, p.into_affine(), &params);
-            let g2 = TwistedCurvePoint::allocate(cs, q.into_affine(), &params);
-            (g1, g2)
-        };
-
-        cs_point_tuples.push(points_tuple);
-    }
-
-    let p_point_at_infty = G1Affine::zero();
-    let (x, y) = p_point_at_infty.into_xy_unchecked();
-    println!("init x: {}, y: {}", x, y);
-    let q = G2Affine::rand(&mut rng);
-
-    let g1 = AffinePoint::allocate(cs, p_point_at_infty, &params);
-    let g2 = TwistedCurvePoint::allocate(cs, q, &params);
-    cs_point_tuples.push((g1, g2));
-
-    let equality_flags = unsafe { multipairing_robust(cs, &mut cs_point_tuples) };
-    let candidate_witness: Vec<_> = equality_flags
-        .into_iter()
-        .map(|c| c.witness_hook(cs))
-        .collect();
-
-    let worker = Worker::new_with_num_threads(8);
-
-    drop(cs);
-    owned_cs.pad_and_shrink();
-    let mut owned_cs = owned_cs.into_assembly::<Global>();
-    assert!(owned_cs.check_if_satisfied(&worker));
-    owned_cs.print_gate_stats();
-
-    // let lines = prepare_all_line_functions(q);
-    // let p_prepared = prepare_g1_point(p);
-    // let actual_miller_loop_f = miller_loop_with_prepared_lines(&[p_prepared], &[lines]);
-
-    for c in candidate_witness.into_iter() {
-        println!("flag wit: {}", c().unwrap());
-    }
-
-    // // unwrap candidate witness
-    // let candidate_witness_wrapper = candidate_witness().unwrap();
-    // let candidate_miller_loop_f = Fq12 {
-    //     c0: Fq6 {
-    //         c0: Fq2 { c0: candidate_witness_wrapper.0.0.0.get(), c1: candidate_witness_wrapper.0.0.1.get() },
-    //         c1: Fq2 { c0: candidate_witness_wrapper.0.1.0.get(), c1: candidate_witness_wrapper.0.1.1.get() },
-    //         c2: Fq2 { c0: candidate_witness_wrapper.0.2.0.get(), c1: candidate_witness_wrapper.0.2.1.get() },
-    //     },
-    //     c1: Fq6 {
-    //         c0: Fq2 { c0: candidate_witness_wrapper.1.0.0.get(), c1: candidate_witness_wrapper.1.0.1.get() },
-    //         c1: Fq2 { c0: candidate_witness_wrapper.1.1.0.get(), c1: candidate_witness_wrapper.1.1.1.get() },
-    //         c2: Fq2 { c0: candidate_witness_wrapper.1.2.0.get(), c1: candidate_witness_wrapper.1.2.1.get() },
-    //     },
-    // };
-
-    // assert_eq!(actual_miller_loop_f, candidate_miller_loop_f);
-}
-use boojum::cs::implementations::reference_cs::CSReferenceImplementation;
-use boojum::cs::{CSGeometry, GateConfigurationHolder, LookupParameters, StaticToolboxHolder};
-fn cs_geometry() -> CSReferenceImplementation<
-    F,
-    P,
-    DevCSConfig,
-    impl GateConfigurationHolder<F>,
-    impl StaticToolboxHolder,
-> {
-    let geometry = CSGeometry {
-        num_columns_under_copy_permutation: 120,
-        num_witness_columns: 0,
-        num_constant_columns: 8,
-        max_allowed_constraint_degree: 4,
+    use super::bn256::miller_loop_with_prepared_lines;
+    use super::bn256::prepare_all_line_functions;
+    use super::bn256::prepare_g1_point;
+    use super::bn256::Bn256;
+    use boojum::config::CSConfig;
+    use boojum::pairing::ff::ScalarEngine;
+    use boojum::pairing::Engine;
+    use boojum::pairing::{CurveAffine, CurveProjective};
+    use boojum::{
+        gadgets::non_native_field::traits::NonNativeField,
+        pairing::{
+            bn256::{Fq12, G1Affine, G2Affine, G1, G2},
+            ff::{Field, PrimeField},
+        },
     };
 
-    type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
-    let builder_impl =
-        CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 20);
-    let builder = new_builder::<_, F>(builder_impl);
+    use crate::bn254::tests::utils::cs::create_test_cs;
+    use crate::boojum::field::goldilocks::GoldilocksField;
+    use boojum::config::DevCSConfig;
+    use boojum::cs::cs_builder::*;
+    use boojum::cs::cs_builder_reference::CsReferenceImplementationBuilder;
+    use boojum::cs::gates::*;
+    use boojum::cs::traits::gate::GatePlacementStrategy;
+    use boojum::dag::CircuitResolverOpts;
+    use boojum::gadgets::tables::create_range_check_16_bits_table;
+    use boojum::gadgets::tables::RangeCheck16BitsTable;
+    use boojum::worker::Worker;
+    use std::alloc::Global;
 
-    let builder = builder.allow_lookup(
-        LookupParameters::UseSpecializedColumnsWithTableIdAsConstant {
-            width: 1,
-            num_repetitions: 10,
-            share_table_id: true,
-        },
-    );
+    type F = GoldilocksField;
+    type P = GoldilocksField;
 
-    let builder = ConstantsAllocatorGate::configure_builder(
-        builder,
-        GatePlacementStrategy::UseGeneralPurposeColumns,
-    );
-    let builder = FmaGateInBaseFieldWithoutConstant::configure_builder(
-        builder,
-        GatePlacementStrategy::UseGeneralPurposeColumns,
-    );
-    let builder = ReductionGate::<F, 4>::configure_builder(
-        builder,
-        GatePlacementStrategy::UseGeneralPurposeColumns,
-    );
-    let builder = DotProductGate::<4>::configure_builder(
-        builder,
-        GatePlacementStrategy::UseGeneralPurposeColumns,
-    );
-    let builder = UIntXAddGate::<16>::configure_builder(
-        builder,
-        GatePlacementStrategy::UseGeneralPurposeColumns,
-    );
-    let builder =
-        SelectionGate::configure_builder(builder, GatePlacementStrategy::UseGeneralPurposeColumns);
-    let builder = ZeroCheckGate::configure_builder(
-        builder,
-        GatePlacementStrategy::UseGeneralPurposeColumns,
-        false,
-    );
+    type Fr = <Bn256 as ScalarEngine>::Fr;
 
-    let builder =
-        NopGate::configure_builder(builder, GatePlacementStrategy::UseGeneralPurposeColumns);
+    /// Creates a test constraint system for testing purposes that includes the
+    /// majority (even possibly unneeded) of the gates and tables.
+    // #[test]
+    // fn test_alternative_circuit_complex(
+    // ) {
+    //     use tests::utils::cs::create_test_cs;
 
-    let mut owned_cs = builder.build(CircuitResolverOpts::new(1 << 26));
+    //     let skip_flags : [bool; NUM_PAIRINGS_IN_MULTIPAIRING] = [true, true, true];
 
-    // add tables
-    let table = create_range_check_16_bits_table();
-    owned_cs.add_lookup_table::<RangeCheck16BitsTable, 1>(table);
-    owned_cs
-}
+    //     let mut owned_cs = create_test_cs(1 << 20);
+    //     let cs = &mut owned_cs;
 
-#[test]
-fn test_multipairing_naive() {
-    let mut owned_cs = cs_geometry();
-    let cs = &mut owned_cs;
+    //     let params = RnsParams::create();
+    //     let params = std::sync::Arc::new(params);
 
-    let params = RnsParams::create();
-    let params = std::sync::Arc::new(params);
+    //     let mut cs_point_tuples = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING);
+    //     let mut rng = rand::thread_rng();
 
-    let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
-    // let mut rng = rand::thread_rng();
-    let mut pairs = Vec::new();
-    let mut q1_s_for_wit = Vec::new();
-    let mut prep_lines = Vec::new();
-    for _ in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
+    //     let last_idx = skip_flags.iter().cloned().rfind(|flag| !flag).unwrap_or(NUM_PAIRINGS_IN_MULTIPAIRING);
+    //     let mut dlog_relation = Fr::zero();
+
+    //     for (pos, skip_flag) in skip_flags.iter().enumerate() {
+    //         let points_tuple = if !is_last {
+    //             let mut g1_scalar = Fr::rand(&mut rng);
+    //             let g2_scalar = Fr::rand(&mut rng);
+
+    //             let mut p = g1_generator.clone();
+    //             let mut q = g2_generator.clone();
+
+    //             p.mul_assign(g1_scalar.into_repr());
+    //             q.mul_assign(g2_scalar.into_repr());
+
+    //             g1_scalar.mul_assign(&g2_scalar);
+    //             dlog_relation.add_assign(&g1_scalar);
+
+    //             let g1 = AffinePoint::allocate(cs, p.into_affine(), &params);
+    //             let g2 = TwistedCurvePoint::allocate(cs, q.into_affine(), &params);
+    //             (g1, g2)
+    //         } else {
+    //             let mut g1_scalar = Fr::rand(&mut rng);
+    //             // g1 * g2 = -dlog_rel
+    //             dlog_relation.negate();
+    //             dlog_relation.mul_assign(&g1_scalar.inverse().unwrap());
+
+    //             let mut p = g1_generator.clone();
+    //             let mut q = g2_generator.clone();
+
+    //             p.mul_assign(g1_scalar.into_repr());
+    //             q.mul_assign(dlog_relation.into_repr());
+
+    //             let g1 = AffinePoint::allocate(cs, p.into_affine(), &params);
+    //             let g2 = TwistedCurvePoint::allocate(cs, q.into_affine(), &params);
+    //             (g1, g2)
+    //         };
+
+    //         cs_point_tuples.push(points_tuple);
+    //     }
+
+    //     let p_point_at_infty = G1Affine::zero();
+    //     let (x, y) = p_point_at_infty.into_xy_unchecked();
+    //     println!("init x: {}, y: {}", x, y);
+    //     let q = G2Affine::rand(&mut rng);
+
+    //     let g1 = AffinePoint::allocate(cs, p_point_at_infty, &params);
+    //     let g2 = TwistedCurvePoint::allocate(cs, q, &params);
+    //     cs_point_tuples.push((g1, g2));
+
+    //     let equality_flags = unsafe {
+    //         multipairing_robust(cs, &mut cs_point_tuples)
+    //     };
+    //     let candidate_witness : Vec<_> = equality_flags.into_iter().map(|c| c.witness_hook(cs)).collect();
+
+    //     let worker = Worker::new_with_num_threads(8);
+
+    //     drop(cs);
+    //     owned_cs.pad_and_shrink();
+    //     let mut owned_cs = owned_cs.into_assembly::<Global>();
+    //     assert!(owned_cs.check_if_satisfied(&worker));
+    //     owned_cs.print_gate_stats();
+
+    //     // let lines = prepare_all_line_functions(q);
+    //     // let p_prepared = prepare_g1_point(p);
+    //     // let actual_miller_loop_f = miller_loop_with_prepared_lines(&[p_prepared], &[lines]);
+
+    //     for c in candidate_witness.into_iter() {
+    //         println!("flag wit: {}", c().unwrap());
+    //     }
+
+    //     // // unwrap candidate witness
+    //     // let candidate_witness_wrapper = candidate_witness().unwrap();
+    //     // let candidate_miller_loop_f = Fq12 {
+    //     //     c0: Fq6 {
+    //     //         c0: Fq2 { c0: candidate_witness_wrapper.0.0.0.get(), c1: candidate_witness_wrapper.0.0.1.get() },
+    //     //         c1: Fq2 { c0: candidate_witness_wrapper.0.1.0.get(), c1: candidate_witness_wrapper.0.1.1.get() },
+    //     //         c2: Fq2 { c0: candidate_witness_wrapper.0.2.0.get(), c1: candidate_witness_wrapper.0.2.1.get() },
+    //     //     },
+    //     //     c1: Fq6 {
+    //     //         c0: Fq2 { c0: candidate_witness_wrapper.1.0.0.get(), c1: candidate_witness_wrapper.1.0.1.get() },
+    //     //         c1: Fq2 { c0: candidate_witness_wrapper.1.1.0.get(), c1: candidate_witness_wrapper.1.1.1.get() },
+    //     //         c2: Fq2 { c0: candidate_witness_wrapper.1.2.0.get(), c1: candidate_witness_wrapper.1.2.1.get() },
+    //     //     },
+    //     // };
+
+    //     // assert_eq!(actual_miller_loop_f, candidate_miller_loop_f);
+    // }
+
+    #[test]
+    fn test_alternative_circuit() {
+        //env::set_var("RUST_MIN_STACK", "100000000");
+
+        // let geometry = CSGeometry {
+        //     num_columns_under_copy_permutation: 30,
+        //     num_witness_columns: 0,
+        //     num_constant_columns: 4,
+        //     max_allowed_constraint_degree: 4,
+        // };
+
+        // type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
+        // let builder_impl =
+        //     CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 22);
+        // let builder = new_builder::<_, F>(builder_impl);
+
+        // let builder = builder.allow_lookup(
+        //     LookupParameters::UseSpecializedColumnsWithTableIdAsConstant {
+        //         width: 1,
+        //         num_repetitions: 10,
+        //         share_table_id: true,
+        //     },
+        // );
+
+        // let builder = ConstantsAllocatorGate::configure_builder(
+        //     builder,
+        //     GatePlacementStrategy::UseGeneralPurposeColumns,
+        // );
+        // let builder = FmaGateInBaseFieldWithoutConstant::configure_builder(
+        //     builder,
+        //     GatePlacementStrategy::UseGeneralPurposeColumns,
+        // );
+        // let builder = ReductionGate::<F, 4>::configure_builder(
+        //     builder,
+        //     GatePlacementStrategy::UseGeneralPurposeColumns,
+        // );
+        // let builder = DotProductGate::<4>::configure_builder(
+        //     builder,
+        //     GatePlacementStrategy::UseGeneralPurposeColumns,
+        // );
+        // let builder = UIntXAddGate::<16>::configure_builder(
+        //     builder,
+        //     GatePlacementStrategy::UseGeneralPurposeColumns,
+        // );
+        // let builder = SelectionGate::configure_builder(
+        //     builder,
+        //     GatePlacementStrategy::UseGeneralPurposeColumns,
+        // );
+        // let builder = ZeroCheckGate::configure_builder(
+        //     builder,
+        //     GatePlacementStrategy::UseGeneralPurposeColumns,
+        //     false
+        // );
+
+        // let builder = NopGate::configure_builder(builder, GatePlacementStrategy::UseGeneralPurposeColumns);
+
+        // let mut owned_cs = builder.build(CircuitResolverOpts::new(1 << 26));
+
+        // add tables
+        // let table = create_range_check_16_bits_table();
+        // owned_cs.add_lookup_table::<RangeCheck16BitsTable, 1>(table);
+        // let cs = &mut owned_cs;
+
+        let mut owned_cs = create_test_cs(1 << 20);
+        let cs = &mut owned_cs;
+
+        let params = RnsParams::create();
+        let params = std::sync::Arc::new(params);
+
+        //let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
+
+        let g1_generator = G1::one();
+        let g2_generator = G2::one();
+        let mut cs_point_tuples = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING);
+        let mut rng = rand::thread_rng();
+
+        let mut dlog_relation = Fr::zero();
+        for (_is_first, is_last, _) in (0..NUM_PAIRINGS_IN_MULTIPAIRING - 1).identify_first_last() {
+            let points_tuple = if !is_last {
+                let mut g1_scalar = Fr::rand(&mut rng);
+                let g2_scalar = Fr::rand(&mut rng);
+
+                let mut p = g1_generator.clone();
+                let mut q = g2_generator.clone();
+
+                p.mul_assign(g1_scalar.into_repr());
+                q.mul_assign(g2_scalar.into_repr());
+
+                g1_scalar.mul_assign(&g2_scalar);
+                dlog_relation.add_assign(&g1_scalar);
+
+                let g1 = AffinePoint::allocate(cs, p.into_affine(), &params);
+                let g2 = TwistedCurvePoint::allocate(cs, q.into_affine(), &params);
+                (g1, g2)
+            } else {
+                let g1_scalar = Fr::rand(&mut rng);
+                // g1 * g2 = -dlog_rel
+                dlog_relation.negate();
+                dlog_relation.mul_assign(&g1_scalar.inverse().unwrap());
+
+                let mut p = g1_generator.clone();
+                let mut q = g2_generator.clone();
+
+                p.mul_assign(g1_scalar.into_repr());
+                q.mul_assign(dlog_relation.into_repr());
+
+                let g1 = AffinePoint::allocate(cs, p.into_affine(), &params);
+                let g2 = TwistedCurvePoint::allocate(cs, q.into_affine(), &params);
+                (g1, g2)
+            };
+
+            cs_point_tuples.push(points_tuple);
+        }
+
+        let p_point_at_infty = G1Affine::zero();
+        let (x, y) = p_point_at_infty.into_xy_unchecked();
+        println!("init x: {}, y: {}", x, y);
+        let q = G2Affine::rand(&mut rng);
+
+        let g1 = AffinePoint::allocate(cs, p_point_at_infty, &params);
+        let g2 = TwistedCurvePoint::allocate(cs, q, &params);
+        cs_point_tuples.push((g1, g2));
+
+        let equality_flags = unsafe { multipairing_robust(cs, &mut cs_point_tuples) };
+        let candidate_witness: Vec<_> = equality_flags
+            .into_iter()
+            .map(|c| c.witness_hook(cs))
+            .collect();
+
+        let worker = Worker::new_with_num_threads(8);
+
+        drop(cs);
+        owned_cs.pad_and_shrink();
+        let mut owned_cs = owned_cs.into_assembly::<Global>();
+        assert!(owned_cs.check_if_satisfied(&worker));
+        owned_cs.print_gate_stats();
+
+        // let lines = prepare_all_line_functions(q);
+        // let p_prepared = prepare_g1_point(p);
+        // let actual_miller_loop_f = miller_loop_with_prepared_lines(&[p_prepared], &[lines]);
+
+        for c in candidate_witness.into_iter() {
+            println!("flag wit: {}", c().unwrap());
+        }
+
+        // // unwrap candidate witness
+        // let candidate_witness_wrapper = candidate_witness().unwrap();
+        // let candidate_miller_loop_f = Fq12 {
+        //     c0: Fq6 {
+        //         c0: Fq2 { c0: candidate_witness_wrapper.0.0.0.get(), c1: candidate_witness_wrapper.0.0.1.get() },
+        //         c1: Fq2 { c0: candidate_witness_wrapper.0.1.0.get(), c1: candidate_witness_wrapper.0.1.1.get() },
+        //         c2: Fq2 { c0: candidate_witness_wrapper.0.2.0.get(), c1: candidate_witness_wrapper.0.2.1.get() },
+        //     },
+        //     c1: Fq6 {
+        //         c0: Fq2 { c0: candidate_witness_wrapper.1.0.0.get(), c1: candidate_witness_wrapper.1.0.1.get() },
+        //         c1: Fq2 { c0: candidate_witness_wrapper.1.1.0.get(), c1: candidate_witness_wrapper.1.1.1.get() },
+        //         c2: Fq2 { c0: candidate_witness_wrapper.1.2.0.get(), c1: candidate_witness_wrapper.1.2.1.get() },
+        //     },
+        // };
+
+        // assert_eq!(actual_miller_loop_f, candidate_miller_loop_f);
+    }
+    use boojum::cs::implementations::reference_cs::CSReferenceImplementation;
+    use boojum::cs::{CSGeometry, GateConfigurationHolder, LookupParameters, StaticToolboxHolder};
+    fn cs_geometry() -> CSReferenceImplementation<
+        F,
+        P,
+        DevCSConfig,
+        impl GateConfigurationHolder<F>,
+        impl StaticToolboxHolder,
+    > {
+        let geometry = CSGeometry {
+            num_columns_under_copy_permutation: 120,
+            num_witness_columns: 0,
+            num_constant_columns: 8,
+            max_allowed_constraint_degree: 4,
+        };
+
+        type RCfg = <DevCSConfig as CSConfig>::ResolverConfig;
+        let builder_impl =
+            CsReferenceImplementationBuilder::<F, F, DevCSConfig>::new(geometry, 1 << 20);
+        let builder = new_builder::<_, F>(builder_impl);
+
+        let builder = builder.allow_lookup(
+            LookupParameters::UseSpecializedColumnsWithTableIdAsConstant {
+                width: 1,
+                num_repetitions: 10,
+                share_table_id: true,
+            },
+        );
+
+        let builder = ConstantsAllocatorGate::configure_builder(
+            builder,
+            GatePlacementStrategy::UseGeneralPurposeColumns,
+        );
+        let builder = FmaGateInBaseFieldWithoutConstant::configure_builder(
+            builder,
+            GatePlacementStrategy::UseGeneralPurposeColumns,
+        );
+        let builder = ReductionGate::<F, 4>::configure_builder(
+            builder,
+            GatePlacementStrategy::UseGeneralPurposeColumns,
+        );
+        let builder = DotProductGate::<4>::configure_builder(
+            builder,
+            GatePlacementStrategy::UseGeneralPurposeColumns,
+        );
+        let builder = UIntXAddGate::<16>::configure_builder(
+            builder,
+            GatePlacementStrategy::UseGeneralPurposeColumns,
+        );
+        let builder = SelectionGate::configure_builder(
+            builder,
+            GatePlacementStrategy::UseGeneralPurposeColumns,
+        );
+        let builder = ZeroCheckGate::configure_builder(
+            builder,
+            GatePlacementStrategy::UseGeneralPurposeColumns,
+            false,
+        );
+
+        let builder =
+            NopGate::configure_builder(builder, GatePlacementStrategy::UseGeneralPurposeColumns);
+
+        let mut owned_cs = builder.build(CircuitResolverOpts::new(1 << 26));
+
+        // add tables
+        let table = create_range_check_16_bits_table();
+        owned_cs.add_lookup_table::<RangeCheck16BitsTable, 1>(table);
+        owned_cs
+    }
+
+    #[test]
+    fn test_multipairing_naive() {
+        let mut owned_cs = cs_geometry();
+        let cs = &mut owned_cs;
+
+        let params = RnsParams::create();
+        let params = std::sync::Arc::new(params);
+
+        let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
+        // let mut rng = rand::thread_rng();
+        let mut pairs = Vec::new();
+        let mut q1_s_for_wit = Vec::new();
+        let mut prep_lines = Vec::new();
+        for _ in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
+            let p = G1::rand(&mut rng);
+            let q = G2::rand(&mut rng);
+
+            let p_affine = p.into_affine();
+            let p_prep = prepare_g1_point(p_affine);
+
+            let q_affine = q.into_affine();
+            let lines = prepare_all_line_functions(q_affine);
+
+            let g1 = AffinePoint::allocate(cs, p.into_affine(), &params);
+            let g2 = TwistedCurvePoint::allocate(cs, q.into_affine(), &params);
+            pairs.push((g1, g2));
+            q1_s_for_wit.push(p_prep);
+            prep_lines.push(lines);
+        }
+        let miller_loop_wit = miller_loop_with_prepared_lines(&q1_s_for_wit, &prep_lines);
+        let actual_miller_loop = Fp12::<F>::allocate_from_witness(cs, miller_loop_wit, &params);
+        let fin_exp_res = Bn256::final_exponentiation(&miller_loop_wit).unwrap();
+        let mut actual_res = Fp12::<F>::allocate_from_witness(cs, fin_exp_res, &params);
+        actual_res.normalize(cs);
+
+        let (res, miller_loop, success) = unsafe { multipairing_naive(cs, &mut pairs) };
+        println!("miller_loop check");
+        Fp12::<F>::enforce_equal(cs, &actual_miller_loop, &miller_loop);
+        println!("final check");
+        Fp12::<F>::enforce_equal(cs, &res, &actual_res);
+        let one = Boolean::<F>::allocated_constant(cs, true);
+        Boolean::<F>::enforce_equal(cs, &success, &one);
+
+        let worker = Worker::new();
+        owned_cs.pad_and_shrink();
+        let mut owned_cs = owned_cs.into_assembly::<std::alloc::Global>();
+        assert!(
+            owned_cs.check_if_satisfied(&worker),
+            "Constraints are not satisfied"
+        );
+        owned_cs.print_gate_stats();
+    }
+
+    #[test]
+    fn test_multipairing_naive_g1_infinity() {
+        let mut owned_cs = cs_geometry();
+        let cs = &mut owned_cs;
+        let params = Arc::new(RnsParams::create());
+        let mut rng = rand::thread_rng();
+
+        let p_infty = G1Affine::zero();
+        let q = G2::rand(&mut rng);
+        let q_affine = q.into_affine();
+
+        let g1 = AffinePoint::allocate(cs, p_infty, &params);
+        let g2 = TwistedCurvePoint::allocate(cs, q_affine, &params);
+        let mut pairing_inputs = vec![(g1, g2)];
+        let (final_res, _miller_loop_res, success) =
+            unsafe { multipairing_naive(cs, &mut pairing_inputs) };
+        let one = Fp12::one(cs, &params);
+        Fp12::<F>::enforce_equal(cs, &final_res, &one);
+        let one = Boolean::allocated_constant(cs, true);
+        Boolean::enforce_equal(cs, &success, &one);
+    }
+    #[test]
+    fn test_multipairing_naive_g2_infinity() {
+        let mut owned_cs = cs_geometry();
+        let cs = &mut owned_cs;
+        let params = Arc::new(RnsParams::create());
+        let mut rng = rand::thread_rng();
+
+        let p = G1::rand(&mut rng);
+        let p_affine = p.into_affine();
+        let q_infty = G2Affine::zero();
+
+        let g1 = AffinePoint::allocate(cs, p_affine, &params);
+        let g2 = TwistedCurvePoint::allocate(cs, q_infty, &params);
+        let mut pairing_inputs = vec![(g1, g2)];
+
+        let (final_res, _miller_loop_res, success) =
+            unsafe { multipairing_naive(cs, &mut pairing_inputs) };
+
+        let one = Fp12::one(cs, &params);
+        Fp12::<F>::enforce_equal(cs, &final_res, &one);
+        let one = Boolean::allocated_constant(cs, true);
+        Boolean::enforce_equal(cs, &success, &one);
+    }
+    #[test]
+    fn test_multipairing_naive_invalid_points() {
+        let mut owned_cs = cs_geometry();
+        let cs = &mut owned_cs;
+        let params = Arc::new(RnsParams::create());
+
+        let invalid_g1 = G1Affine::from_xy_unchecked(bn256::Fq::one(), bn256::Fq::one());
+
+        let invalid_g2 = G2Affine::from_xy_unchecked(bn256::Fq2::one(), bn256::Fq2::one());
+
+        let g1 = AffinePoint::allocate(cs, invalid_g1, &params);
+        let g2 = TwistedCurvePoint::allocate(cs, invalid_g2, &params);
+        let mut pairing_inputs = vec![(g1, g2)];
+
+        let (_final_res, _miller_loop_res, success) =
+            unsafe { multipairing_naive(cs, &mut pairing_inputs) };
+
+        let one = Boolean::allocated_constant(cs, false);
+        Boolean::enforce_equal(cs, &success, &one);
+    }
+    #[test]
+    fn test_final_exponentiation_comparison() {
+        let mut owned_cs = cs_geometry();
+        let cs = &mut owned_cs;
+
+        let params = RnsParams::create();
+        let params = std::sync::Arc::new(params);
+
+        let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
+        let p = G1::rand(&mut rng);
+        let q = G2::rand(&mut rng);
+        let p_affine = p.into_affine();
+        let q_affine = q.into_affine();
+
+        let p_prepared = prepare_g1_point(p_affine);
+        let q_lines = prepare_all_line_functions(q_affine);
+        let miller_loop_wit = miller_loop_with_prepared_lines(&[p_prepared], &[q_lines]);
+        let _miller = Bn256::miller_loop(
+            [(&(p.into_affine().prepare()), &(q.into_affine().prepare()))].iter(),
+        );
+
+        //let expected_final_exp = Bn256::final_exponentiation(&miller).unwrap();
+
+        let miller_loop_alloc = Fp12::<F>::allocate_from_witness(cs, miller_loop_wit, &params);
+
+        let (wrapped_torus, _is_trivial) =
+            Bn256HardPartMethod::final_exp_easy_part(cs, &miller_loop_alloc, &params, true);
+
+        let chain = Bn256HardPartMethod::get_optinal();
+        let candidate = chain.final_exp_hard_part(cs, &wrapped_torus, true, &params);
+        let mut candidate_final_exp = candidate.decompress(cs);
+        candidate_final_exp.normalize(cs);
+
+        // let mut expected_fp12 = Fp12::allocate_from_witness(cs, expected_final_exp, &params);
+        // expected_fp12.normalize(cs);
+
+        // Fp12::enforce_equal(cs, &candidate_final_exp, &expected_fp12);
+
+        let worker = Worker::new_with_num_threads(8);
+        drop(cs);
+        owned_cs.pad_and_shrink();
+        let mut owned_cs = owned_cs.into_assembly::<Global>();
+        assert!(
+            owned_cs.check_if_satisfied(&worker),
+            "Constraints are not satisfied"
+        );
+
+        owned_cs.print_gate_stats();
+    }
+
+    #[test]
+    fn test_easy_part() {
+        let mut owned_cs = cs_geometry();
+        let cs = &mut owned_cs;
+
+        let params = std::sync::Arc::new(RnsParams::create());
+
+        let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
         let p = G1::rand(&mut rng);
         let q = G2::rand(&mut rng);
 
         let p_affine = p.into_affine();
-        let p_prep = prepare_g1_point(p_affine);
-
         let q_affine = q.into_affine();
-        let lines = prepare_all_line_functions(q_affine);
 
-        let g1 = AffinePoint::allocate(cs, p.into_affine(), &params);
-        let g2 = TwistedCurvePoint::allocate(cs, q.into_affine(), &params);
-        pairs.push((g1, g2));
-        q1_s_for_wit.push(p_prep);
-        prep_lines.push(lines);
-    }
-    let miller_loop_wit = miller_loop_with_prepared_lines(&q1_s_for_wit, &prep_lines);
-    let mut actual_miller_loop = Fp12::<F>::allocate_from_witness(cs, miller_loop_wit, &params);
-    let fin_exp_res = Bn256::final_exponentiation(&miller_loop_wit).unwrap();
-    let mut actual_res = Fp12::<F>::allocate_from_witness(cs, fin_exp_res, &params);
-    actual_res.normalize(cs);
+        let p_prepared = prepare_g1_point(p_affine);
+        let q_lines = prepare_all_line_functions(q_affine);
 
-    let (mut res, miller_loop, success) = unsafe { multipairing_naive(cs, &mut pairs) };
-    println!("miller_loop check");
-    Fp12::<F>::enforce_equal(cs, &actual_miller_loop, &miller_loop);
-    println!("final check");
-    Fp12::<F>::enforce_equal(cs, &res, &actual_res);
-    let one = Boolean::<F>::allocated_constant(cs, true);
-    Boolean::<F>::enforce_equal(cs, &success, &one);
+        let miller_loop_native = miller_loop_with_prepared_lines(&[p_prepared], &[q_lines]);
 
-    let worker = Worker::new();
-    owned_cs.pad_and_shrink();
-    let mut owned_cs = owned_cs.into_assembly::<std::alloc::Global>();
-    assert!(
-        owned_cs.check_if_satisfied(&worker),
-        "Constraints are not satisfied"
-    );
-    owned_cs.print_gate_stats();
-}
+        // naive easy part
+        pub fn easy_part_of_final_exp(f: &Fq12) -> Fq12 {
+            let mut f_q6_minus_1 = *f;
+            f_q6_minus_1.conjugate();
 
-#[test]
-fn test_multipairing_naive_g1_infinity() {
-    let mut owned_cs = cs_geometry();
-    let cs = &mut owned_cs;
-    let params = Arc::new(RnsParams::create());
-    let mut rng = rand::thread_rng();
+            let inv_f = match f.inverse() {
+                Some(inv) => inv,
+                None => {
+                    return Fq12::zero();
+                }
+            };
 
-    let p_infty = G1Affine::zero();
-    let q = G2::rand(&mut rng);
-    let q_affine = q.into_affine();
+            f_q6_minus_1.mul_assign(&inv_f); // f^(q^6 - 1)
 
-    let g1 = AffinePoint::allocate(cs, p_infty, &params);
-    let g2 = TwistedCurvePoint::allocate(cs, q_affine, &params);
-    let mut pairing_inputs = vec![(g1, g2)];
-    let (final_res, miller_loop_res, success) =
-        unsafe { multipairing_naive(cs, &mut pairing_inputs) };
-    let one = Fp12::one(cs, &params);
-    Fp12::<F>::enforce_equal(cs, &final_res, &one);
-    let one = Boolean::allocated_constant(cs, true);
-    Boolean::enforce_equal(cs, &success, &one);
-}
-#[test]
-fn test_multipairing_naive_g2_infinity() {
-    let mut owned_cs = cs_geometry();
-    let cs = &mut owned_cs;
-    let params = Arc::new(RnsParams::create());
-    let mut rng = rand::thread_rng();
+            let mut f_q6_minus_1_q2 = f_q6_minus_1;
+            f_q6_minus_1_q2.frobenius_map(2);
+            f_q6_minus_1_q2.mul_assign(&f_q6_minus_1);
 
-    let p = G1::rand(&mut rng);
-    let p_affine = p.into_affine();
-    let q_infty = G2Affine::zero();
+            f_q6_minus_1_q2
+        }
 
-    let g1 = AffinePoint::allocate(cs, p_affine, &params);
-    let g2 = TwistedCurvePoint::allocate(cs, q_infty, &params);
-    let mut pairing_inputs = vec![(g1, g2)];
+        let mut allocated_miller_loop =
+            Fp12::<F>::allocate_from_witness(cs, miller_loop_native, &params);
+        let expected_native = easy_part_of_final_exp(&miller_loop_native);
+        let allocated_expected = Fp12::<F>::allocate_from_witness(cs, expected_native, &params);
+        let (wrapped_torus, _is_trivial) =
+            Bn256HardPartMethod::final_exp_easy_part(cs, &allocated_miller_loop, &params, true);
 
-    let (final_res, miller_loop_res, success) =
-        unsafe { multipairing_naive(cs, &mut pairing_inputs) };
+        use crate::bn254::ec_pairing::final_exp::FinalExpEvaluation;
+        let easy_part_dl = FinalExpEvaluation::easy_part(cs, &mut allocated_miller_loop);
+        let mut decompres = wrapped_torus.decompress(cs);
+        decompres.normalize(cs);
 
-    let one = Fp12::one(cs, &params);
-    Fp12::<F>::enforce_equal(cs, &final_res, &one);
-    let one = Boolean::allocated_constant(cs, true);
-    Boolean::enforce_equal(cs, &success, &one);
-}
-#[test]
-fn test_multipairing_naive_invalid_points() {
-    let mut owned_cs = cs_geometry();
-    let cs = &mut owned_cs;
-    let params = Arc::new(RnsParams::create());
+        Fp12::enforce_equal(cs, &allocated_expected, &easy_part_dl);
+        Fp12::enforce_equal(cs, &decompres, &allocated_expected);
 
-    let invalid_g1 = G1Affine::from_xy_unchecked(bn256::Fq::one(), bn256::Fq::one());
+        let worker = Worker::new_with_num_threads(8);
+        owned_cs.pad_and_shrink();
+        let mut owned_cs = owned_cs.into_assembly::<std::alloc::Global>();
+        assert!(
+            owned_cs.check_if_satisfied(&worker),
+            "Constraints are not satisfied"
+        );
 
-    let invalid_g2 = G2Affine::from_xy_unchecked(bn256::Fq2::one(), bn256::Fq2::one());
-
-    let g1 = AffinePoint::allocate(cs, invalid_g1, &params);
-    let g2 = TwistedCurvePoint::allocate(cs, invalid_g2, &params);
-    let mut pairing_inputs = vec![(g1, g2)];
-
-    let (final_res, miller_loop_res, success) =
-        unsafe { multipairing_naive(cs, &mut pairing_inputs) };
-
-    let one = Boolean::allocated_constant(cs, false);
-    Boolean::enforce_equal(cs, &success, &one);
-}
-#[test]
-fn test_final_exponentiation_comparison() {
-    let mut owned_cs = cs_geometry();
-    let cs = &mut owned_cs;
-
-    let params = RnsParams::create();
-    let params = std::sync::Arc::new(params);
-
-    let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
-    let p = G1::rand(&mut rng);
-    let q = G2::rand(&mut rng);
-    let p_affine = p.into_affine();
-    let q_affine = q.into_affine();
-
-    let p_prepared = prepare_g1_point(p_affine);
-    let q_lines = prepare_all_line_functions(q_affine);
-    let miller_loop_wit = miller_loop_with_prepared_lines(&[p_prepared], &[q_lines]);
-    let miller =
-        Bn256::miller_loop([(&(p.into_affine().prepare()), &(q.into_affine().prepare()))].iter());
-
-    let expected_final_exp = Bn256::final_exponentiation(&miller).unwrap();
-
-    let miller_loop_alloc = Fp12::<F>::allocate_from_witness(cs, miller_loop_wit, &params);
-
-    let (wrapped_torus, _is_trivial) =
-        Bn256HardPartMethod::final_exp_easy_part(cs, &miller_loop_alloc, &params, true);
-
-    let chain = Bn256HardPartMethod::get_optinal();
-    let candidate = chain.final_exp_hard_part(cs, &wrapped_torus, true, &params);
-    let mut candidate_final_exp = candidate.decompress(cs);
-    candidate_final_exp.normalize(cs);
-
-    // let mut expected_fp12 = Fp12::allocate_from_witness(cs, expected_final_exp, &params);
-    // expected_fp12.normalize(cs);
-
-    // Fp12::enforce_equal(cs, &candidate_final_exp, &expected_fp12);
-
-    let worker = Worker::new_with_num_threads(8);
-    drop(cs);
-    owned_cs.pad_and_shrink();
-    let mut owned_cs = owned_cs.into_assembly::<Global>();
-    assert!(
-        owned_cs.check_if_satisfied(&worker),
-        "Constraints are not satisfied"
-    );
-
-    owned_cs.print_gate_stats();
-}
-
-#[test]
-fn test_easy_part() {
-    let mut owned_cs = cs_geometry();
-    let cs = &mut owned_cs;
-
-    let params = std::sync::Arc::new(RnsParams::create());
-
-    let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
-    let p = G1::rand(&mut rng);
-    let q = G2::rand(&mut rng);
-
-    let p_affine = p.into_affine();
-    let q_affine = q.into_affine();
-
-    let p_prepared = prepare_g1_point(p_affine);
-    let q_lines = prepare_all_line_functions(q_affine);
-
-    let miller_loop_native = miller_loop_with_prepared_lines(&[p_prepared], &[q_lines]);
-
-    // naive easy part
-    pub fn easy_part_of_final_exp(f: &Fq12) -> Fq12 {
-        let mut f_q6_minus_1 = *f;
-        f_q6_minus_1.conjugate();
-
-        let inv_f = match f.inverse() {
-            Some(inv) => inv,
-            None => {
-                return Fq12::zero();
-            }
-        };
-
-        f_q6_minus_1.mul_assign(&inv_f); // f^(q^6 - 1)
-
-        let mut f_q6_minus_1_q2 = f_q6_minus_1;
-        f_q6_minus_1_q2.frobenius_map(2);
-        f_q6_minus_1_q2.mul_assign(&f_q6_minus_1);
-
-        f_q6_minus_1_q2
+        owned_cs.print_gate_stats();
     }
 
-    let mut allocated_miller_loop =
-        Fp12::<F>::allocate_from_witness(cs, miller_loop_native, &params);
-    let expected_native = easy_part_of_final_exp(&miller_loop_native);
-    let allocated_expected = Fp12::<F>::allocate_from_witness(cs, expected_native, &params);
-    let (wrapped_torus, _is_trivial) =
-        Bn256HardPartMethod::final_exp_easy_part(cs, &allocated_miller_loop, &params, true);
+    #[test]
+    fn test_final_exponentiation_dl() {
+        let mut owned_cs = cs_geometry();
+        let cs = &mut owned_cs;
 
-    use crate::bn254::ec_pairing::final_exp::FinalExpEvaluation;
-    let mut easy_part_dl = FinalExpEvaluation::easy_part(cs, &mut allocated_miller_loop);
-    let mut decompres = wrapped_torus.decompress(cs);
-    decompres.normalize(cs);
+        let params = RnsParams::create();
+        let params = std::sync::Arc::new(params);
 
-    Fp12::enforce_equal(cs, &allocated_expected, &easy_part_dl);
-    Fp12::enforce_equal(cs, &decompres, &allocated_expected);
+        let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
 
-    let worker = Worker::new_with_num_threads(8);
-    owned_cs.pad_and_shrink();
-    let mut owned_cs = owned_cs.into_assembly::<std::alloc::Global>();
-    assert!(
-        owned_cs.check_if_satisfied(&worker),
-        "Constraints are not satisfied"
-    );
+        let p = G1::rand(&mut rng);
+        let q = G2::rand(&mut rng);
+        let p_affine = p.into_affine();
+        let q_affine = q.into_affine();
 
-    owned_cs.print_gate_stats();
-}
+        let p_prepared = prepare_g1_point(p_affine);
+        let q_lines = prepare_all_line_functions(q_affine);
+        let miller_loop_wit = miller_loop_with_prepared_lines(&[p_prepared], &[q_lines]);
 
-#[test]
-fn test_final_exponentiation_dl() {
-    let mut owned_cs = cs_geometry();
-    let cs = &mut owned_cs;
+        let expected_final_exp = Bn256::final_exponentiation(&miller_loop_wit).unwrap();
 
-    let params = RnsParams::create();
-    let params = std::sync::Arc::new(params);
+        let mut miller_loop_alloc = Fp12::<F>::allocate_from_witness(cs, miller_loop_wit, &params);
 
-    let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
+        use crate::bn254::ec_pairing::final_exp::FinalExpEvaluation;
+        let mut easy_part = FinalExpEvaluation::easy_part(cs, &mut miller_loop_alloc);
+        let mut compres = BN256TorusWrapper::<F>::compress(cs, &mut easy_part, true);
+        compres.normalize(cs);
 
-    let p = G1::rand(&mut rng);
-    let q = G2::rand(&mut rng);
-    let p_affine = p.into_affine();
-    let q_affine = q.into_affine();
+        let mut expected_fp12 = Fp12::allocate_from_witness(cs, expected_final_exp, &params);
+        expected_fp12.normalize(cs);
 
-    let p_prepared = prepare_g1_point(p_affine);
-    let q_lines = prepare_all_line_functions(q_affine);
-    let miller_loop_wit = miller_loop_with_prepared_lines(&[p_prepared], &[q_lines]);
+        let other_res = FinalExpEvaluation::hard_part_naive(cs, &mut compres);
+        let mut other_res = other_res.decompress(cs);
+        other_res.normalize(cs);
+        Fp12::enforce_equal(cs, &other_res, &expected_fp12);
+        let worker = Worker::new_with_num_threads(8);
+        drop(cs);
+        owned_cs.pad_and_shrink();
+        let mut owned_cs = owned_cs.into_assembly::<Global>();
+        assert!(
+            owned_cs.check_if_satisfied(&worker),
+            "Constraints are not satisfied"
+        );
 
-    let expected_final_exp = Bn256::final_exponentiation(&miller_loop_wit).unwrap();
-
-    let mut miller_loop_alloc = Fp12::<F>::allocate_from_witness(cs, miller_loop_wit, &params);
-
-    use crate::bn254::ec_pairing::final_exp::FinalExpEvaluation;
-    let mut easy_part = FinalExpEvaluation::easy_part(cs, &mut miller_loop_alloc);
-    let mut compres = BN256TorusWrapper::<F>::compress(cs, &mut easy_part, true);
-    compres.normalize(cs);
-
-    let mut expected_fp12 = Fp12::allocate_from_witness(cs, expected_final_exp, &params);
-    expected_fp12.normalize(cs);
-
-    let other_res = FinalExpEvaluation::hard_part_naive(cs, &mut compres);
-    let mut other_res = other_res.decompress(cs);
-    other_res.normalize(cs);
-    Fp12::enforce_equal(cs, &other_res, &expected_fp12);
-    let worker = Worker::new_with_num_threads(8);
-    drop(cs);
-    owned_cs.pad_and_shrink();
-    let mut owned_cs = owned_cs.into_assembly::<Global>();
-    assert!(
-        owned_cs.check_if_satisfied(&worker),
-        "Constraints are not satisfied"
-    );
-
-    owned_cs.print_gate_stats();
+        owned_cs.print_gate_stats();
+    }
 }

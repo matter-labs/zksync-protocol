@@ -13,19 +13,10 @@ use boojum::{
         CSGeometry, GateConfigurationHolder, LookupParameters, StaticToolboxHolder,
     },
     field::{goldilocks::GoldilocksField, SmallField},
-    gadgets::{
-        non_native_field::implementations::NonNativeFieldOverU16Params,
-        tables::{
-            create_and8_table, create_byte_split_table, create_xor8_table, And8Table,
-            ByteSplitTable, Xor8Table,
-        },
-    },
+    gadgets::non_native_field::implementations::NonNativeFieldOverU16Params,
 };
 
-use crate::bn254::{
-    fixed_base_mul_table::{create_fixed_base_mul_table, FixedBaseMulTable},
-    BN256BaseNNFieldParams, BN256ScalarNNFieldParams,
-};
+use crate::bn254::{BN256BaseNNFieldParams, BN256ScalarNNFieldParams};
 
 type F = GoldilocksField;
 type P = GoldilocksField;
