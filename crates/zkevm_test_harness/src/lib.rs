@@ -2,6 +2,7 @@
 #![feature(allocator_api)]
 #![feature(array_chunks)]
 #![feature(stmt_expr_attributes)]
+#![allow(incomplete_features)]
 #![feature(generic_const_exprs)]
 #![feature(iter_array_chunks)]
 #![feature(iter_next_chunk)]
