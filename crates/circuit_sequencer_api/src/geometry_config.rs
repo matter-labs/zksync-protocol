@@ -132,11 +132,11 @@ const fn get_geometry_config_1_5_0() -> GeometryConfig {
 const fn get_geometry_config_1_5_1() -> GeometryConfig {
     GeometryConfig {
         cycles_per_vm_snapshot: 5390,
-        cycles_code_decommitter_sorter: 117500,
+        cycles_code_decommitter_sorter: 111250,
         cycles_per_log_demuxer: 58750,
-        cycles_per_storage_sorter: 46921,
+        cycles_per_storage_sorter: 44343,
         cycles_per_events_or_l1_messages_sorter: 31287,
-        cycles_per_ram_permutation: 136714,
+        cycles_per_ram_permutation: 127145,
         cycles_per_code_decommitter: 2845,
         cycles_per_storage_application: 33,
         cycles_per_keccak256_circuit: 293,
