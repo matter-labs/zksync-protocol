@@ -902,6 +902,7 @@ impl Oracle {
             line_function_idx,
         } = self;
         *line_function_idx = 0;
+        line_functions.clear();
 
         let tag_variable = cs.alloc_variable_without_value();
         let actual_tag = Place::from_variable(tag_variable);
