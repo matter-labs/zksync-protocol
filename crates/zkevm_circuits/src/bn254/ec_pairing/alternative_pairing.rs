@@ -822,11 +822,15 @@ impl Oracle {
         cs: &mut CS,
         params: &Arc<RnsParams>,
     ) -> LineObject<F> {
-        let (lambda_wit, mu_wit) = self.line_functions[self.line_function_idx];
+        let empty = (Fq2::zero(), Fq2::zero());
+        let (lambda_wit, mu_wit) = self
+            .line_functions
+            .get(self.line_function_idx)
+            .unwrap_or(&empty);
         self.line_function_idx += 1;
 
-        let lambda = self.allocate_fq2(cs, lambda_wit, params);
-        let mu = self.allocate_fq2(cs, mu_wit, params);
+        let lambda = self.allocate_fq2(cs, *lambda_wit, params);
+        let mu = self.allocate_fq2(cs, *mu_wit, params);
         LineObject { lambda, mu }
     }
 
@@ -1878,6 +1882,9 @@ pub(crate) unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
 
     let no_exeption = is_trivial.negated(cs);
     validity_checks.push(no_exeption);
+    for (i, entry) in validity_checks.iter().enumerate() {
+        println!("+++ Validity: {:?} {:?}", i, entry.witness_hook(cs)());
+    }
     let success = Boolean::multi_and(cs, &validity_checks);
 
     let infinity_flag = Boolean::multi_or(cs, &if_infinity);
