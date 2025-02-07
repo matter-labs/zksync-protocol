@@ -38,10 +38,13 @@ use boojum::gadgets::traits::encodable::WitnessVarLengthEncodable;
 use self::ec_mul::implementation::convert_uint256_to_field_element;
 use self::input_alternative::EcMultiPairingCircuitInstanceWitness;
 
-pub const NUM_MEMORY_READS_PER_CYCLE: usize = 18;
-pub const MEMORY_QUERIES_PER_CALL: usize = 18;
-pub const EXCEPTION_FLAGS_ARR_LEN: usize = 19;
-const NUM_PAIRINGS_IN_MULTIPAIRING: usize = 3;
+pub use self::alternative_pairing::NUM_PAIRINGS_IN_MULTIPAIRING;
+
+pub const NUM_MEMORY_READS_PER_CYCLE: usize = NUM_PAIRINGS_IN_MULTIPAIRING * 6;
+pub const MEMORY_QUERIES_PER_CALL: usize = NUM_PAIRINGS_IN_MULTIPAIRING * 6;
+pub const COORDINATES: usize = NUM_PAIRINGS_IN_MULTIPAIRING * 6;
+pub const EXCEPTION_FLAGS_ARR_LEN: usize = NUM_PAIRINGS_IN_MULTIPAIRING * 6 + 1;
+//const NUM_PAIRINGS_IN_MULTIPAIRING: usize = 1;
 #[derive(
     Derivative,
     CSAllocatable,
@@ -104,6 +107,14 @@ pub struct G2AffineCoord<F: SmallField> {
     pub y_c1: UInt256<F>,
 }
 
+pub fn compute_pair<F: SmallField, CS: ConstraintSystem<F>>(
+    cs: &mut CS,
+    p: G1AffineCoord<F>,
+    q: G2AffineCoord<F>,
+) -> (Boolean<F>, BN256Fq12NNField<F>) {
+    precompile_inner(cs, &[p], &[q])
+}
+
 fn precompile_inner<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     p_points: &[G1AffineCoord<F>],
@@ -114,7 +125,8 @@ fn precompile_inner<F: SmallField, CS: ConstraintSystem<F>>(
     let base_field_params = &Arc::new(bn254_base_field_params());
 
     let n = p_points.len();
-    let mut coordinates: ArrayVec<UInt256<F>, 18> = ArrayVec::new();
+
+    let mut coordinates: ArrayVec<UInt256<F>, COORDINATES> = ArrayVec::new();
 
     for i in 0..n {
         coordinates.push(p_points[i].x);
@@ -158,7 +170,7 @@ fn precompile_inner<F: SmallField, CS: ConstraintSystem<F>>(
     }
 
     use crate::bn254::ec_pairing::alternative_pairing::multipairing_naive;
-    let (result, _, no_exeption) = unsafe { multipairing_naive(cs, &mut pairing_inputs) };
+    let (result, _, no_exeption) = multipairing_naive(cs, &mut pairing_inputs);
     let mut are_valid_inputs = ArrayVec::<_, EXCEPTION_FLAGS_ARR_LEN>::new();
     are_valid_inputs.extend(coordinates_are_in_field);
     are_valid_inputs.push(no_exeption);
