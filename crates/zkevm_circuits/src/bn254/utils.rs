@@ -25,10 +25,10 @@ use crate::base_structures::precompile_input_outputs::{
 use crate::demux_log_queue::StorageLogQueue;
 use crate::fsm_input_output::{
     commit_variable_length_encodable_item, ClosedFormInput, ClosedFormInputCompactForm,
-    ClosedFormInputWitness,
 };
 use crate::storage_application::ConditionalWitnessAllocator;
 
+// Add checks that log queries have the precompile aux byte and the expected precompile address.
 pub fn check_precompile_meta<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     should_process: Boolean<F>,
@@ -57,6 +57,8 @@ pub fn check_precompile_meta<F: SmallField, CS: ConstraintSystem<F>>(
     }
 }
 
+// Take a list of read values, allocate variables for them, and add the memory query, to
+// the memory queue.
 pub fn add_read_values_to_queue<
     F: SmallField,
     CS: ConstraintSystem<F>,
@@ -102,6 +104,7 @@ pub fn add_read_values_to_queue<
     }
 }
 
+// Compute the requests/memory states, adding the memory state select to the input's final memory state
 pub fn compute_final_requests_and_memory_states<
     F: SmallField,
     CS: ConstraintSystem<F>,
@@ -146,7 +149,8 @@ where
     (final_requests_state, final_memory_state)
 }
 
-pub fn hook_witness_and_generate_input_commitment<
+// Add all input commitment variables to constraint system and returns input commitment.
+pub fn generate_input_commitment<
     F: SmallField,
     CS: ConstraintSystem<F>,
     R: CircuitRoundFunction<F, 8, 12, 4> + AlgebraicRoundFunction<F, 8, 12, 4>,
@@ -166,18 +170,10 @@ pub fn hook_witness_and_generate_input_commitment<
         PrecompileFunctionInputData<F>,
         PrecompileFunctionOutputData<F>,
     >,
-    closed_form_input: ClosedFormInputWitness<
-        F,
-        T,
-        PrecompileFunctionInputData<F>,
-        PrecompileFunctionOutputData<F>,
-    >,
 ) -> [Num<F>; 4]
 where
     <T as CSAllocatable<F>>::Witness: serde::Serialize + serde::de::DeserializeOwned + Eq,
 {
-    structured_input.hook_compare_witness(cs, &closed_form_input);
-
     let compact_form =
         ClosedFormInputCompactForm::from_full_form(cs, &structured_input, round_function);
     let input_commitment = commit_variable_length_encodable_item(cs, &compact_form, round_function);
@@ -189,6 +185,7 @@ where
     input_commitment
 }
 
+// Creates memory and requests queue states, adding conditional select constraints to constraint system.
 pub fn create_requests_state_and_memory_state<
     F: SmallField,
     CS: ConstraintSystem<F>,
@@ -247,6 +244,7 @@ where
     (requests_queue, memory_queue)
 }
 
+// Adds memory queries to memory queue.
 pub fn add_query_to_queue<
     F: SmallField,
     CS: ConstraintSystem<F>,
@@ -262,7 +260,6 @@ pub fn add_query_to_queue<
     is_ptr: Boolean<F>,
     value: UInt256<F>,
     one_u32: UInt32<F>,
-    should_increment_offset: bool,
 ) where
     [(); <MemoryQuery<F> as CSAllocatableExt<F>>::INTERNAL_STRUCT_LEN]:,
 {
@@ -277,7 +274,5 @@ pub fn add_query_to_queue<
 
     let _ = memory_queue.push(cs, query, should_process);
 
-    if should_increment_offset {
-        *index = index.add_no_overflow(cs, one_u32);
-    }
+    *index = index.add_no_overflow(cs, one_u32);
 }

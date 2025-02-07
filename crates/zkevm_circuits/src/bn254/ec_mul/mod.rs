@@ -35,7 +35,7 @@ use crate::storage_application::ConditionalWitnessAllocator;
 use super::utils::{
     add_query_to_queue, add_read_values_to_queue, check_precompile_meta,
     compute_final_requests_and_memory_states, create_requests_state_and_memory_state,
-    hook_witness_and_generate_input_commitment,
+    generate_input_commitment,
 };
 use super::*;
 
@@ -251,47 +251,20 @@ where
             }
         }
 
-        add_query_to_queue(
-            cs,
-            should_process,
-            &mut memory_queue,
-            timestamp_to_use_for_write,
-            precompile_call_params.output_page,
-            &mut precompile_call_params.output_offset,
-            boolean_true,
-            boolean_false,
-            success,
-            one_u32,
-            true,
-        );
-
-        add_query_to_queue(
-            cs,
-            should_process,
-            &mut memory_queue,
-            timestamp_to_use_for_write,
-            precompile_call_params.output_page,
-            &mut precompile_call_params.output_offset,
-            boolean_true,
-            boolean_false,
-            x,
-            one_u32,
-            true,
-        );
-
-        add_query_to_queue(
-            cs,
-            should_process,
-            &mut memory_queue,
-            timestamp_to_use_for_write,
-            precompile_call_params.output_page,
-            &mut precompile_call_params.output_offset,
-            boolean_true,
-            boolean_false,
-            y,
-            one_u32,
-            false,
-        );
+        for val in vec![success, x, y] {
+            add_query_to_queue(
+                cs,
+                should_process,
+                &mut memory_queue,
+                timestamp_to_use_for_write,
+                precompile_call_params.output_page,
+                &mut precompile_call_params.output_offset,
+                boolean_true,
+                boolean_false,
+                val,
+                one_u32,
+            );
+        }
     }
 
     let (final_requests_state, final_memory_state) = compute_final_requests_and_memory_states(
@@ -304,10 +277,7 @@ where
     structured_input.hidden_fsm_output.log_queue_state = final_requests_state;
     structured_input.hidden_fsm_output.memory_queue_state = final_memory_state;
 
-    hook_witness_and_generate_input_commitment(
-        cs,
-        round_function,
-        structured_input,
-        closed_form_input,
-    )
+    structured_input.hook_compare_witness(cs, &closed_form_input);
+
+    generate_input_commitment(cs, round_function, structured_input)
 }

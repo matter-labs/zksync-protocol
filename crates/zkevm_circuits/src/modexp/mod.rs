@@ -25,7 +25,6 @@ use boojum::gadgets::u256::UInt256;
 use boojum::gadgets::u32::UInt32;
 use boojum::gadgets::u8::UInt8;
 use cs_derive::*;
-use derivative::Derivative;
 use zkevm_opcode_defs::system_params::PRECOMPILE_AUX_BYTE;
 
 use crate::base_structures::log_query::*;
@@ -33,7 +32,7 @@ use crate::base_structures::memory_query::*;
 use crate::bn254::utils::{
     add_query_to_queue, add_read_values_to_queue, check_precompile_meta,
     compute_final_requests_and_memory_states, create_requests_state_and_memory_state,
-    hook_witness_and_generate_input_commitment,
+    generate_input_commitment,
 };
 use crate::ethereum_types::U256;
 use crate::fsm_input_output::circuit_inputs::INPUT_OUTPUT_COMMITMENT_LENGTH;
@@ -183,7 +182,6 @@ where
             boolean_false,
             result,
             one_u32,
-            false,
         );
     }
 
@@ -197,10 +195,7 @@ where
     structured_input.hidden_fsm_output.log_queue_state = final_requests_state;
     structured_input.hidden_fsm_output.memory_queue_state = final_memory_state;
 
-    hook_witness_and_generate_input_commitment(
-        cs,
-        round_function,
-        structured_input,
-        closed_form_input,
-    )
+    structured_input.hook_compare_witness(cs, &closed_form_input);
+
+    generate_input_commitment(cs, round_function, structured_input)
 }
