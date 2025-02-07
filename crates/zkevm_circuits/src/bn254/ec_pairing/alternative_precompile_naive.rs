@@ -1,4 +1,5 @@
 use arrayvec::ArrayVec;
+use boojum::pairing::bls12_381::Fq;
 use std::collections::VecDeque;
 use std::sync::{Arc, RwLock};
 
@@ -108,7 +109,7 @@ fn precompile_inner<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     p_points: &[G1AffineCoord<F>],
     q_points: &[G2AffineCoord<F>],
-) -> (Boolean<F>, Boolean<F>) {
+) -> (Boolean<F>, BN256Fq12NNField<F>) {
 
     assert_eq!(p_points.len(), NUM_PAIRINGS_IN_MULTIPAIRING);
     assert_eq!(q_points.len(), NUM_PAIRINGS_IN_MULTIPAIRING);
@@ -164,7 +165,6 @@ fn precompile_inner<F: SmallField, CS: ConstraintSystem<F>>(
 
     use crate::bn254::ec_pairing::alternative_pairing::multipairing_naive;
     let (result, _, no_exeption)  = unsafe { multipairing_naive(cs, &mut pairing_inputs) };
-
     let mut are_valid_inputs = ArrayVec::<_, EXCEPTION_FLAGS_ARR_LEN>::new();
     are_valid_inputs.extend(coordinates_are_in_field);
     are_valid_inputs.push(no_exeption);
@@ -295,7 +295,7 @@ where
             q_points.push(q);
         }
 
-        let (success,  result) = precompile_inner(cs, &p_points, &q_points);
+        let (success,  mut result) = precompile_inner(cs, &p_points, &q_points);
 
 
         let success_as_u32 = unsafe { UInt32::from_variable_unchecked(success.get_variable()) };
@@ -317,17 +317,18 @@ where
 
         let _ = memory_queue.push(cs, success_query, should_process);
 
-        let is_one_as_u32 = unsafe { UInt32::from_variable_unchecked(result.get_variable()) };
-        let mut is_one = zero_u256;
-        is_one.inner[0] = is_one_as_u32;
-
+        let one_fq12 = BN256Fq12NNField::one(cs, &Arc::new(bn254_base_field_params()));
+        let paired = result.sub(cs, &mut one_fq12.clone()).is_zero(cs);
+        let paired_as_u32 = unsafe { UInt32::from_variable_unchecked(paired.get_variable()) };
+        let mut paired = zero_u256;
+        paired.inner[0] = paired_as_u32;
 
         let value_query = MemoryQuery {
             timestamp: timestamp_to_use_for_write,
             memory_page: call_params.output_page,
             index: call_params.output_offset,
             rw_flag: boolean_true,
-            value: is_one,
+            value: paired,
             is_ptr: boolean_false,
         };
 

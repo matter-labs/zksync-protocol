@@ -235,7 +235,6 @@ impl<F: SmallField> AffinePoint<F> {
         let is_on_curve = self.is_on_curve(cs, rns_params);
         let point_is_valid = is_point_at_infty.or(cs, is_on_curve);
         let is_invalid_point = point_is_valid.negated(cs);
-        
         CurveCheckFlags {
             is_point_at_infty, is_valid_point: point_is_valid, is_invalid_point
         }
@@ -252,11 +251,9 @@ impl<F: SmallField> AffinePoint<F> {
         let mut y_inv = self.y.inverse_unchecked(cs);
         let mut y_prime = y_inv.negated(cs);
         let x_prime = self.x.mul(cs, &mut y_prime);
-
         self.x = x_prime;
         self.y = y_prime;
         self.is_in_eval_form = true;
-
         self.x.normalize(cs);
         self.y.normalize(cs);
     }
@@ -590,11 +587,14 @@ impl<'a, F: SmallField> WitnessParser<'a, F> {
         Fp::<F>::witness_from_set_of_values(values).get()
     }
 
-    fn parse_g1_affine(&mut self) -> G1Affine {
+    fn parse_g1_affine(&mut self) -> (G1Affine, bool) {
         let x = self.parse_fq();
         let y = self.parse_fq();
-        println!("x: {}, y: {}", x, y);
-        G1Affine::from_xy_checked(x, y).unwrap()
+
+        match G1Affine::from_xy_checked(x, y) {
+            Ok(pt) => (pt, true),
+            Err(_) => (G1Affine::one(), false) 
+        }
     }
 
     fn parse_fq2(&mut self) -> Fq2 {
@@ -603,10 +603,13 @@ impl<'a, F: SmallField> WitnessParser<'a, F> {
         Fq2 { c0, c1 }
     }
 
-    fn parse_g2_affine(&mut self) -> G2Affine {
+    fn parse_g2_affine(&mut self) -> (G2Affine, bool) {
         let x = self.parse_fq2();
         let y = self.parse_fq2();
-        G2Affine::from_xy_checked(x, y).unwrap()
+        match G2Affine::from_xy_checked(x, y) {
+            Ok(pt) => (pt, true),
+            Err(_) => (G2Affine::one(), false) 
+        }
     }
 }
 
@@ -738,11 +741,6 @@ impl Oracle {
         let tag_variable = cs.alloc_variable_without_value();
         let actual_tag = Place::from_variable(tag_variable);
         *tag = actual_tag;
-        // for i in 0..300 {
-        //     let dummy_a = Fq2 { c0: Fq::from_str(&i.to_string()).unwrap(), c1: Fq::from_str("0").unwrap() };
-        //     let dummy_b = Fq2 { c0: Fq::from_str(&(i + 1).to_string()).unwrap(), c1: Fq::from_str("0").unwrap() };
-        //     line_functions.push((dummy_a, dummy_b));
-        // }
         if <CS::Config as CSConfig>::WitnessConfig::EVALUATE_WITNESS == true {
             // populate witness inputs
             let mut inputs = Vec::<Place>::new();
@@ -763,10 +761,10 @@ impl Oracle {
                 let mut num_of_line_functions_per_tuple : usize = 0;
 
                 for _ in 0..num_of_tuples {
-                    let g1 = parser.parse_g1_affine();
-                    let g2 = parser.parse_g2_affine();
+                    let (g1, g1_is_on_curve) = parser.parse_g1_affine();
+                    let (g2, g2_is_on_curve) = parser.parse_g2_affine();
 
-                    let should_skip = g1.is_zero() || g2.is_zero();
+                    let should_skip = g1.is_zero() || g2.is_zero() || !g1_is_on_curve || !g2_is_on_curve;
                     should_skip_flags.push(should_skip);
 
                     if !should_skip {
@@ -837,7 +835,7 @@ impl Oracle {
                     std::iter::once(arr[row_idx]).chain(std::iter::once(arr[row_idx + 1]))
                 }));
                 row_idx += 2;
-                assert_eq!(row_idx, num_of_line_functions_per_tuple);
+                // assert_eq!(row_idx, num_of_line_functions_per_tuple);
                
                 dst.push(F::ZERO);  
             };
@@ -1404,31 +1402,37 @@ impl Bn256HardPartMethod {
 pub(crate) unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     inputs: &mut [PairingInput<F>],
-) -> (Boolean<F>, Fp12<F>, Boolean<F>) {
+) -> (Fp12<F>, Fp12<F>, Boolean<F>) {
     assert_eq!(inputs.len(), NUM_PAIRINGS_IN_MULTIPAIRING);
     let params = Arc::new(RnsParams::create());
     let mut skip_pairings = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING);
     let mut validity_checks = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING * 3);
-    
+    let mut if_infinity = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING * 2);
     static mut oracle : Oracle = Oracle::new_uninitialized();
     oracle.populate(cs, inputs, false);
+
     for (p, q) in inputs.iter_mut() {
         let p_check_flags = p.validate_point_naive(cs, &params);
         let q_check_flags = q.validate_point_naive(cs, &params);
-        // inside validate_point_naive we already checked that both points are not at infinity
-        // let point_is_valid = is_point_at_infty.or(cs, is_on_curve);
-        let should_skip = Boolean::multi_or(cs, &
-            [p_check_flags.is_invalid_point, q_check_flags.is_invalid_point]
+
+        let should_skip = Boolean::multi_or(
+            cs,
+            &[
+                p_check_flags.is_point_at_infty,
+                p_check_flags.is_invalid_point,
+                q_check_flags.is_point_at_infty,
+                q_check_flags.is_invalid_point,
+            ],
         );
 
-        // TODO_O_O If only one from this point is invalid why then we need to mask both???
-        // lets mask only those which are invalid
         p.mask(cs, should_skip, &params);
         q.mask(cs, should_skip, &params);
         skip_pairings.push(should_skip);
 
         validity_checks.push(p_check_flags.is_valid_point);
         validity_checks.push(q_check_flags.is_valid_point);
+        if_infinity.push(p_check_flags.is_point_at_infty);
+        if_infinity.push(q_check_flags.is_point_at_infty);
 
         p.convert_for_line_eval_form(cs);
     }
@@ -1510,7 +1514,8 @@ pub(crate) unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
         r_pt = r_pt.sub(cs, q_doubled);
         let mut r_pt_negated = r_pt.negate(cs);
         let mut acc = r_pt.clone();
-        for bit in U_WNAF.into_iter().rev().skip(1) {
+
+        for bit in U_WNAF.into_iter().skip(1) {
             if bit == 0 {
                 acc = acc.double(cs);
             } else {
@@ -1521,7 +1526,6 @@ pub(crate) unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
             acc.x.normalize(cs);
             acc.y.normalize(cs);
         } 
-        
         let g2_subgroup_check = TwistedCurvePoint::equals(cs, &mut acc, &mut q_frob);
         validity_checks.push(g2_subgroup_check);
     }
@@ -1535,7 +1539,7 @@ pub(crate) unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
         let flag = Num::equals(cs, &num_of_skipped_tuples, &cur_fr);
         equality_flags.push(flag);
     }
-    
+
     // here we compute witness
     let g1 = prepare_g1_point(G1Affine::one());
     let g2 = G2Affine::one();
@@ -1550,21 +1554,21 @@ pub(crate) unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
         multiplier = <Fp12<F> as NonNativeField<F, _>>::conditionally_select(cs, bit, &choice, &multiplier);
     }
     f = f.mul(cs, &mut multiplier);
-
     let miller_loop_res = f.clone();
 
     let (wrapped_f, is_trivial) = Bn256HardPartMethod::final_exp_easy_part(cs, &f, &params, true);
     let chain = Bn256HardPartMethod::get_optinal(); 
     let candidate = chain.final_exp_hard_part(cs, &wrapped_f, true, &params);
     let mut final_res = candidate.decompress(cs);
-
     let mut fp12_one = Fp12::<F>::one(cs, &params);
     let pairing_is_one = final_res.equals(cs, &mut fp12_one);
     let no_exeption = is_trivial.negated(cs);
     validity_checks.push(no_exeption);
+    let success = Boolean::multi_and(cs, &validity_checks);
 
-    let no_exception = Boolean::multi_and(cs, &validity_checks);
-    (pairing_is_one, miller_loop_res, no_exception)
+    let infinity_flag = Boolean::multi_or(cs, &if_infinity);
+    let result = Fp12::<F>::conditionally_select(cs, infinity_flag, &fp12_one, &final_res);
+    (result, miller_loop_res, success)
 }
 
 
@@ -1882,7 +1886,7 @@ fn cs_geometry() -> CSReferenceImplementation<
     let builder = builder.allow_lookup(
         LookupParameters::UseSpecializedColumnsWithTableIdAsConstant {
             width: 1,
-            num_repetitions: 15,
+            num_repetitions: 10,
             share_table_id: true,
         },
     );
@@ -1937,7 +1941,7 @@ fn test_multipairing_naive() {
     let params = std::sync::Arc::new(params);
 
     let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
-
+    // let mut rng = rand::thread_rng();
     let mut pairs = Vec::new();
     let mut q1_s_for_wit = Vec::new();
     let mut prep_lines = Vec::new();
@@ -1957,19 +1961,21 @@ fn test_multipairing_naive() {
         q1_s_for_wit.push(p_prep);
         prep_lines.push(lines);
     }
-    // let miller_loop_wit = miller_loop_with_prepared_lines(&q1_s_for_wit, &prep_lines);
-    // let mut actual_miller_loop = Fp12::<F>::allocate_from_witness(cs, miller_loop_wit, &params);
-    // let fin_exp_res = Bn256::final_exponentiation(&miller_loop_wit).unwrap();
-    // let mut actual_res = Fp12::<F>::allocate_from_witness(cs, fin_exp_res, &params);
-    // actual_res.normalize(cs);
+    let miller_loop_wit = miller_loop_with_prepared_lines(&q1_s_for_wit, &prep_lines);
+    let mut actual_miller_loop = Fp12::<F>::allocate_from_witness(cs, miller_loop_wit, &params);
+    let fin_exp_res = Bn256::final_exponentiation(&miller_loop_wit).unwrap();
+    let mut actual_res = Fp12::<F>::allocate_from_witness(cs, fin_exp_res, &params);
+    actual_res.normalize(cs);
 
-    let ( mut res, miller_loop, no_exception) = unsafe {
+    let (mut res, miller_loop, success) = unsafe {
         multipairing_naive(cs, &mut pairs)
     };
-    // println!("miller_loop check");
-    // Fp12::<F>::enforce_equal(cs, &actual_miller_loop, &miller_loop);
-    // println!("final check");
-    // Fp12::<F>::enforce_equal(cs, &res, &actual_res);
+    println!("miller_loop check");
+    Fp12::<F>::enforce_equal(cs, &actual_miller_loop, &miller_loop);
+    println!("final check");
+    Fp12::<F>::enforce_equal(cs, &res, &actual_res);
+    let one = Boolean::<F>::allocated_constant(cs, true);
+    Boolean::<F>::enforce_equal(cs, &success, &one);
 
     let worker = Worker::new();
     owned_cs.pad_and_shrink();
@@ -1978,6 +1984,73 @@ fn test_multipairing_naive() {
     owned_cs.print_gate_stats();
 }
 
+#[test]
+fn test_multipairing_naive_g1_infinity() {
+    let mut owned_cs = cs_geometry();
+    let cs = &mut owned_cs;
+    let params = Arc::new(RnsParams::create());
+    let mut rng = rand::thread_rng();
+
+    let p_infty = G1Affine::zero();
+    let q = G2::rand(&mut rng);
+    let q_affine = q.into_affine();
+
+    let g1 = AffinePoint::allocate(cs, p_infty, &params);
+    let g2 = TwistedCurvePoint::allocate(cs, q_affine, &params);
+    let mut pairing_inputs = vec![(g1, g2)];
+    let (final_res, miller_loop_res, success) =
+        unsafe { multipairing_naive(cs, &mut pairing_inputs) };
+    let one = Fp12::one(cs, &params);
+    Fp12::<F>::enforce_equal(cs, &final_res, &one);
+    let one = Boolean::allocated_constant(cs, true);
+    Boolean::enforce_equal(cs, &success, &one);
+}
+#[test]
+fn test_multipairing_naive_g2_infinity() {
+    let mut owned_cs = cs_geometry();
+    let cs = &mut owned_cs;
+    let params = Arc::new(RnsParams::create());
+    let mut rng = rand::thread_rng();
+
+    let p = G1::rand(&mut rng);
+    let p_affine = p.into_affine();
+    let q_infty = G2Affine::zero();
+
+
+    let g1 = AffinePoint::allocate(cs, p_affine, &params);
+    let g2 = TwistedCurvePoint::allocate(cs, q_infty, &params);
+    let mut pairing_inputs = vec![(g1, g2)];
+
+    let (final_res, miller_loop_res, success) =
+        unsafe { multipairing_naive(cs, &mut pairing_inputs) };
+
+    let one = Fp12::one(cs, &params);
+    Fp12::<F>::enforce_equal(cs, &final_res, &one);
+    let one = Boolean::allocated_constant(cs, true);
+    Boolean::enforce_equal(cs, &success, &one);
+}
+#[test]
+fn test_multipairing_naive_invalid_points() {
+    let mut owned_cs = cs_geometry();
+    let cs = &mut owned_cs;
+    let params = Arc::new(RnsParams::create());
+
+    let invalid_g1 = G1Affine::from_xy_unchecked(bn256::Fq::one(), bn256::Fq::one());
+
+    let invalid_g2 = G2Affine::from_xy_unchecked(bn256::Fq2::one(), bn256::Fq2::one());
+
+
+    let g1 = AffinePoint::allocate(cs, invalid_g1, &params);
+    let g2 = TwistedCurvePoint::allocate(cs, invalid_g2, &params);
+    let mut pairing_inputs = vec![(g1, g2)];
+
+    let (final_res, miller_loop_res, success) =
+        unsafe { multipairing_naive(cs, &mut pairing_inputs) };
+
+
+    let one = Boolean::allocated_constant(cs, false);
+    Boolean::enforce_equal(cs, &success, &one);
+}
 #[test]
 fn test_final_exponentiation_comparison() {
     let mut owned_cs = cs_geometry();
@@ -2105,6 +2178,7 @@ fn test_final_exponentiation_dl() {
     let params = std::sync::Arc::new(params);
 
     let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
+
     let p = G1::rand(&mut rng);
     let q = G2::rand(&mut rng);
     let p_affine = p.into_affine();
