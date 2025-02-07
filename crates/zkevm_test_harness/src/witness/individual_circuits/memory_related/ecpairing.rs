@@ -190,6 +190,7 @@ pub(crate) fn ecpairing_decompose_into_per_circuit_witness<
                 precompile_request.input_memory_offset += 1;
             }
 
+            // FIXME: Have a better solution here (probably a separate field).
             let pairing = pair(&input_pair).or::<F>(Ok(zero_fq12)).unwrap();
             internal_state.mul_assign(&pairing);
 

@@ -505,6 +505,7 @@ mod tests {
                 .value
         }
 
+        #[allow(dead_code)]
         fn read_code_query(&mut self, location: MemoryLocation) -> U256 {
             assert!(location.memory_type == MemoryType::Code);
             self.memory
