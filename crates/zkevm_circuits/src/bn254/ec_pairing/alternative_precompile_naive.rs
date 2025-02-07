@@ -42,6 +42,7 @@ pub use self::alternative_pairing::NUM_PAIRINGS_IN_MULTIPAIRING;
 
 pub const NUM_MEMORY_READS_PER_CYCLE: usize = NUM_PAIRINGS_IN_MULTIPAIRING * 6;
 pub const MEMORY_QUERIES_PER_CALL: usize = NUM_PAIRINGS_IN_MULTIPAIRING * 6;
+pub const COORDINATES: usize = NUM_PAIRINGS_IN_MULTIPAIRING * 6;
 pub const EXCEPTION_FLAGS_ARR_LEN: usize = NUM_PAIRINGS_IN_MULTIPAIRING * 6 + 1;
 //const NUM_PAIRINGS_IN_MULTIPAIRING: usize = 1;
 #[derive(
@@ -106,12 +107,12 @@ pub struct G2AffineCoord<F: SmallField> {
     pub y_c1: UInt256<F>,
 }
 
-pub fn hack_ecpairing_precompile_inner<F: SmallField, CS: ConstraintSystem<F>>(
+pub fn compute_pair<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
-    p_points: &[G1AffineCoord<F>],
-    q_points: &[G2AffineCoord<F>],
+    p: G1AffineCoord<F>,
+    q: G2AffineCoord<F>,
 ) -> (Boolean<F>, BN256Fq12NNField<F>) {
-    precompile_inner(cs, p_points, q_points)
+    precompile_inner(cs, &[p], &[q])
 }
 
 fn precompile_inner<F: SmallField, CS: ConstraintSystem<F>>(
@@ -124,7 +125,8 @@ fn precompile_inner<F: SmallField, CS: ConstraintSystem<F>>(
     let base_field_params = &Arc::new(bn254_base_field_params());
 
     let n = p_points.len();
-    let mut coordinates: ArrayVec<UInt256<F>, 18> = ArrayVec::new();
+
+    let mut coordinates: ArrayVec<UInt256<F>, COORDINATES> = ArrayVec::new();
 
     for i in 0..n {
         coordinates.push(p_points[i].x);

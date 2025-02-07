@@ -396,8 +396,6 @@ fn run_and_try_create_witness_inner(
     let (basic_block_circuits, mut recursion_queues, scheduler_partial_input) =
         generate_base_layer(test_artifact, cycle_limit, geometry, blobs.clone());
 
-    return;
-
     // It is important that recursion queries are in sorted order - as we later match them with respective proofs.
     recursion_queues.sort_by_key(|(circuit, _, _)| circuit.clone());
 

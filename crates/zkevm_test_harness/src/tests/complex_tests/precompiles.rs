@@ -153,11 +153,6 @@ fn test_ecpairing_using_tuples(tuples: Vec<[[u8; 32]; 6]>) -> (U256, U256) {
     let (_reads, writes, witness) = result.unwrap();
     assert_eq!(2, writes.len());
 
-    println!(
-        "+++ Got results: {:?} {:?}",
-        writes[0].value, writes[1].value
-    );
-
     let witness = match witness {
         PrecompileCyclesWitness::ECPairing(witness) => witness,
         _ => panic!(),
@@ -299,17 +294,17 @@ fn ec_pairing_test() {
     assert_eq!(result, U256::one());
 }
 
+// Two pairs, the second one doesn't belong to the g2 group.
 #[test]
 fn ec_pairing_not_pairing_test() {
     let raw_input = "0412aa5b0805215b55a5e2dbf0662031aad0f5ef13f28b25df20b8670d1c59a616fb4b64ccff216fa5272e1e987c0616d60d8883d5834229c685949047e9411d2d81dbc969f72bc0454ff8b04735b717b725fee98a2fcbcdcf6c5b51b1dff33f075239888fc8448ab781e2a8bb85eb556469474cd707d4b913bee28679920eb61ef1c268b7c4c78959f099a043ecd5e537fe3069ac9197235f16162372848cba209cfadc22f7e80d399d1886f1c53898521a34c62918ed802305f32b4070a3c4";
 
     let (success, result) = test_ecpairing_from_hex(raw_input);
-    assert_eq!(success, U256::one());
+    assert_eq!(success, U256::zero());
     assert_eq!(result, U256::zero());
 }
 
 #[test]
-//#[ignore = "FIXME: this currently fails"]
 fn ec_pairing_invalid_test() {
     let raw_input = "0413aa5b0805215b55a5e2dda0662031aad0f5ef13f28b25df20b8670d1c59a616fb4b64ccff216fa5272e1e987c0616d60d8883d5834229c685949047e9411d2d81dbc969f72bc0454ff8b04735b717b725fee98a2fcbcdcf6c5b51b1dff33f075239888fc8448ab781e2a8bb85eb556469474cd707d4b913bee28679920eb61ef1c268b7c4c78959f099a043ecd5e537fe3069ac9197235f16162372848cba209cfadc22f7e80d399d1886f1c53898521a34c62918ed802305f32b4070a3c4";
 

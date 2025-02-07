@@ -1,7 +1,6 @@
-use alternative_precompile_naive::hack_ecpairing_precompile_inner;
+use alternative_precompile_naive::compute_pair;
 use alternative_precompile_naive::G1AffineCoord;
 use alternative_precompile_naive::G2AffineCoord;
-use arrayvec::ArrayVec;
 
 use std::sync::{Arc, RwLock};
 
@@ -32,9 +31,7 @@ use crate::base_structures::log_query::*;
 use crate::base_structures::memory_query::*;
 use crate::base_structures::precompile_input_outputs::PrecompileFunctionOutputData;
 use crate::bn254::ec_pairing::input::{EcPairingCircuitInputOutput, EcPairingFunctionFSM};
-use crate::bn254::validation::{
-    is_affine_infinity, is_on_curve, is_on_twist_curve, is_twist_affine_infinity, validate_in_field,
-};
+
 use crate::demux_log_queue::StorageLogQueue;
 use crate::ethereum_types::U256;
 use crate::fsm_input_output::circuit_inputs::INPUT_OUTPUT_COMMITMENT_LENGTH;
@@ -47,8 +44,6 @@ use boojum::gadgets::traits::allocatable::CSAllocatable;
 use boojum::gadgets::traits::encodable::CircuitVarLengthEncodable;
 use boojum::gadgets::traits::encodable::WitnessVarLengthEncodable;
 
-use self::ec_mul::implementation::convert_uint256_to_field_element;
-use self::implementation::ec_pairing;
 use self::input::EcPairingCircuitInstanceWitness;
 
 pub mod alternative_pairing;
@@ -111,6 +106,8 @@ impl<F: SmallField> EcPairingPrecompileCallParams<F> {
     }
 }
 
+// Returns the pairing for given points.
+// If there was something wrong (points not on the curve, or not in subgroup), then the result will be set to 0.
 fn pair<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     p_x: &UInt256<F>,
@@ -128,63 +125,12 @@ fn pair<F: SmallField, CS: ConstraintSystem<F>>(
         y_c1: *q_y_c1,
     };
 
-    return hack_ecpairing_precompile_inner(cs, &[p], &[q]);
-    /*
+    // This will always return the pairing value, even if something was wrong.
+    let (success, result) = compute_pair(cs, p, q);
 
-    let base_field_params = &Arc::new(bn254_base_field_params());
-
-    // We need to check for infinity prior to potential masking coordinates.
-    let p_is_infinity = is_affine_infinity(cs, (&p_x, &p_y));
-    let q_is_infinity = is_twist_affine_infinity(cs, (&q_x_c0, &q_x_c1, &q_y_c0, &q_y_c1));
-
-    let mut coordinates = ArrayVec::from([*p_x, *p_y, *q_x_c0, *q_x_c1, *q_y_c0, *q_y_c1]);
-    let coordinates_are_in_field = validate_in_field(cs, &mut coordinates, base_field_params);
-    let [p_x, p_y, q_x_c0, q_x_c1, q_y_c0, q_y_c1] = coordinates.into_inner().unwrap();
-
-    let p_x = convert_uint256_to_field_element(cs, &p_x, base_field_params);
-    let p_y = convert_uint256_to_field_element(cs, &p_y, base_field_params);
-
-    let p_on_curve = is_on_curve(cs, (&p_x, &p_y), base_field_params);
-    let p_is_valid = p_on_curve.or(cs, p_is_infinity);
-
-    // Mask the point with zero in case it is not on curve.
-    let zero = BN256SWProjectivePoint::zero(cs, base_field_params);
-    let unchecked_point = BN256SWProjectivePoint::from_xy_unchecked(cs, p_x, p_y);
-    let mut p =
-        BN256SWProjectivePoint::conditionally_select(cs, p_on_curve, &unchecked_point, &zero);
-
-    let q_x_c0 = convert_uint256_to_field_element(cs, &q_x_c0, base_field_params);
-    let q_x_c1 = convert_uint256_to_field_element(cs, &q_x_c1, base_field_params);
-    let q_y_c0 = convert_uint256_to_field_element(cs, &q_y_c0, base_field_params);
-    let q_y_c1 = convert_uint256_to_field_element(cs, &q_y_c1, base_field_params);
-
-    let q_x = BN256Fq2NNField::new(q_x_c0, q_x_c1);
-    let q_y = BN256Fq2NNField::new(q_y_c0, q_y_c1);
-
-    let q_on_curve = is_on_twist_curve(cs, (&q_x, &q_y), base_field_params);
-    let q_is_valid = q_on_curve.or(cs, q_is_infinity);
-
-    // Mask the point with zero in case it is not on curve.
-    let zero = BN256SWProjectivePointTwisted::zero(cs, base_field_params);
-    let unchecked_point = BN256SWProjectivePointTwisted::from_xy_unchecked(cs, q_x, q_y);
-    let mut q = BN256SWProjectivePointTwisted::conditionally_select(
-        cs,
-        q_on_curve,
-        &unchecked_point,
-        &zero,
-    );
-
-    let result = ec_pairing(cs, &mut p, &mut q);
-
-    let mut are_valid_inputs = ArrayVec::<_, EXCEPTION_FLAGS_ARR_LEN>::new();
-    are_valid_inputs.extend(coordinates_are_in_field);
-    are_valid_inputs.push(p_is_valid);
-    are_valid_inputs.push(q_is_valid);
-
-    let success = Boolean::multi_and(cs, &are_valid_inputs[..]);
+    // So we have to mask the result.
     let result = result.mask(cs, success);
-
-    (success, result)*/
+    (success, result)
 }
 
 pub fn ecpairing_precompile_inner<
@@ -363,7 +309,6 @@ where
 
         let [p_x, p_y, q_x_c1, q_x_c0, q_y_c1, q_y_c0] = read_values;
 
-        // TODO: replace this with 'precompile_inner' call from alternative_precompile_naive
         let (success, mut result) = pair(cs, &p_x, &p_y, &q_x_c0, &q_x_c1, &q_y_c0, &q_y_c1);
         NonNativeField::normalize(&mut result, cs);
 
