@@ -107,6 +107,24 @@ const SIX_U_PLUS_TWO_WNAF: [i8; 65] = [
     0, 1, 0, 1, 1,
 ];
 
+const FQ_NUM_LIMBS_FOR_WITNESS_SETTING_IN_ALLOCATION: usize = 16; // top limb is constant 0
+
+const BN254_NUM_ELL_COEFFS: usize = const {
+    let mut result = 2;
+
+    let mut i = 0;
+    while i < SIX_U_PLUS_TWO_WNAF.len() - 1 {
+        result += 1;
+        if SIX_U_PLUS_TWO_WNAF[i] != 0 {
+            result += 1;
+        }
+
+        i += 1;
+    }
+
+    result
+};
+
 const U_WNAF: [i8; 63] = [
     1, 0, 0, 0, 1, 0, 1, 0, 0, -1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0,
     0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, -1, 0, 0, 0,
@@ -157,6 +175,75 @@ pub fn allocate_fq12_constant<F: SmallField, CS: ConstraintSystem<F>>(
     let c1 = allocate_fq6_constant(cs, value.c1, params);
 
     Fp12::new(c0, c1)
+}
+
+// So far Rust compiler can not take a definition of CSAllocatableExt for Fq2 on top of any non-native field element,
+// so we have to use freestanding functions instead
+
+fn fe_to_u16_words<T: crate::ff::PrimeField, const N: usize>(src: &T) -> [u16; N] {
+    let mut result = [0u16; N];
+    let repr = src.into_repr();
+    for (idx, el) in repr.as_ref().iter().enumerate() {
+        let mut el = *el;
+        let a = (el & (u16::MAX as u64)) as u16;
+        el >>= 16;
+        let b = (el & (u16::MAX as u64)) as u16;
+        el >>= 16;
+        let c = (el & (u16::MAX as u64)) as u16;
+        el >>= 16;
+        let d = (el & (u16::MAX as u64)) as u16;
+
+        if 4 * idx < N {
+            result[4 * idx] = a;
+        } else {
+            debug_assert_eq!(a, 0);
+        }
+        if 4 * idx + 1 < N {
+            result[4 * idx + 1] = b;
+        } else {
+            debug_assert_eq!(b, 0);
+        }
+        if 4 * idx + 2 < N {
+            result[4 * idx + 2] = c;
+        } else {
+            debug_assert_eq!(c, 0);
+        }
+        if 4 * idx + 3 < N {
+            result[4 * idx + 3] = d;
+        } else {
+            debug_assert_eq!(d, 0);
+        }
+    }
+
+    result
+}
+
+fn fp_dump_internal_variables_for_witness_setting<F: SmallField>(element: &Fp<F>) -> [Variable; FQ_NUM_LIMBS_FOR_WITNESS_SETTING_IN_ALLOCATION] {
+    element.limbs[..FQ_NUM_LIMBS_FOR_WITNESS_SETTING_IN_ALLOCATION].try_into().unwrap()
+}
+
+fn fp_set_internal_variable_values<F: SmallField>(
+    witness: Fq,
+    params: &BN256BaseNNFieldParams,
+    dst: &mut DstBuffer<'_, '_, F>
+) {
+    let limbs = fe_to_u16_words::<_, NUM_LIMBS>(&witness);
+    for (idx, el) in limbs.into_iter().enumerate() {
+        if idx < params.modulus_limbs {
+            dst.push(F::from_u64_unchecked(el as u64));
+        } else {
+            assert_eq!(el, 0);
+        }
+    }
+}
+
+fn fp2_set_internal_variable_values<F: SmallField>(
+    witness: Fq2,
+    params: &BN256BaseNNFieldParams,
+    dst: &mut DstBuffer<'_, '_, F>
+) {
+    fp_set_internal_variable_values(witness.c0, params, dst);
+    fp_set_internal_variable_values(witness.c1, params, dst);
 }
 
 // Both original Bn256 curve and it's twist are of the form:
@@ -718,196 +805,50 @@ impl<'a, F: SmallField> WitnessParser<'a, F> {
     }
 }
 
-// we are going to use the following hack for Witness Oracle:
-// we create an aritifical variable - tag, which is used to overcome graph of dependecies within cs.set_values_with_dependencies
-struct Oracle {
-    tag: Place,
-    line_functions: Vec<(Fq2, Fq2)>,
+
+struct Oracle<F: SmallField> {
+    line_functions: [[(Fp2<F>, Fp2<F>); BN254_NUM_ELL_COEFFS]; NUM_PAIRINGS_IN_MULTIPAIRING],
     line_function_idx: usize,
-    cert_c_inv: Option<Fq12>,
-    cert_root_of_unity_power: usize,
+    // cert_c_inv: Option<Fq12>,
+    // cert_root_of_unity_power: usize,
 }
 
-impl Drop for Oracle {
-    fn drop(&mut self) {
-        assert_eq!(self.line_function_idx, self.line_functions.len())
-    }
-}
-
-impl Oracle {
-    fn allocate_boolean<F: SmallField, CS: ConstraintSystem<F>>(
-        &self,
+impl<F: SmallField> Oracle<F> {
+    fn allocate<CS: ConstraintSystem<F>>(
         cs: &mut CS,
-        witness: bool,
-    ) -> Boolean<F> {
-        let var = cs.alloc_variable_without_value();
-        let result = Boolean::from_variable_checked(cs, var);
-
-        // temporal variable
-        let c_wit = self.cert_c_inv.as_ref().map_or(Fq12::one(), |cert| *cert);
-
-        if <CS::Config as CSConfig>::WitnessConfig::EVALUATE_WITNESS == true {
-            let value_fn = move |_inputs: &[F], output_buffer: &mut DstBuffer<'_, '_, F>| {
-                let witness_as_fr = if witness { F::ONE } else { F::ZERO };
-                let _tmp = c_wit;
-                output_buffer.push(witness_as_fr);
-            };
-
-            cs.set_values_with_dependencies_vararg(
-                &[self.tag],
-                &[Place::from_variable(var)],
-                value_fn,
-            );
-        }
-
-        result
-    }
-
-    fn allocate_fq<F: SmallField, CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        witness: Fq,
-        params: &Arc<BN256BaseNNFieldParams>,
-    ) -> Fp<F> {
-        BN256BaseNNField::allocate_checked_with_tag(cs, witness, params, self.tag)
-    }
-
-    fn allocate_fq2<F: SmallField, CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        witness: Fq2,
-        params: &Arc<BN256BaseNNFieldParams>,
-    ) -> Fp2<F> {
-        let c0 = self.allocate_fq(cs, witness.c0, params);
-        let c1 = self.allocate_fq(cs, witness.c1, params);
-
-        Fp2::new(c0, c1)
-    }
-
-    fn allocate_fq6<F: SmallField, CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        witness: Fq6,
-        params: &Arc<BN256BaseNNFieldParams>,
-    ) -> Fp6<F> {
-        let c0 = self.allocate_fq2(cs, witness.c0, params);
-        let c1 = self.allocate_fq2(cs, witness.c1, params);
-        let c2 = self.allocate_fq2(cs, witness.c2, params);
-
-        Fp6::new(c0, c1, c2)
-    }
-
-    fn allocate_fq12<F: SmallField, CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        witness: Fq12,
-        params: &Arc<BN256BaseNNFieldParams>,
-    ) -> Fp12<F> {
-        let c0 = self.allocate_fq6(cs, witness.c0, params);
-        let c1 = self.allocate_fq6(cs, witness.c1, params);
-
-        Fp12::new(c0, c1)
-    }
-
-    fn allocate_c_inv<F: SmallField, CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        params: &Arc<RnsParams>,
-    ) -> Fp12<F> {
-        let c_wit = self.cert_c_inv.as_ref().map_or(Fq12::one(), |cert| *cert);
-        self.allocate_fq12(cs, c_wit, params)
-    }
-
-    fn allocate_next_line_object<F: SmallField, CS: ConstraintSystem<F>>(
-        &mut self,
-        cs: &mut CS,
-        params: &Arc<RnsParams>,
-    ) -> LineObject<F> {
-        let empty = (Fq2::zero(), Fq2::zero());
-        let (lambda_wit, mu_wit) = self
-            .line_functions
-            .get(self.line_function_idx)
-            .unwrap_or(&empty);
-        self.line_function_idx += 1;
-
-        let lambda = self.allocate_fq2(cs, *lambda_wit, params);
-        let mu = self.allocate_fq2(cs, *mu_wit, params);
-        LineObject { lambda, mu }
-    }
-
-    fn allocate_root_of_unity<F: SmallField, CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-        params: &Arc<RnsParams>,
-    ) -> Root27OfUnity<F> {
-        let root_of_unity_power = self.cert_root_of_unity_power;
-
-        // 27th_root_of_unity is either 1, or a1 * t or a2 * t^2 (acutally it belongs to Fp^3, that's the reason it has such compact representation)
-        // we hence represent element of Fp^3 as a /in Fp^2 and two Boolean flags, the first is set if it is of the form a1 * t; a2 * t - if second if set;
-        // these flags can't be both set simultaneously - and it is checked!
-        let (a_witness, first_flag_witness, second_flag_witness) = match root_of_unity_power {
-            0 => {
-                // this is just 1
-                (Fq2::one(), false, false)
-            }
-            1 => {
-                // root of unity is of the form a * t^2
-                (ROOT_27_OF_UNITY.c2, false, true)
-            }
-            2 => {
-                let mut root27_of_unity_squared = ROOT_27_OF_UNITY;
-                root27_of_unity_squared.square();
-                assert!(root27_of_unity_squared.c0.is_zero());
-                assert!(root27_of_unity_squared.c2.is_zero());
-
-                (root27_of_unity_squared.c1, true, false)
-            }
-            _ => unreachable!(),
-        };
-
-        let a = self.allocate_fq2(cs, a_witness, params);
-        let first_flag = self.allocate_boolean(cs, first_flag_witness);
-        let second_flag = self.allocate_boolean(cs, second_flag_witness);
-        let validity_check = first_flag.and(cs, second_flag);
-        ConstantsAllocatorGate::new_to_enforce(validity_check.get_variable(), F::ZERO);
-
-        Root27OfUnity {
-            a,
-            first_flag,
-            second_flag,
-        }
-    }
-
-    const fn new_uninitialized() -> Self {
-        Oracle {
-            tag: Place::placeholder(),
-            line_functions: vec![],
-            line_function_idx: 0,
-            cert_c_inv: None,
-            cert_root_of_unity_power: 0,
-        }
-    }
-
-    pub fn populate<F: SmallField, CS: ConstraintSystem<F>>(
-        &'static mut self,
-        cs: &mut CS,
-        pairing_input: &[PairingInput<F>],
+        params: Arc<BN256BaseNNFieldParams>,
+        pairing_input: &[PairingInput<F>; NUM_PAIRINGS_IN_MULTIPAIRING],
         should_compute_certificate: bool,
-    ) {
-        let Oracle {
-            tag,
-            line_functions,
-            cert_root_of_unity_power,
-            cert_c_inv,
-            line_function_idx,
-        } = self;
-        *line_function_idx = 0;
-        line_functions.clear();
+    ) -> Self {
+        assert!(should_compute_certificate == false, "not yet supported");
 
-        let tag_variable = cs.alloc_variable_without_value();
-        let actual_tag = Place::from_variable(tag_variable);
-        *tag = actual_tag;
+        // always allocate, then create a value function
+
+
+        // NOTE: internally it allocated with all the range checks
+        let line_objects: [[(Fp2<F>, Fp2<F>); BN254_NUM_ELL_COEFFS]; NUM_PAIRINGS_IN_MULTIPAIRING] = std::array::from_fn(|_| {
+            std::array::from_fn(|_| {
+                let x = Fp2::<F>::allocate_without_value(cs);
+                let y = Fp2::<F>::allocate_without_value(cs);
+
+                (x, y)
+            })
+        });
+
         if <CS::Config as CSConfig>::WitnessConfig::EVALUATE_WITNESS == true {
+            // dump it as flat array of variables to set as output
+            let mut outputs = vec![];
+            let params = params.clone();
+            for per_pairing_work in line_objects.iter() {
+                for (x, y) in per_pairing_work.iter() {
+                    outputs.extend(fp_dump_internal_variables_for_witness_setting(&x.c0).map(|el| Place::from_variable(el)));
+                    outputs.extend(fp_dump_internal_variables_for_witness_setting(&x.c1).map(|el| Place::from_variable(el)));
+                    outputs.extend(fp_dump_internal_variables_for_witness_setting(&y.c0).map(|el| Place::from_variable(el)));
+                    outputs.extend(fp_dump_internal_variables_for_witness_setting(&y.c1).map(|el| Place::from_variable(el)));
+                }
+            }
+            assert_eq!(outputs.len(), NUM_PAIRINGS_IN_MULTIPAIRING * BN254_NUM_ELL_COEFFS * 4 * FQ_NUM_LIMBS_FOR_WITNESS_SETTING_IN_ALLOCATION);
+
             // populate witness inputs
             let mut inputs = Vec::<Place>::new();
             for (p, q) in pairing_input.iter() {
@@ -919,102 +860,60 @@ impl Oracle {
                         .map(|variable| Place::from_variable(variable)),
                 );
             }
-            let num_of_tuples = pairing_input.len();
 
             let value_fn = move |input: &[F], dst: &mut DstBuffer<'_, '_, F>| {
+                let params = params;
                 let mut parser = WitnessParser::new(input);
-                let mut g1_arr = Vec::<G1Affine>::with_capacity(num_of_tuples);
-                let mut line_functions_unflattened = Vec::with_capacity(num_of_tuples);
-                let mut should_skip_flags = Vec::with_capacity(num_of_tuples);
-
-                let mut found = false;
-                let mut num_of_line_functions_per_tuple: usize = 0;
-
-                for _ in 0..num_of_tuples {
-                    let (g1, g1_is_on_curve) = parser.parse_g1_affine();
-                    let (g2, g2_is_on_curve) = parser.parse_g2_affine();
-
-                    let should_skip =
-                        g1.is_zero() || g2.is_zero() || !g1_is_on_curve || !g2_is_on_curve;
-                    should_skip_flags.push(should_skip);
-
-                    if !should_skip {
-                        let g1_prepared = prepare_g1_point(g1);
-                        g1_arr.push(g1_prepared);
-                        let line_functions = prepare_all_line_functions(g2);
-
-                        if !found {
-                            num_of_line_functions_per_tuple = line_functions.len();
-                            found = true;
-                        } else {
-                            assert_eq!(line_functions.len(), num_of_line_functions_per_tuple);
-                        }
-
-                        line_functions_unflattened.push(line_functions);
-                    }
-                }
-
-                let f = miller_loop_with_prepared_lines(&g1_arr, &line_functions_unflattened);
-                let final_exp = Bn256::final_exponentiation(&f).unwrap();
-                let certificate = bn256::construct_certificate(f);
-
-                if final_exp == Fq12::one() {
-                    assert!(bn256::validate_ceritificate(&f, &certificate));
-                } else {
-                    assert!(!bn256::validate_ceritificate(&f, &certificate));
-                }
-
-                // prepare certificate (if required)
-                if should_compute_certificate {
-                    assert_eq!(final_exp, Fq12::one());
-
-                    let Certificate {
-                        c,
-                        root_27_of_unity_power,
-                    } = certificate;
-                    let c_inv = c.inverse().unwrap();
-
-                    *cert_c_inv = Some(c_inv);
-                    *cert_root_of_unity_power = root_27_of_unity_power;
-
-                    println!("cert power: {}", cert_root_of_unity_power);
-                }
 
                 // default line functions of the pair of generators used in the case we have to mask points at infinity or invalid points
                 let g2_generator = G2Affine::one();
                 let masking_line_functions = prepare_all_line_functions(g2_generator);
 
-                // now insert missing:
-                for (position, flag) in should_skip_flags.into_iter().enumerate() {
-                    if flag {
-                        line_functions_unflattened.insert(position, masking_line_functions.clone());
-                    }
-                }
+                assert_eq!(masking_line_functions.len(), BN254_NUM_ELL_COEFFS);
 
-                let mut row_idx = 0;
-                for bit in SIX_U_PLUS_TWO_WNAF.into_iter().rev().skip(1) {
-                    if bit == 0 {
-                        line_functions
-                            .extend(line_functions_unflattened.iter().map(|arr| arr[row_idx]));
-                        row_idx += 1;
+                for _ in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
+                    let (g1, g1_is_on_curve) = parser.parse_g1_affine();
+                    let (g2, g2_is_on_curve) = parser.parse_g2_affine();
+
+                    let should_skip =
+                        g1.is_zero() || g2.is_zero() || !g1_is_on_curve || !g2_is_on_curve;
+
+                    if should_skip == false {
+                        // normal flow
+                        let line_functions = prepare_all_line_functions(g2);
+                        assert_eq!(line_functions.len(), BN254_NUM_ELL_COEFFS);
+
+                        for (x, y) in line_functions.into_iter() {
+                            fp2_set_internal_variable_values(x, &params, dst);
+                            fp2_set_internal_variable_values(y, &params, dst);
+                        }
                     } else {
-                        line_functions.extend(line_functions_unflattened.iter().flat_map(|arr| {
-                            std::iter::once(arr[row_idx]).chain(std::iter::once(arr[row_idx + 1]))
-                        }));
-                        row_idx += 2;
+                        // use making ones
+                        for (x, y) in masking_line_functions.iter() {
+                            fp2_set_internal_variable_values(*x, &params, dst);
+                            fp2_set_internal_variable_values(*y, &params, dst);
+                        }
                     }
                 }
-                line_functions.extend(line_functions_unflattened.iter().flat_map(|arr| {
-                    std::iter::once(arr[row_idx]).chain(std::iter::once(arr[row_idx + 1]))
-                }));
-                // row_idx += 2;
-                // assert_eq!(row_idx, num_of_line_functions_per_tuple);
-
-                dst.push(F::ZERO);
             };
 
-            cs.set_values_with_dependencies_vararg(&inputs, &[*tag], value_fn);
+            cs.set_values_with_dependencies_vararg(&inputs, &outputs, value_fn);
         }
+
+        Self {
+            line_functions: line_objects,
+            line_function_idx: 0,
+        }
+    }
+
+    fn next_line_object(&mut self) -> LineObject<F> {
+        let major = self.line_function_idx / BN254_NUM_ELL_COEFFS;
+        let minor = self.line_function_idx % BN254_NUM_ELL_COEFFS;
+
+        let (lambda, mu) = self.line_functions[major][minor].clone();
+        self.line_function_idx += 1;
+
+        LineObject { lambda, mu }
     }
 }
 
@@ -1150,204 +1049,206 @@ impl<F: SmallField> LineObject<F> {
 }
 
 unsafe fn multipairing_robust<F: SmallField, CS: ConstraintSystem<F>>(
-    cs: &mut CS,
-    inputs: &mut [PairingInput<F>],
+    _cs: &mut CS,
+    _inputs: &mut [PairingInput<F>],
 ) -> Vec<Boolean<F>> {
-    assert_eq!(inputs.len(), NUM_PAIRINGS_IN_MULTIPAIRING);
-    let params = Arc::new(RnsParams::create());
-    let mut skip_pairings = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING);
+    panic!("Assumes that pairing result is identity and not supported for now");
 
-    static mut oracle: Oracle = Oracle::new_uninitialized();
-    oracle.populate(cs, inputs, true);
+    // assert_eq!(inputs.len(), NUM_PAIRINGS_IN_MULTIPAIRING);
+    // let params = Arc::new(RnsParams::create());
+    // let mut skip_pairings = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING);
 
-    for (p, q) in inputs.iter_mut() {
-        let p_is_infty = p.validate_point_robust(cs, &params);
-        let q_is_infty = q.validate_point_robust(cs, &params);
-        let should_skip = p_is_infty.or(cs, q_is_infty);
+    // static mut oracle: Oracle = Oracle::new_uninitialized();
+    // oracle.populate(cs, inputs, true);
 
-        p.mask(cs, should_skip, &params);
-        q.mask(cs, should_skip, &params);
-        skip_pairings.push(should_skip);
+    // for (p, q) in inputs.iter_mut() {
+    //     let p_is_infty = p.validate_point_robust(cs, &params);
+    //     let q_is_infty = q.validate_point_robust(cs, &params);
+    //     let should_skip = p_is_infty.or(cs, q_is_infty);
 
-        p.convert_for_line_eval_form(cs);
-    }
+    //     p.mask(cs, should_skip, &params);
+    //     q.mask(cs, should_skip, &params);
+    //     skip_pairings.push(should_skip);
 
-    // λ = (6u + 2) + q − q^2 +q^3
-    // let f be the final result of Miller loop, certificate of the pairing to be equal to 1 looks like:
-    // f = c^λ * u, where u is in Fq^3 (actually it is 27-th root of unity)
-    // not that the first term of lambda is the same number as used in Miller Loop,
-    // hence if we start with f_acc = c_inv, than all doubles will be essentially for free!
-    let mut c_inv = oracle.allocate_c_inv(cs, &params);
-    let mut c = c_inv.inverse(cs);
-    c.normalize(cs);
-    let mut root_27_of_unity = oracle.allocate_root_of_unity(cs, &params);
+    //     p.convert_for_line_eval_form(cs);
+    // }
 
-    let mut q_doubled_array: [_; NUM_PAIRINGS_IN_MULTIPAIRING] =
-        std::array::from_fn(|i| inputs[i].1.clone());
-    let mut q_negated_array: [_; NUM_PAIRINGS_IN_MULTIPAIRING] =
-        std::array::from_fn(|i| inputs[i].1.negate(cs));
-    let mut t_array: [_; NUM_PAIRINGS_IN_MULTIPAIRING] =
-        std::array::from_fn(|i| inputs[i].1.clone());
+    // // λ = (6u + 2) + q − q^2 +q^3
+    // // let f be the final result of Miller loop, certificate of the pairing to be equal to 1 looks like:
+    // // f = c^λ * u, where u is in Fq^3 (actually it is 27-th root of unity)
+    // // not that the first term of lambda is the same number as used in Miller Loop,
+    // // hence if we start with f_acc = c_inv, than all doubles will be essentially for free!
+    // let mut c_inv = oracle.allocate_c_inv(cs, &params);
+    // let mut c = c_inv.inverse(cs);
+    // c.normalize(cs);
+    // let mut root_27_of_unity = oracle.allocate_root_of_unity(cs, &params);
 
-    let mut f: Fp12<F> = c_inv.clone();
+    // let mut q_doubled_array: [_; NUM_PAIRINGS_IN_MULTIPAIRING] =
+    //     std::array::from_fn(|i| inputs[i].1.clone());
+    // let mut q_negated_array: [_; NUM_PAIRINGS_IN_MULTIPAIRING] =
+    //     std::array::from_fn(|i| inputs[i].1.negate(cs));
+    // let mut t_array: [_; NUM_PAIRINGS_IN_MULTIPAIRING] =
+    //     std::array::from_fn(|i| inputs[i].1.clone());
 
-    // main cycle of Miller loop:
-    let iter = SIX_U_PLUS_TWO_WNAF
-        .into_iter()
-        .rev()
-        .skip(1)
-        .identify_first_last();
-    for (is_first, _is_last, bit) in iter {
-        f = f.square(cs);
+    // let mut f: Fp12<F> = c_inv.clone();
 
-        for i in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
-            let line_object = oracle.allocate_next_line_object(cs, &params);
-            let mut t = t_array[i].clone();
-            let mut p = inputs[i].0.clone();
+    // // main cycle of Miller loop:
+    // let iter = SIX_U_PLUS_TWO_WNAF
+    //     .into_iter()
+    //     .rev()
+    //     .skip(1)
+    //     .identify_first_last();
+    // for (is_first, _is_last, bit) in iter {
+    //     f = f.square(cs);
 
-            let line_func_eval = line_object.double_and_eval(cs, &mut t, &mut p);
-            if is_first {
-                q_doubled_array[i] = t.clone();
-            }
-            line_func_eval.mul_into_fp12(cs, &mut f);
+    //     for i in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
+    //         let line_object = oracle.allocate_next_line_object(cs, &params);
+    //         let mut t = t_array[i].clone();
+    //         let mut p = inputs[i].0.clone();
 
-            let to_add: &mut TwistedCurvePoint<F> = if bit == -1 {
-                &mut q_negated_array[i]
-            } else {
-                &mut inputs[i].1
-            };
-            if bit == 1 || bit == -1 {
-                let line_object = oracle.allocate_next_line_object(cs, &params);
-                let line_func_eval = line_object.add_and_eval(cs, &mut t, to_add, &mut p);
-                line_func_eval.mul_into_fp12(cs, &mut f);
-            }
+    //         let line_func_eval = line_object.double_and_eval(cs, &mut t, &mut p);
+    //         if is_first {
+    //             q_doubled_array[i] = t.clone();
+    //         }
+    //         line_func_eval.mul_into_fp12(cs, &mut f);
 
-            t_array[i] = t;
-            inputs[i].0 = p;
-        }
+    //         let to_add: &mut TwistedCurvePoint<F> = if bit == -1 {
+    //             &mut q_negated_array[i]
+    //         } else {
+    //             &mut inputs[i].1
+    //         };
+    //         if bit == 1 || bit == -1 {
+    //             let line_object = oracle.allocate_next_line_object(cs, &params);
+    //             let line_func_eval = line_object.add_and_eval(cs, &mut t, to_add, &mut p);
+    //             line_func_eval.mul_into_fp12(cs, &mut f);
+    //         }
 
-        if bit == 1 || bit == -1 {
-            let c_to_mul = if bit == 1 { &mut c_inv } else { &mut c };
-            f = f.mul(cs, c_to_mul);
-        }
+    //         t_array[i] = t;
+    //         inputs[i].0 = p;
+    //     }
 
-        f.normalize(cs);
-    }
+    //     if bit == 1 || bit == -1 {
+    //         let c_to_mul = if bit == 1 { &mut c_inv } else { &mut c };
+    //         f = f.mul(cs, c_to_mul);
+    //     }
 
-    // Miller loop postprocess:
-    // The twist isomorphism is (x', y') -> (xω², yω³). If we consider just
-    // x for a moment, then after applying the Frobenius, we have x̄ω^(2p)
-    // where x̄ is the conjugate of x. If we are going to apply the inverse
-    // isomorphism we need a value with a single coefficient of ω² so we
-    // rewrite this as x̄ω^(2p-2)ω². ξ⁶ = ω and, due to the construction of
-    // p, 2p-2 is a multiple of six. Therefore we can rewrite as
-    // x̄ξ^((p-1)/3)ω² and applying the inverse isomorphism eliminates the ω².
-    // A similar argument can be made for the y value.
-    let mut q1_mul_factor = allocate_fq2_constant(cs, FROBENIUS_COEFF_FQ6_C1[1], &params);
-    let mut q2_mul_factor = allocate_fq2_constant(cs, FROBENIUS_COEFF_FQ6_C1[2], &params);
-    let mut xi = allocate_fq2_constant(cs, XI_TO_Q_MINUS_1_OVER_2, &params);
+    //     f.normalize(cs);
+    // }
 
-    for ((p, q), t, q_doubled) in izip!(
-        inputs.iter_mut(),
-        t_array.iter_mut(),
-        q_doubled_array.iter_mut()
-    ) {
-        let mut q_frob = q.clone();
-        q_frob.x.c1 = q_frob.x.c1.negated(cs);
-        q_frob.x = q_frob.x.mul(cs, &mut q1_mul_factor);
-        q_frob.y.c1 = q_frob.y.c1.negated(cs);
-        q_frob.y = q_frob.y.mul(cs, &mut xi);
+    // // Miller loop postprocess:
+    // // The twist isomorphism is (x', y') -> (xω², yω³). If we consider just
+    // // x for a moment, then after applying the Frobenius, we have x̄ω^(2p)
+    // // where x̄ is the conjugate of x. If we are going to apply the inverse
+    // // isomorphism we need a value with a single coefficient of ω² so we
+    // // rewrite this as x̄ω^(2p-2)ω². ξ⁶ = ω and, due to the construction of
+    // // p, 2p-2 is a multiple of six. Therefore we can rewrite as
+    // // x̄ξ^((p-1)/3)ω² and applying the inverse isomorphism eliminates the ω².
+    // // A similar argument can be made for the y value.
+    // let mut q1_mul_factor = allocate_fq2_constant(cs, FROBENIUS_COEFF_FQ6_C1[1], &params);
+    // let mut q2_mul_factor = allocate_fq2_constant(cs, FROBENIUS_COEFF_FQ6_C1[2], &params);
+    // let mut xi = allocate_fq2_constant(cs, XI_TO_Q_MINUS_1_OVER_2, &params);
 
-        let mut q2 = q.clone();
-        q2.x = q2.x.mul(cs, &mut q2_mul_factor);
+    // for ((p, q), t, q_doubled) in izip!(
+    //     inputs.iter_mut(),
+    //     t_array.iter_mut(),
+    //     q_doubled_array.iter_mut()
+    // ) {
+    //     let mut q_frob = q.clone();
+    //     q_frob.x.c1 = q_frob.x.c1.negated(cs);
+    //     q_frob.x = q_frob.x.mul(cs, &mut q1_mul_factor);
+    //     q_frob.y.c1 = q_frob.y.c1.negated(cs);
+    //     q_frob.y = q_frob.y.mul(cs, &mut xi);
 
-        let mut r_pt = t.clone();
+    //     let mut q2 = q.clone();
+    //     q2.x = q2.x.mul(cs, &mut q2_mul_factor);
 
-        let line_object = oracle.allocate_next_line_object(cs, &params);
-        let line_eval_1 = line_object.add_and_eval(cs, t, &mut q_frob, p);
+    //     let mut r_pt = t.clone();
 
-        let line_object = oracle.allocate_next_line_object(cs, &params);
-        let line_eval_2 = line_object.add_and_eval(cs, t, &mut q2, p);
+    //     let line_object = oracle.allocate_next_line_object(cs, &params);
+    //     let line_eval_1 = line_object.add_and_eval(cs, t, &mut q_frob, p);
 
-        line_eval_1.mul_into_fp12(cs, &mut f);
-        line_eval_2.mul_into_fp12(cs, &mut f);
+    //     let line_object = oracle.allocate_next_line_object(cs, &params);
+    //     let line_eval_2 = line_object.add_and_eval(cs, t, &mut q2, p);
 
-        // subgroup check for BN256 curve is of the form: twisted_frob(Q) = [6*u^2]*Q
-        r_pt = r_pt.sub(cs, q_doubled);
-        // r_pt.x.normalize(cs);
-        // r_pt.y.normalize(cs);
+    //     line_eval_1.mul_into_fp12(cs, &mut f);
+    //     line_eval_2.mul_into_fp12(cs, &mut f);
 
-        let mut r_pt_negated = r_pt.negate(cs);
-        // r_pt_negated.x.normalize(cs);
-        // r_pt_negated.y.normalize(cs);
+    //     // subgroup check for BN256 curve is of the form: twisted_frob(Q) = [6*u^2]*Q
+    //     r_pt = r_pt.sub(cs, q_doubled);
+    //     // r_pt.x.normalize(cs);
+    //     // r_pt.y.normalize(cs);
 
-        let mut acc = r_pt.clone();
-        for bit in U_WNAF.into_iter().skip(1) {
-            if bit == 0 {
-                acc = acc.double(cs);
-            } else {
-                let to_add = if bit == 1 {
-                    &mut r_pt
-                } else {
-                    &mut r_pt_negated
-                };
-                acc = acc.double_and_add(cs, to_add);
-            }
-            acc.x.normalize(cs);
-            acc.y.normalize(cs);
-        }
-        TwistedCurvePoint::enforce_equal(cs, &mut acc, &mut q_frob);
-    }
+    //     let mut r_pt_negated = r_pt.negate(cs);
+    //     // r_pt_negated.x.normalize(cs);
+    //     // r_pt_negated.y.normalize(cs);
 
-    // compute c^{q − q^2 + q^3} * root_27_of_unity; c^{−q^2} is just inversion
-    let mut c_inv_frob_q = c_inv.frobenius_map(cs, 1);
-    let mut c_inv_frob_q3 = c_inv.frobenius_map(cs, 3);
+    //     let mut acc = r_pt.clone();
+    //     for bit in U_WNAF.into_iter().skip(1) {
+    //         if bit == 0 {
+    //             acc = acc.double(cs);
+    //         } else {
+    //             let to_add = if bit == 1 {
+    //                 &mut r_pt
+    //             } else {
+    //                 &mut r_pt_negated
+    //             };
+    //             acc = acc.double_and_add(cs, to_add);
+    //         }
+    //         acc.x.normalize(cs);
+    //         acc.y.normalize(cs);
+    //     }
+    //     TwistedCurvePoint::enforce_equal(cs, &mut acc, &mut q_frob);
+    // }
 
-    f = f.mul(cs, &mut c_inv_frob_q);
-    f = f.mul(cs, &mut c_inv_frob_q3);
+    // // compute c^{q − q^2 + q^3} * root_27_of_unity; c^{−q^2} is just inversion
+    // let mut c_inv_frob_q = c_inv.frobenius_map(cs, 1);
+    // let mut c_inv_frob_q3 = c_inv.frobenius_map(cs, 3);
 
-    // on RHS would be c^{-q^2} = c_inv^{q^2}
-    let mut rhs = c_inv.frobenius_map(cs, 2);
-    root_27_of_unity.mul_into_fp6(cs, &mut f.c0);
-    root_27_of_unity.mul_into_fp6(cs, &mut f.c1);
+    // f = f.mul(cs, &mut c_inv_frob_q);
+    // f = f.mul(cs, &mut c_inv_frob_q3);
 
-    // also lhs is probably multiplied by some power of Miller Loop of (G1 x G2) - we need to do the same for rhs
+    // // on RHS would be c^{-q^2} = c_inv^{q^2}
+    // let mut rhs = c_inv.frobenius_map(cs, 2);
+    // root_27_of_unity.mul_into_fp6(cs, &mut f.c0);
+    // root_27_of_unity.mul_into_fp6(cs, &mut f.c1);
 
-    // compute the total number of tuples skipped and convert this number into multiselect:
-    // the most efficient way to do this is via table invocations, however the costs anyway are comparatevly small to Miller loop anyway,
-    // so we just do multiselect
-    let input: Vec<_> = skip_pairings
-        .iter()
-        .map(|el| (el.get_variable(), F::ONE))
-        .collect();
-    let num_of_skipped_tuples = Num::linear_combination(cs, &input);
+    // // also lhs is probably multiplied by some power of Miller Loop of (G1 x G2) - we need to do the same for rhs
 
-    let mut equality_flags = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING);
-    for idx in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
-        let cur_fr = Num::allocated_constant(cs, F::from_raw_u64_unchecked(idx as u64 + 1));
-        let flag = Num::equals(cs, &num_of_skipped_tuples, &cur_fr);
-        equality_flags.push(flag);
-    }
+    // // compute the total number of tuples skipped and convert this number into multiselect:
+    // // the most efficient way to do this is via table invocations, however the costs anyway are comparatevly small to Miller loop anyway,
+    // // so we just do multiselect
+    // let input: Vec<_> = skip_pairings
+    //     .iter()
+    //     .map(|el| (el.get_variable(), F::ONE))
+    //     .collect();
+    // let num_of_skipped_tuples = Num::linear_combination(cs, &input);
 
-    // here we compute witness
-    let g1 = prepare_g1_point(G1Affine::one());
-    let g2 = G2Affine::one();
-    let line_functions = prepare_all_line_functions(g2);
-    let g1_mul_g2 = miller_loop_with_prepared_lines(&[g1], &[line_functions]);
+    // let mut equality_flags = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING);
+    // for idx in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
+    //     let cur_fr = Num::allocated_constant(cs, F::from_raw_u64_unchecked(idx as u64 + 1));
+    //     let flag = Num::equals(cs, &num_of_skipped_tuples, &cur_fr);
+    //     equality_flags.push(flag);
+    // }
 
-    let mut cur_acc_witness = Fq12::one();
-    let mut multiplier = allocate_fq12_constant(cs, cur_acc_witness, &params);
-    for bit in equality_flags.iter() {
-        cur_acc_witness.mul_assign(&g1_mul_g2);
-        let choice = allocate_fq12_constant(cs, cur_acc_witness, &params);
-        multiplier =
-            <Fp12<F> as NonNativeField<F, _>>::conditionally_select(cs, *bit, &choice, &multiplier);
-    }
-    rhs = rhs.mul(cs, &mut multiplier);
+    // // here we compute witness
+    // let g1 = prepare_g1_point(G1Affine::one());
+    // let g2 = G2Affine::one();
+    // let line_functions = prepare_all_line_functions(g2);
+    // let g1_mul_g2 = miller_loop_with_prepared_lines(&[g1], &[line_functions]);
 
-    Fp12::enforce_equal(cs, &mut f, &mut rhs);
+    // let mut cur_acc_witness = Fq12::one();
+    // let mut multiplier = allocate_fq12_constant(cs, cur_acc_witness, &params);
+    // for bit in equality_flags.iter() {
+    //     cur_acc_witness.mul_assign(&g1_mul_g2);
+    //     let choice = allocate_fq12_constant(cs, cur_acc_witness, &params);
+    //     multiplier =
+    //         <Fp12<F> as NonNativeField<F, _>>::conditionally_select(cs, *bit, &choice, &multiplier);
+    // }
+    // rhs = rhs.mul(cs, &mut multiplier);
 
-    equality_flags
+    // Fp12::enforce_equal(cs, &mut f, &mut rhs);
+
+    // equality_flags
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -1701,8 +1602,10 @@ pub(crate) unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
     let mut skip_pairings = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING);
     let mut validity_checks = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING * 3);
     let mut if_infinity = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING * 2);
-    static mut oracle: Oracle = Oracle::new_uninitialized();
-    oracle.populate(cs, inputs, false);
+
+    let mut inputs = inputs.to_vec().try_into().unwrap();
+
+    let mut oracle = Oracle::<F>::allocate(cs, params.clone(), &inputs, false);
 
     for (p, q) in inputs.iter_mut() {
         let p_check_flags = p.validate_point_naive(cs, &params);
@@ -1751,7 +1654,7 @@ pub(crate) unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
         }
 
         for i in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
-            let line_object = oracle.allocate_next_line_object(cs, &params);
+            let line_object = oracle.next_line_object();
             let mut t = t_array[i].clone();
             let mut p = inputs[i].0.clone();
 
@@ -1768,7 +1671,7 @@ pub(crate) unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
             };
 
             if bit == 1 || bit == -1 {
-                let line_object = oracle.allocate_next_line_object(cs, &params);
+                let line_object = oracle.next_line_object();
                 let line_func_eval = line_object.add_and_eval(cs, &mut t, to_add, &mut p);
                 line_func_eval.mul_into_fp12(cs, &mut f);
             }
@@ -1809,10 +1712,10 @@ pub(crate) unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
 
         let mut r_pt = t.clone();
 
-        let line_object = oracle.allocate_next_line_object(cs, &params);
+        let line_object = oracle.next_line_object();
         let line_eval_1 = line_object.add_and_eval(cs, t, &mut q_frob, p);
 
-        let line_object = oracle.allocate_next_line_object(cs, &params);
+        let line_object = oracle.next_line_object();
         let line_eval_2 = line_object.add_and_eval(cs, t, &mut q2, p);
 
         line_eval_1.mul_into_fp12(cs, &mut f);
@@ -1842,6 +1745,8 @@ pub(crate) unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
         validity_checks.push(g2_subgroup_check);
     }
 
+    assert_eq!(oracle.line_function_idx, NUM_PAIRINGS_IN_MULTIPAIRING * BN254_NUM_ELL_COEFFS);
+
     let input: Vec<_> = skip_pairings
         .iter()
         .map(|el| (el.get_variable(), F::ONE))
@@ -1855,25 +1760,6 @@ pub(crate) unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
         equality_flags.push(flag);
     }
 
-    // here we compute witness
-
-    // This part is needed for the multiple pairing
-    // let g1 = prepare_g1_point(G1Affine::one());
-    // let g2 = G2Affine::one();
-    // let line_functions = prepare_all_line_functions(g2);
-    // let g1_mul_g2 = miller_loop_with_prepared_lines(&[g1], &[line_functions])
-    //     .inverse()
-    //     .unwrap();
-
-    // let mut cur_acc_witness = Fq12::one();
-    // let mut multiplier = allocate_fq12_constant(cs, cur_acc_witness, &params);
-    // for bit in equality_flags.into_iter() {
-    //     cur_acc_witness.mul_assign(&g1_mul_g2);
-    //     let choice = allocate_fq12_constant(cs, cur_acc_witness, &params);
-    //     multiplier =
-    //         <Fp12<F> as NonNativeField<F, _>>::conditionally_select(cs, bit, &choice, &multiplier);
-    // }
-    // f = f.mul(cs, &mut multiplier);
     let miller_loop_res = f.clone();
 
     let (wrapped_f, is_trivial) = Bn256HardPartMethod::final_exp_easy_part(cs, &f, &params, true);
@@ -1884,9 +1770,11 @@ pub(crate) unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
 
     let no_exeption = is_trivial.negated(cs);
     validity_checks.push(no_exeption);
-    for (i, entry) in validity_checks.iter().enumerate() {
-        println!("+++ Validity: {:?} {:?}", i, entry.witness_hook(cs)());
-    }
+
+    // for (i, entry) in validity_checks.iter().enumerate() {
+    //     println!("+++ Validity: {:?} {:?}", i, entry.witness_hook(cs)());
+    // }
+
     let success = Boolean::multi_and(cs, &validity_checks);
 
     let infinity_flag = Boolean::multi_or(cs, &if_infinity);
