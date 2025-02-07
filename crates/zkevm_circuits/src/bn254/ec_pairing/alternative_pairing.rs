@@ -1881,7 +1881,12 @@ pub(crate) unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
     let success = Boolean::multi_and(cs, &validity_checks);
 
     let infinity_flag = Boolean::multi_or(cs, &if_infinity);
-    let result = <BN256Fq12NNField<F> as NonNativeField<F, _>>::conditionally_select(cs, infinity_flag, &fp12_one, &final_res);
+    let result = <BN256Fq12NNField<F> as NonNativeField<F, _>>::conditionally_select(
+        cs,
+        infinity_flag,
+        &fp12_one,
+        &final_res,
+    );
     (result, miller_loop_res, success)
 }
 
