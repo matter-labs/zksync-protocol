@@ -381,6 +381,7 @@ pub fn ecpairing_function<M: Memory, const B: bool>(
 pub mod tests {
     /// Tests the correctness of the `ecpairing_inner` by providing two valid points on the curve
     /// that do not produce one as an output.
+    /// Here, point G2 is in the wrong subgroup.
     #[test]
     fn test_ecpairing_inner_correctness_false() {
         use super::*;
@@ -418,8 +419,10 @@ pub mod tests {
         )
         .unwrap();
 
-        let result = ecpairing_inner(vec![[x1, y1, x2, y2, x3, y3]]).unwrap();
-        assert_eq!(result, false);
+        let result = ecpairing_inner(vec![[x1, y1, x2, y2, x3, y3]]);
+        assert!(result.is_err(), "Expected precompile to fail");
+
+        assert_eq!(&result.err().unwrap().to_string(), "G2 not on the subgroup");
     }
 
     /// Tests the correctness of the `ecpairing_inner` by providing four valid points on the curve
