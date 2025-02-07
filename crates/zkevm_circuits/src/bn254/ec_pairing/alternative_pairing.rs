@@ -1850,22 +1850,24 @@ pub(crate) unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
     }
 
     // here we compute witness
-    let g1 = prepare_g1_point(G1Affine::one());
-    let g2 = G2Affine::one();
-    let line_functions = prepare_all_line_functions(g2);
-    let g1_mul_g2 = miller_loop_with_prepared_lines(&[g1], &[line_functions])
-        .inverse()
-        .unwrap();
 
-    let mut cur_acc_witness = Fq12::one();
-    let mut multiplier = allocate_fq12_constant(cs, cur_acc_witness, &params);
-    for bit in equality_flags.into_iter() {
-        cur_acc_witness.mul_assign(&g1_mul_g2);
-        let choice = allocate_fq12_constant(cs, cur_acc_witness, &params);
-        multiplier =
-            <Fp12<F> as NonNativeField<F, _>>::conditionally_select(cs, bit, &choice, &multiplier);
-    }
-    f = f.mul(cs, &mut multiplier);
+    // This part is needed for the multiple pairing
+    // let g1 = prepare_g1_point(G1Affine::one());
+    // let g2 = G2Affine::one();
+    // let line_functions = prepare_all_line_functions(g2);
+    // let g1_mul_g2 = miller_loop_with_prepared_lines(&[g1], &[line_functions])
+    //     .inverse()
+    //     .unwrap();
+
+    // let mut cur_acc_witness = Fq12::one();
+    // let mut multiplier = allocate_fq12_constant(cs, cur_acc_witness, &params);
+    // for bit in equality_flags.into_iter() {
+    //     cur_acc_witness.mul_assign(&g1_mul_g2);
+    //     let choice = allocate_fq12_constant(cs, cur_acc_witness, &params);
+    //     multiplier =
+    //         <Fp12<F> as NonNativeField<F, _>>::conditionally_select(cs, bit, &choice, &multiplier);
+    // }
+    // f = f.mul(cs, &mut multiplier);
     let miller_loop_res = f.clone();
 
     let (wrapped_f, is_trivial) = Bn256HardPartMethod::final_exp_easy_part(cs, &f, &params, true);
@@ -1873,7 +1875,7 @@ pub(crate) unsafe fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
     let candidate = chain.final_exp_hard_part(cs, &wrapped_f, true, &params);
     let mut final_res = candidate.decompress(cs);
     let mut fp12_one = Fp12::<F>::one(cs, &params);
-    let pairing_is_one = final_res.equals(cs, &mut fp12_one);
+
     let no_exeption = is_trivial.negated(cs);
     validity_checks.push(no_exeption);
     let success = Boolean::multi_and(cs, &validity_checks);
