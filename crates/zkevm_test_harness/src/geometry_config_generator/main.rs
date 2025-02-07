@@ -1,6 +1,3 @@
-use std::fs::File;
-use std::io::Write;
-
 use codegen::Scope;
 use rayon::prelude::*;
 

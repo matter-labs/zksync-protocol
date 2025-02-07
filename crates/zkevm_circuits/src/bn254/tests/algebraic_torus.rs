@@ -1,5 +1,4 @@
 pub mod test {
-    use crate::bn254::ec_pairing::final_exp::U_WNAF;
     use crate::bn254::tests::json::TORUS_TEST_CASES;
     use crate::bn254::tests::utils::assert::assert_equal_fq6;
     use crate::bn254::tests::utils::cs::create_test_cs;

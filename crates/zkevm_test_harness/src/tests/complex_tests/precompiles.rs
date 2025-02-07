@@ -165,7 +165,7 @@ fn test_ecpairing_using_tuples(tuples: Vec<[[u8; 32]; 6]>) -> (U256, U256) {
 
     let mut ecpairing_memory_states = vec![];
     let mut states_accumulator2 = LastPerCircuitAccumulator::new(1);
-    let (ecpairing_simulator_snapshots, simulator) = simulate_subqueue(
+    let (ecpairing_simulator_snapshots, _simulator) = simulate_subqueue(
         &ecpairing_memory_queries,
         &mut ecpairing_memory_states,
         &mut states_accumulator2,

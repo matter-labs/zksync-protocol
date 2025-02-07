@@ -7,7 +7,6 @@ pub mod test {
     use crate::bn254::tests::utils::cs::create_test_cs;
     use crate::bn254::tests::utils::debug_success;
     use boojum::field::goldilocks::GoldilocksField;
-    use boojum::worker::Worker;
 
     type F = GoldilocksField;
     type P = GoldilocksField;
