@@ -93,12 +93,10 @@ pub fn prove_base_layer_circuit<POW: PoWRunner>(
         P,
         ProvingCSConfig,
         crate::boojum::dag::StCircuitResolver<
-        GoldilocksField,
-        <ProvingCSConfig as CSConfig>::ResolverConfig,>
-    >::new(
-        geometry,
-        max_trace_len.unwrap(),
-    );
+            GoldilocksField,
+            <ProvingCSConfig as CSConfig>::ResolverConfig,
+        >,
+    >::new(geometry, max_trace_len.unwrap());
     let builder = new_builder::<_, GoldilocksField>(builder_impl);
 
     let cs = match circuit {
