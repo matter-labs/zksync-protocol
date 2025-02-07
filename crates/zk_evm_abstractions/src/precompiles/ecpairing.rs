@@ -1,7 +1,7 @@
 use anyhow::{Error, Result};
-use zkevm_opcode_defs::bn254::bn256::{Fq, Fq12, Fq2, G1Affine, G2Affine};
+use zkevm_opcode_defs::bn254::bn256::{Fq, Fq12, Fq2, G1Affine, G2Affine, G2};
 use zkevm_opcode_defs::bn254::ff::{Field, PrimeField};
-use zkevm_opcode_defs::bn254::CurveAffine;
+use zkevm_opcode_defs::bn254::{CurveAffine, CurveProjective};
 use zkevm_opcode_defs::ethereum_types::U256;
 pub use zkevm_opcode_defs::sha2::Digest;
 
@@ -296,6 +296,32 @@ pub fn ecpairing_inner(inputs: Vec<EcPairingInputTuple>) -> Result<bool> {
     Ok(total_pairing.eq(&Fq12::one()))
 }
 
+/// Checks if a given G2 point actually belong to the proper subgroup.
+/// According to EIP-197 - there should be only one subgroup of this size.
+fn check_if_in_subgroup(point: G2) -> bool {
+    let mut group_size = U256::from_str_radix(
+        &"21888242871839275222246405745257275088548364400416034343698204186575808495617",
+        10,
+    )
+    .unwrap();
+
+    // Here we compute the point * group_size and check if == 0.
+
+    let mut result = G2::zero();
+    let mut point = point;
+
+    while group_size != U256::zero() {
+        if group_size % 2 == U256::one() {
+            result.add_assign(&point);
+        }
+        group_size = group_size / 2;
+        let tmp = point.clone();
+        point.add_assign(&tmp);
+    }
+
+    result.eq(&G2::zero())
+}
+
 pub fn pair(input: &EcPairingInputTuple) -> Result<Fq12> {
     // Setting variables for the coordinates of the points
     let (x1, y1, x2, y2, x3, y3) = (input[0], input[1], input[2], input[3], input[4], input[5]);
@@ -325,6 +351,10 @@ pub fn pair(input: &EcPairingInputTuple) -> Result<Fq12> {
         c1: x3_field,
     };
     let point_2 = G2Affine::from_xy_checked(point_2_x, point_2_y)?;
+
+    if !check_if_in_subgroup(point_2.into_projective()) {
+        anyhow::bail!("G2 not on the subgroup");
+    }
 
     // Calculating the pairing operation and returning
     let pairing = point_1.pairing_with(&point_2);
