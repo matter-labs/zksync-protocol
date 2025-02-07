@@ -159,7 +159,6 @@ fn precompile_inner<F: SmallField, CS: ConstraintSystem<F>>(
 
     use crate::bn254::ec_pairing::alternative_pairing::multipairing_naive;
     let (result, _, no_exeption) = unsafe { multipairing_naive(cs, &mut pairing_inputs) };
-    let result = result.decompress(cs);
     let mut are_valid_inputs = ArrayVec::<_, EXCEPTION_FLAGS_ARR_LEN>::new();
     are_valid_inputs.extend(coordinates_are_in_field);
     are_valid_inputs.push(no_exeption);
@@ -286,7 +285,7 @@ pub fn ecpairing_precompile_inner<
             q_points.push(q);
         }
 
-        let (success, _) = precompile_inner(cs, &p_points, &q_points);
+        let (success, mut result) = precompile_inner(cs, &p_points, &q_points);
 
         let success_as_u32 = unsafe { UInt32::from_variable_unchecked(success.get_variable()) };
         let mut success = zero_u256;
@@ -301,10 +300,26 @@ pub fn ecpairing_precompile_inner<
             value: success,
         };
 
+        call_params.output_offset = call_params.output_offset.add_no_overflow(cs, one_u32);
+
         let _ = memory_queue.push(cs, success_query, should_process);
-        // call_params.output_offset = call_params
-        //     .output_offset
-        //     .add_no_overflow(cs, one_u32);
+
+        let one_fq12 = BN256Fq12NNField::one(cs, &Arc::new(bn254_base_field_params()));
+        let paired = result.sub(cs, &mut one_fq12.clone()).is_zero(cs);
+        let paired_as_u32 = unsafe { UInt32::from_variable_unchecked(paired.get_variable()) };
+        let mut paired = zero_u256;
+        paired.inner[0] = paired_as_u32;
+
+        let value_query = MemoryQuery {
+            timestamp: timestamp_to_use_for_write,
+            memory_page: call_params.output_page,
+            index: call_params.output_offset,
+            rw_flag: boolean_true,
+            value: paired,
+            is_ptr: boolean_false,
+        };
+
+        let _ = memory_queue.push(cs, value_query, should_process);
     }
     precompile_calls_queue.enforce_consistency(cs);
 }
