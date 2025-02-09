@@ -15,9 +15,8 @@ use crate::zkevm_circuits::storage_validity_by_grand_product::input::StorageDedu
 use circuit_definitions::encodings::decommittment_request::DecommittmentQueueState;
 use circuit_definitions::encodings::*;
 use circuit_definitions::zk_evm::zkevm_opcode_defs::{
-    ECADD_PRECOMPILE_FORMAL_ADDRESS, ECMULTIPAIRING_NAIVE_PRECOMPILE_FORMAL_ADDRESS,
-    ECMUL_PRECOMPILE_FORMAL_ADDRESS, ECPAIRING_PRECOMPILE_FORMAL_ADDRESS,
-    MODEXP_PRECOMPILE_FORMAL_ADDRESS,
+    ECADD_PRECOMPILE_FORMAL_ADDRESS, ECMUL_PRECOMPILE_FORMAL_ADDRESS,
+    ECPAIRING_PRECOMPILE_FORMAL_ADDRESS, MODEXP_PRECOMPILE_FORMAL_ADDRESS,
 };
 use circuit_definitions::zkevm_circuits::bn254::ec_add::input::EcAddCircuitInstanceWitness;
 use circuit_definitions::zkevm_circuits::bn254::ec_mul::input::EcMulCircuitInstanceWitness;
@@ -69,7 +68,6 @@ pub struct DemuxedPrecompilesLogQueries {
     pub ecadd: Vec<LogQuery>,
     pub ecmul: Vec<LogQuery>,
     pub ecpairing: Vec<LogQuery>,
-    pub ecmultipairing_naive: Vec<LogQuery>,
 }
 
 impl DemuxedLogQueries {
@@ -123,9 +121,6 @@ impl DemuxedLogQueries {
                     }
                     a if a == *ECPAIRING_PRECOMPILE_FORMAL_ADDRESS => {
                         precompiles.ecpairing.push(query);
-                    }
-                    a if a == *ECMULTIPAIRING_NAIVE_PRECOMPILE_FORMAL_ADDRESS => {
-                        precompiles.ecmultipairing_naive.push(query);
                     }
                     _ => {
                         // just burn ergs
@@ -220,22 +215,17 @@ pub(crate) struct MemoryCircuitsArtifacts<F: SmallField> {
         FirstAndLastCircuitWitness<ECPairingObservableWitness<F>>,
         Vec<ClosedFormInputCompactFormWitness<F>>,
     ),
-    pub ecmultipairing_naive_circuits_data: (
-        FirstAndLastCircuitWitness<ECMultiPairingNaiveObservableWitness<F>>,
-        Vec<ClosedFormInputCompactFormWitness<F>>,
-    ),
 }
 
 use crate::witness::aux_data_structs::one_per_circuit_accumulator::LastPerCircuitAccumulator;
 
 use super::postprocessing::observable_witness::{
     CodeDecommitterObservableWitness, ECAddObservableWitness, ECMulObservableWitness,
-    ECMultiPairingNaiveObservableWitness, ECPairingObservableWitness, EcrecoverObservableWitness,
-    EventsDeduplicatorObservableWitness, Keccak256RoundFunctionObservableWitness,
-    LinearHasherObservableWitness, ModexpObservableWitness, RamPermutationObservableWitness,
-    Secp256r1VerifyObservableWitness, Sha256RoundFunctionObservableWitness,
-    StorageApplicationObservableWitness, StorageDeduplicatorObservableWitness,
-    TransientStorageDeduplicatorObservableWitness,
+    ECPairingObservableWitness, EcrecoverObservableWitness, EventsDeduplicatorObservableWitness,
+    Keccak256RoundFunctionObservableWitness, LinearHasherObservableWitness,
+    ModexpObservableWitness, RamPermutationObservableWitness, Secp256r1VerifyObservableWitness,
+    Sha256RoundFunctionObservableWitness, StorageApplicationObservableWitness,
+    StorageDeduplicatorObservableWitness, TransientStorageDeduplicatorObservableWitness,
 };
 use super::postprocessing::FirstAndLastCircuitWitness;
 

@@ -17,7 +17,6 @@ use crate::zk_evm::zkevm_opcode_defs::system_params::STORAGE_AUX_BYTE;
 use crate::zk_evm::zkevm_opcode_defs::system_params::VM_INITIAL_FRAME_ERGS;
 use crate::zk_evm::zkevm_opcode_defs::system_params::VM_MAX_STACK_DEPTH;
 use circuit_definitions::zk_evm::zkevm_opcode_defs::system_params::TRANSIENT_STORAGE_AUX_BYTE;
-use circuit_encodings::zk_evm::zk_evm_abstractions::precompiles::ecmultipairing_naive::EcMultiPairingNaiveRoundWitness;
 use tracing;
 
 // cycle indicators below are not timestamps!
@@ -88,7 +87,6 @@ pub struct WitnessTracer {
     pub ecadd_witnesses: Vec<(u32, LogQuery, ECAddRoundWitness)>,
     pub ecmul_witnesses: Vec<(u32, LogQuery, ECMulRoundWitness)>,
     pub ecpairing_witnesses: Vec<(u32, LogQuery, Vec<ECPairingRoundWitness>)>,
-    pub ecmultipairing_naive_witnesses: Vec<(u32, LogQuery, EcMultiPairingNaiveRoundWitness)>,
     pub monotonic_query_counter: usize,
     // pub log_frames_stack: Vec<ApplicationData<((usize, usize), (QueryMarker, u32, LogQuery))>>, // keep the unique frame index
     pub callstack_with_aux_data: CallstackWithAuxData,
@@ -162,7 +160,6 @@ impl WitnessTracer {
             // log_frames_stack: vec![ApplicationData::empty()],
             callstack_with_aux_data: CallstackWithAuxData::empty(),
             vm_snapshots: vec![],
-            ecmultipairing_naive_witnesses: vec![],
         }
     }
 }
@@ -415,13 +412,6 @@ impl VmWitnessTracer<8, EncodingModeProduction> for WitnessTracer {
             PrecompileCyclesWitness::ECPairing(wit) => {
                 self.ecpairing_witnesses
                     .push((monotonic_cycle_counter, call_params, wit));
-            }
-            PrecompileCyclesWitness::ECMultiPairingNaive(mut wit) => {
-                self.ecmultipairing_naive_witnesses.push((
-                    monotonic_cycle_counter,
-                    call_params,
-                    wit.drain(..).next().unwrap(),
-                ));
             }
         }
     }

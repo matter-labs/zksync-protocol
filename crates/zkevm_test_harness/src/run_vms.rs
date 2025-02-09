@@ -440,11 +440,6 @@ pub fn run_vms<S: Storage>(
                 .last
                 .as_ref()
                 .map(|wit| wit.observable_output.clone()),
-            basic_circuits
-                .ecmultipairing_naive_precompile_circuits
-                .last
-                .as_ref()
-                .map(|wit| wit.observable_output.clone()),
         ];
 
         for (dst, src) in outputs.iter_mut().zip(testsing_locations.into_iter()) {

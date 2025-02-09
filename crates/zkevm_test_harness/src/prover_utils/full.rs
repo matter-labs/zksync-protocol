@@ -260,14 +260,6 @@ pub fn prove_base_layer_circuit<POW: PoWRunner>(
             cs.pad_and_shrink_using_hint(finalization_hint);
             cs.into_assembly::<std::alloc::Global>()
         }
-        ZkSyncBaseLayerCircuit::ECMultiPairingNaive(inner) => {
-            let builder = inner.configure_builder_proxy(builder);
-            let mut cs = builder.build(num_vars.unwrap());
-            inner.add_tables_proxy(&mut cs);
-            inner.synthesize_proxy(&mut cs);
-            cs.pad_and_shrink_using_hint(finalization_hint);
-            cs.into_assembly::<std::alloc::Global>()
-        }
     };
 
     cs.prove_from_precomputations::<EXT, TR, H, POW>(
@@ -401,8 +393,7 @@ pub fn prove_recursion_layer_circuit<POW: PoWRunner>(
         | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForModexp(inner)
         | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForECAdd(inner)
         | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForECMul(inner)
-        | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForECPairing(inner)
-        | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForECMultiPairingNaive(inner) => {
+        | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForECPairing(inner) => {
             let builder = inner.configure_builder_proxy(builder);
             let mut cs = builder.build(num_vars.unwrap());
             inner.add_tables(&mut cs);
