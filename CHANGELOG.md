@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.151.3](https://github.com/matter-labs/zksync-protocol/compare/v0.151.2...v0.151.3) - 2025-02-10
+
+### Other
+
+- update Cargo.toml dependencies
+
 ## [0.151.2](https://github.com/matter-labs/zksync-protocol/compare/v0.151.1...v0.151.2) - 2025-02-10
 
 ### Fixed
