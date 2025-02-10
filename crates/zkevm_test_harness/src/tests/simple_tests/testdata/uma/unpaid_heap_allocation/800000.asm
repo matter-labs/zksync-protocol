@@ -4,7 +4,7 @@
         .p2align	5
     HUGE_NUMBER:
         .cell 100000000
-    EXPLOIT_CONSTANT:
+    HUGE_NUMBER_2:
         .cell 499999968
     U32_MAX:
         .cell 4294967295
@@ -14,13 +14,13 @@
 __entry:
         context.ergs_left r8
         add 30, r0, r1
-        call r1, @EXPLOIT, @EXIT_EXPLOIT
-EXPLOIT:
+        call r1, @step1, @step2
+step1:
         add 1, r0, r5
         shl.s 64, r5, r5
-        add @EXPLOIT_CONSTANT[0], r5, r5
+        add @HUGE_NUMBER_2[0], r5, r5
         ld.1 r5, r0
-EXIT_EXPLOIT:
+step2:
         ; check ergs cost
         context.ergs_left r1
         sub r8, r1, r1
