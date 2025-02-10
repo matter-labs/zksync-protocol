@@ -596,24 +596,23 @@ where
     let exception_over_native_bytecode_format =
         Boolean::multi_and(cs, &[can_not_call_native_without_masking, target_is_kernel]);
 
-    // same logic for EVM simulator
-    let can_call_evm_simulator_without_masking =
+    // same logic for EVM emulator
+    let can_call_evm_emulator_without_masking =
         Boolean::multi_and(cs, &[markers_match, versioned_byte_is_evm_bytecode]);
 
-    let can_not_call_evm_simulator_without_masking =
+    let can_not_call_evm_emulator_without_masking =
         Boolean::multi_and(cs, &[markers_mismatch, versioned_byte_is_evm_bytecode]);
-    let should_mask_evm_simulator = Boolean::multi_and(
+    let should_mask_evm_emulator = Boolean::multi_and(
         cs,
         &[
-            can_not_call_evm_simulator_without_masking,
+            can_not_call_evm_emulator_without_masking,
             target_is_userspace,
         ],
     );
-    let mask_to_default_aa =
-        Boolean::multi_or(cs, &[mask_to_default_aa, should_mask_evm_simulator]);
-    let exception_over_evm_simulator_bytecode_format = Boolean::multi_and(
+    let mask_to_default_aa = Boolean::multi_or(cs, &[mask_to_default_aa, should_mask_evm_emulator]);
+    let exception_over_evm_emulator_bytecode_format = Boolean::multi_and(
         cs,
-        &[can_not_call_evm_simulator_without_masking, target_is_kernel],
+        &[can_not_call_evm_emulator_without_masking, target_is_kernel],
     );
 
     // and over empty bytecode
@@ -626,7 +625,7 @@ where
     if crate::config::CIRCUIT_VERSOBE {
         if execute.witness_hook(&*cs)().unwrap() {
             dbg!(exception_over_native_bytecode_format.witness_hook(&*cs)().unwrap());
-            dbg!(exception_over_evm_simulator_bytecode_format.witness_hook(&*cs)().unwrap());
+            dbg!(exception_over_evm_emulator_bytecode_format.witness_hook(&*cs)().unwrap());
             dbg!(exception_over_empty_bytecode.witness_hook(&*cs)().unwrap());
         }
     }
@@ -634,7 +633,7 @@ where
         cs,
         &[
             exception_over_native_bytecode_format,
-            exception_over_evm_simulator_bytecode_format,
+            exception_over_evm_emulator_bytecode_format,
             exception_over_empty_bytecode,
         ],
     );
@@ -650,8 +649,8 @@ where
     );
     let masked_bytecode_hash = UInt256::conditionally_select(
         cs,
-        can_call_evm_simulator_without_masking,
-        &global_context.evm_simulator_code_hash,
+        can_call_evm_emulator_without_masking,
+        &global_context.evm_emulator_code_hash,
         &masked_bytecode_hash,
     );
     let masked_bytecode_hash =
@@ -735,7 +734,7 @@ where
         if execute.witness_hook(&*cs)().unwrap() {
             dbg!(exceptions_collapsed.witness_hook(&*cs)().unwrap());
             dbg!(can_call_native_without_masking.witness_hook(&*cs)().unwrap());
-            dbg!(can_call_evm_simulator_without_masking.witness_hook(&*cs)().unwrap());
+            dbg!(can_call_evm_emulator_without_masking.witness_hook(&*cs)().unwrap());
             dbg!(fat_ptr_expected_exception.witness_hook(&*cs)().unwrap());
             dbg!(bytecode_hash_from_storage.witness_hook(&*cs)().unwrap());
             dbg!(mask_to_default_aa.witness_hook(&*cs)().unwrap());
@@ -804,7 +803,6 @@ where
     heap_growth = heap_growth.mask_negated(cs, uf); // if we access in bounds then it's 0
     let new_heap_upper_bound =
         UInt32::conditionally_select(cs, uf, &heap_bound, &heap_max_accessed);
-    let grow_heap = Boolean::multi_and(cs, &[forwarding_data.use_heap, execute]);
 
     let aux_heap_max_accessed = upper_bound.mask(cs, forwarding_data.use_aux_heap);
     let aux_heap_bound = current_callstack_entry.aux_heap_upper_bound;
@@ -812,21 +810,15 @@ where
     aux_heap_growth = aux_heap_growth.mask_negated(cs, uf); // if we access in bounds then it's 0
     let new_aux_heap_upper_bound =
         UInt32::conditionally_select(cs, uf, &aux_heap_bound, &aux_heap_max_accessed);
-    let grow_aux_heap = Boolean::multi_and(cs, &[forwarding_data.use_aux_heap, execute]);
 
-    let mut growth_cost = heap_growth.mask(cs, grow_heap);
-    growth_cost = UInt32::conditionally_select(cs, grow_aux_heap, &aux_heap_growth, &growth_cost);
-
-    if crate::config::CIRCUIT_VERSOBE {
-        if execute.witness_hook(&*cs)().unwrap() {
-            dbg!(opcode_carry_parts.preliminary_ergs_left.witness_hook(&*cs)().unwrap());
-            dbg!(grow_heap.witness_hook(&*cs)().unwrap());
-            dbg!(heap_growth.witness_hook(&*cs)().unwrap());
-            dbg!(grow_aux_heap.witness_hook(&*cs)().unwrap());
-            dbg!(aux_heap_growth.witness_hook(&*cs)().unwrap());
-            dbg!(growth_cost.witness_hook(&*cs)().unwrap());
-        }
-    }
+    let mut growth_cost = heap_growth.mask(cs, forwarding_data.use_heap);
+    growth_cost = UInt32::conditionally_select(
+        cs,
+        forwarding_data.use_aux_heap,
+        &aux_heap_growth,
+        &growth_cost,
+    );
+    growth_cost = growth_cost.mask(cs, execute);
 
     let (ergs_left_after_growth, uf) = opcode_carry_parts
         .preliminary_ergs_left
@@ -838,9 +830,23 @@ where
     let ergs_left_after_growth = ergs_left_after_growth.mask_negated(cs, uf); // if not enough - set to 0
     exceptions.push(uf);
 
+    let panic = Boolean::multi_or(
+        cs,
+        &[common_abi_parts.ptr_validation_data.generally_invalid, uf],
+    );
+    let no_panic = panic.negated(cs);
+    let grow_heap = Boolean::multi_and(cs, &[forwarding_data.use_heap, execute, no_panic]);
+    let grow_aux_heap = Boolean::multi_and(cs, &[forwarding_data.use_aux_heap, execute, no_panic]);
+
     if crate::config::CIRCUIT_VERSOBE {
         if execute.witness_hook(&*cs)().unwrap() {
             dbg!(ergs_left_after_growth.witness_hook(&*cs)().unwrap());
+            dbg!(opcode_carry_parts.preliminary_ergs_left.witness_hook(&*cs)().unwrap());
+            dbg!(grow_heap.witness_hook(&*cs)().unwrap());
+            dbg!(heap_growth.witness_hook(&*cs)().unwrap());
+            dbg!(grow_aux_heap.witness_hook(&*cs)().unwrap());
+            dbg!(aux_heap_growth.witness_hook(&*cs)().unwrap());
+            dbg!(growth_cost.witness_hook(&*cs)().unwrap());
         }
     }
 
@@ -884,15 +890,6 @@ where
     let extra_ergs_from_caller_to_callee =
         unsafe { UInt32::from_variable_unchecked(extra_ergs_from_caller_to_callee) };
     let callee_stipend = unsafe { UInt32::from_variable_unchecked(callee_stipend) };
-
-    let evm_simulator_stipend =
-        UInt32::allocated_constant(cs, zkevm_opcode_defs::system_params::EVM_SIMULATOR_STIPEND);
-    let callee_stipend = UInt32::conditionally_select(
-        cs,
-        can_call_evm_simulator_without_masking,
-        &evm_simulator_stipend,
-        &callee_stipend,
-    );
 
     if crate::config::CIRCUIT_VERSOBE {
         if execute.witness_hook(&*cs)().unwrap() {
@@ -1106,7 +1103,7 @@ where
         cs,
         &[is_static_call, current_callstack_entry.is_static_execution],
     );
-    // if we call EVM simulator we actually reset static flag
+    // if we call EVM emulator we actually reset static flag
     let next_is_static_masked = next_is_static.mask_negated(cs, versioned_byte_is_evm_bytecode);
 
     // actually parts to the new one
@@ -1132,6 +1129,17 @@ where
     let memory_size_stipend_for_userspace = UInt32::allocated_constant(
         cs,
         zkevm_opcode_defs::system_params::NEW_FRAME_MEMORY_STIPEND,
+    );
+    let memory_size_stipend_for_evm = UInt32::allocated_constant(
+        cs,
+        zkevm_opcode_defs::system_params::NEW_EVM_FRAME_MEMORY_STIPEND,
+    );
+
+    let memory_size_stipend_for_userspace = UInt32::conditionally_select(
+        cs,
+        versioned_byte_is_evm_bytecode,
+        &memory_size_stipend_for_evm,
+        &memory_size_stipend_for_userspace,
     );
 
     let memory_stipend = UInt32::conditionally_select(
@@ -1169,6 +1177,9 @@ where
     // non-local call
     let boolean_false = Boolean::allocated_constant(cs, false);
     new_callstack_entry.is_local_call = boolean_false;
+
+    // stipend
+    new_callstack_entry.stipend = callee_stipend;
 
     let oracle = witness_oracle.clone();
     // we should assemble all the dependencies here, and we will use AllocateExt here
@@ -1214,7 +1225,7 @@ where
     // we put markers of:
     // - constructor call
     // - system call
-    // - if EVM simulator - if original code was static
+    // - if EVM emulator - if original code was static
 
     let original_call_was_static = next_is_static.mask(cs, versioned_byte_is_evm_bytecode);
     let r2_low = Num::linear_combination(

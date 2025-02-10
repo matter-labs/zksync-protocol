@@ -215,7 +215,13 @@ pub(crate) fn compute_decommitts_sorter_circuit_snapshots<
 
     // now we should chunk it by circuits but briefly simulating their logic
 
-    let challenges = produce_fs_challenges::<F, R, 12, { DECOMMIT_QUERY_PACKED_WIDTH + 1 }, 2>(
+    let challenges = produce_fs_challenges::<
+        F,
+        R,
+        12,
+        { DECOMMIT_QUERY_PACKED_WIDTH + 1 },
+        DEFAULT_NUM_PERMUTATION_ARGUMENT_REPETITIONS,
+    >(
         take_sponge_like_queue_state_from_simulator(&unsorted_decommittment_queue_simulator).tail,
         take_sponge_like_queue_state_from_simulator(&sorted_decommittment_queue_simulator).tail,
         round_function,

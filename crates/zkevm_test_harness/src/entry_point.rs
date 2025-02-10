@@ -43,11 +43,11 @@ use crate::zk_evm::block_properties::BlockProperties;
 pub fn create_out_of_circuit_global_context(
     zkporter_is_available: bool,
     default_aa_code_hash: U256,
-    evm_simulator_code_hash: U256,
+    evm_emulator_code_hash: U256,
 ) -> BlockProperties {
     BlockProperties {
         default_aa_code_hash,
         zkporter_is_available,
-        evm_simulator_code_hash,
+        evm_emulator_code_hash,
     }
 }
