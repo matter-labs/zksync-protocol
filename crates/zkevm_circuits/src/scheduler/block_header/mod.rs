@@ -44,7 +44,7 @@ pub struct BlockMetaParameters<F: SmallField> {
     pub zkporter_is_available: Boolean<F>,
     pub bootloader_code_hash: UInt256<F>,
     pub default_aa_code_hash: UInt256<F>,
-    pub evm_simulator_code_hash: UInt256<F>,
+    pub evm_emulator_code_hash: UInt256<F>,
 }
 
 // This is the information that represents artifacts only meaningful for this block, that will not be used for any
@@ -114,7 +114,7 @@ impl<F: SmallField> BlockMetaParameters<F> {
 
         result.extend_from_slice(&self.bootloader_code_hash.to_be_bytes(cs));
         result.extend_from_slice(&self.default_aa_code_hash.to_be_bytes(cs));
-        result.extend_from_slice(&self.evm_simulator_code_hash.to_be_bytes(cs));
+        result.extend_from_slice(&self.evm_emulator_code_hash.to_be_bytes(cs));
 
         result
     }

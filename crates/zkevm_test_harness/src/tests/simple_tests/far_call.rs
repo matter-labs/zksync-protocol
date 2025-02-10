@@ -43,6 +43,23 @@ fn test_far_call_pay_for_memory_growth() {
         Default::default(),
     );
 }
+#[test_log::test]
+fn test_far_call_pay_for_memory_growth_panic() {
+    run_asm_based_test(
+        "src/tests/simple_tests/testdata/far_call/memory_growth_should_panic_passes",
+        &[65536, 65537],
+        Default::default(),
+    );
+}
+
+#[test_log::test]
+fn test_fat_pointer_heap_growth() {
+    run_asm_based_test(
+        "src/tests/simple_tests/testdata/far_call/memory_growth_edge_case",
+        &[65536, 65537],
+        Default::default(),
+    );
+}
 
 #[test_log::test]
 fn test_far_call_with_decommit() {

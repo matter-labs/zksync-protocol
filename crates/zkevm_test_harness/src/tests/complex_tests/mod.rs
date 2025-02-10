@@ -258,11 +258,11 @@ pub(crate) fn generate_base_layer(
         bytecode_to_code_hash(&test_artifact.default_account_code).unwrap();
     let default_account_codehash = U256::from_big_endian(&default_account_codehash);
 
-    let evm_simulator_code_hash = bytecode_to_code_hash(&test_artifact.evm_simulator_code).unwrap();
-    let evm_simulator_code_hash = U256::from_big_endian(&evm_simulator_code_hash);
+    let evm_emulator_code_hash = bytecode_to_code_hash(&test_artifact.evm_emulator_code).unwrap();
+    let evm_emulator_code_hash = U256::from_big_endian(&evm_emulator_code_hash);
 
     println!("Default AA code hash 0x{:x}", default_account_codehash);
-    println!("EVM simulator code hash 0x{:x}", evm_simulator_code_hash);
+    println!("EVM emulator code hash 0x{:x}", evm_emulator_code_hash);
 
     let mut basic_block_circuits = vec![];
     let mut recursion_queues = vec![];
@@ -296,7 +296,7 @@ pub(crate) fn generate_base_layer(
         vec![],
         false,
         default_account_codehash,
-        evm_simulator_code_hash,
+        evm_emulator_code_hash,
         used_bytecodes,
         vec![],
         cycle_limit,
