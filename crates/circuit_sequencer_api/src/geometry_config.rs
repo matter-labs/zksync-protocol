@@ -22,7 +22,6 @@ pub struct GeometryConfig {
     pub cycles_per_ecadd_circuit: u32,
     pub cycles_per_ecmul_circuit: u32,
     pub cycles_per_ecpairing_circuit: u32,
-    pub cycles_per_ecmultipairing_naive_circuit: u32,
 
     pub limit_for_l1_messages_pudata_hasher: u32,
 }
@@ -78,8 +77,6 @@ const fn get_geometry_config_1_4_0() -> GeometryConfig {
         cycles_per_ecmul_circuit: 0,
         // Not supported in this version
         cycles_per_ecpairing_circuit: 0,
-        // Not supported in this version
-        cycles_per_ecmultipairing_naive_circuit: 0,
     }
 }
 
@@ -109,8 +106,6 @@ const fn get_geometry_config_1_4_1() -> GeometryConfig {
         cycles_per_ecmul_circuit: 0,
         // Not supported in this version
         cycles_per_ecpairing_circuit: 0,
-        // Not supported in this version
-        cycles_per_ecmultipairing_naive_circuit: 0,
     }
 }
 
@@ -140,8 +135,6 @@ const fn get_geometry_config_1_4_2() -> GeometryConfig {
         cycles_per_ecmul_circuit: 0,
         // Not supported in this version
         cycles_per_ecpairing_circuit: 0,
-        // Not supported in this version
-        cycles_per_ecmultipairing_naive_circuit: 0,
     }
 }
 
@@ -169,8 +162,6 @@ const fn get_geometry_config_1_5_0() -> GeometryConfig {
         cycles_per_ecmul_circuit: 0,
         // Not supported in this version
         cycles_per_ecpairing_circuit: 0,
-        // Not supported in this version
-        cycles_per_ecmultipairing_naive_circuit: 0,
     }
 }
 
@@ -195,7 +186,5 @@ pub const fn get_geometry_config_1_7_0() -> GeometryConfig {
         cycles_per_ecadd_circuit: 1488,
         cycles_per_ecmul_circuit: 23,
         cycles_per_ecpairing_circuit: 1,
-        // For now, set to 1. But currently this circuit doesn't fit (even with 1 pairing).
-        cycles_per_ecmultipairing_naive_circuit: 1,
     }
 }

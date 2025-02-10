@@ -32,8 +32,8 @@ use crate::zk_evm::zkevm_opcode_defs::system_params::{
 };
 use crate::zk_evm::zkevm_opcode_defs::MODEXP_PRECOMPILE_FORMAL_ADDRESS;
 use circuit_definitions::zk_evm::zkevm_opcode_defs::{
-    ECADD_PRECOMPILE_FORMAL_ADDRESS, ECMULTIPAIRING_NAIVE_PRECOMPILE_FORMAL_ADDRESS,
-    ECMUL_PRECOMPILE_FORMAL_ADDRESS, ECPAIRING_PRECOMPILE_FORMAL_ADDRESS,
+    ECADD_PRECOMPILE_FORMAL_ADDRESS, ECMUL_PRECOMPILE_FORMAL_ADDRESS,
+    ECPAIRING_PRECOMPILE_FORMAL_ADDRESS,
 };
 use std::collections::HashMap;
 
@@ -56,7 +56,6 @@ pub(crate) struct PrecompilesQueuesStates {
     pub ecadd: LogQueueStates<Field>,
     pub ecmul: LogQueueStates<Field>,
     pub ecpairing: LogQueueStates<Field>,
-    pub ecmultipairing_naive: LogQueueStates<Field>,
 }
 
 pub(crate) struct IOLogsQueuesStates {
@@ -94,9 +93,6 @@ impl DemuxedQueuesStatesSimulator {
                 DemuxOutput::ECAdd => geometry.cycles_per_ecadd_circuit,
                 DemuxOutput::ECMul => geometry.cycles_per_ecmul_circuit,
                 DemuxOutput::ECPairing => geometry.cycles_per_ecpairing_circuit,
-                DemuxOutput::ECMultiPairingNaive => {
-                    geometry.cycles_per_ecmultipairing_naive_circuit
-                }
             };
 
             let state = if let DemuxOutput::PorterStorage = output {
@@ -157,9 +153,6 @@ impl DemuxedQueuesStatesSimulator {
                     a if a == *ECADD_PRECOMPILE_FORMAL_ADDRESS => Some(DemuxOutput::ECAdd),
                     a if a == *ECMUL_PRECOMPILE_FORMAL_ADDRESS => Some(DemuxOutput::ECMul),
                     a if a == *ECPAIRING_PRECOMPILE_FORMAL_ADDRESS => Some(DemuxOutput::ECPairing),
-                    a if a == *ECMULTIPAIRING_NAIVE_PRECOMPILE_FORMAL_ADDRESS => {
-                        Some(DemuxOutput::ECMultiPairingNaive)
-                    }
                     _ => None,
                 }
             }
@@ -195,7 +188,6 @@ impl DemuxedQueuesStatesSimulator {
                 ecadd: queries.remove(&DemuxOutput::ECAdd).unwrap(),
                 ecmul: queries.remove(&DemuxOutput::ECMul).unwrap(),
                 ecpairing: queries.remove(&DemuxOutput::ECPairing).unwrap(),
-                ecmultipairing_naive: queries.remove(&DemuxOutput::ECMultiPairingNaive).unwrap(),
             },
         )
     }
@@ -318,10 +310,6 @@ pub(crate) fn process_logs_demux_and_make_circuits(
     queries_iterators.insert(
         DemuxOutput::ECPairing,
         demuxed_queues.precompiles.ecpairing.iter(),
-    );
-    queries_iterators.insert(
-        DemuxOutput::ECMultiPairingNaive,
-        demuxed_queues.precompiles.ecmultipairing_naive.iter(),
     );
 
     let mut input_passthrough_data = LogDemuxerInputData::placeholder_witness();

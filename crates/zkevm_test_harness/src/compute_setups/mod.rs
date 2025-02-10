@@ -284,12 +284,6 @@ pub fn get_all_basic_circuits(geometry: &GeometryConfig) -> Vec<ZkSyncBaseLayerC
             round_function: Arc::new(Poseidon2Goldilocks),
             expected_public_input: None,
         }),
-        ZkSyncBaseLayerCircuit::ECMultiPairingNaive(ZkSyncUniformCircuitInstance {
-            witness: AtomicCell::new(None),
-            config: Arc::new(geometry.cycles_per_ecmultipairing_naive_circuit as usize),
-            round_function: Arc::new(Poseidon2Goldilocks),
-            expected_public_input: None,
-        }),
         ZkSyncBaseLayerCircuit::EIP4844Repack(ZkSyncUniformCircuitInstance {
             witness: AtomicCell::new(None),
             config: Arc::new(ELEMENTS_PER_4844_BLOCK as usize),

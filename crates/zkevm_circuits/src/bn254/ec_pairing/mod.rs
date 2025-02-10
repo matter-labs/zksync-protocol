@@ -51,7 +51,6 @@ pub mod alternative_precompile_naive;
 pub mod final_exp;
 pub mod implementation;
 pub mod input;
-pub mod input_alternative;
 
 pub const NUM_MEMORY_READS_PER_CYCLE: usize = 6;
 pub const EXCEPTION_FLAGS_ARR_LEN: usize = 8;

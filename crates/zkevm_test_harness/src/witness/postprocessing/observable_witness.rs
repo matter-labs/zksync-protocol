@@ -31,8 +31,6 @@ pub(crate) type ECAddObservableWitness<F> = ObservableWitness<F, EcAddCircuitIns
 pub(crate) type ECMulObservableWitness<F> = ObservableWitness<F, EcMulCircuitInstanceWitness<F>>;
 pub(crate) type ECPairingObservableWitness<F> =
     ObservableWitness<F, EcPairingCircuitInstanceWitness<F>>;
-pub(crate) type ECMultiPairingNaiveObservableWitness<F> =
-    ObservableWitness<F, EcMultiPairingCircuitInstanceWitness<F>>;
 pub(crate) type RamPermutationObservableWitness<F> =
     ObservableWitness<F, RamPermutationCircuitInstanceWitness<F>>;
 

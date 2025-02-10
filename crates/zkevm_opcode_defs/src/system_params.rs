@@ -32,8 +32,6 @@ pub const MODEXP_PRECOMPILE_ADDRESS: u16 = 0x05; // as in Ethereum
 pub const ECADD_PRECOMPILE_ADDRESS: u16 = 0x06; // as in Ethereum
 pub const ECMUL_PRECOMPILE_ADDRESS: u16 = 0x07; // as in Ethereum
 pub const ECPAIRING_PRECOMPILE_ADDRESS: u16 = 0x08; // as in Ethereum
-                                                    // TODO_O_O change address when contract appears
-pub const ECMULTIPAIRING_NAIVE_PRECOMPILE_ADDRESS: u16 = 0x19; // TODO: probably remove this precompile before merging into main.
 
 pub const MAX_PUBDATA_COST_PER_QUERY: i32 = 65;
 pub const INITIAL_STORAGE_WRITE_PUBDATA_BYTES: usize = 64;
@@ -165,6 +163,4 @@ lazy_static! {
         Address::from_low_u64_be(ECMUL_PRECOMPILE_ADDRESS as u64);
     pub static ref ECPAIRING_PRECOMPILE_FORMAL_ADDRESS: Address =
         Address::from_low_u64_be(ECPAIRING_PRECOMPILE_ADDRESS as u64);
-    pub static ref ECMULTIPAIRING_NAIVE_PRECOMPILE_FORMAL_ADDRESS: Address =
-        Address::from_low_u64_be(ECMULTIPAIRING_NAIVE_PRECOMPILE_ADDRESS as u64);
 }

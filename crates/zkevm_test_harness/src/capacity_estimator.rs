@@ -4,7 +4,6 @@ use crate::boojum::cs::CSGeometry;
 use crate::boojum::field::goldilocks::GoldilocksField;
 
 use crate::boojum::cs::traits::circuit::CircuitBuilder;
-use circuit_definitions::circuit_definitions::base_layer::ecmultipairing_naive::ECMultiPairingNaiveFunctionInstanceSynthesisFunction;
 use circuit_definitions::circuit_definitions::base_layer::*;
 use circuit_definitions::circuit_definitions::ZkSyncUniformSynthesisFunction;
 use circuit_definitions::ZkSyncDefaultRoundFunction;
@@ -243,11 +242,6 @@ pub fn ecpairing_capacity() -> usize {
 
     compute_size_inner::<SF, _>(SF::geometry(), 20, Some(1), |x: usize| x)
 }
-pub fn ecmultipairing_naive_capacity() -> usize {
-    type SF = ECMultiPairingNaiveFunctionInstanceSynthesisFunction;
-
-    compute_size_inner::<SF, _>(SF::geometry(), 20, Some(1), |x: usize| x)
-}
 
 #[cfg(test)]
 mod test {
@@ -298,9 +292,5 @@ mod test {
         println!("Size of ecadd_capacity: {}", ecadd_capacity());
         println!("Size of ecmul_capacity: {}", ecmul_capacity());
         println!("Size of ecpairing_capacity: {}", ecpairing_capacity());
-        println!(
-            "Size of ecmultipairing_naive_capacity: {}",
-            ecmultipairing_naive_capacity()
-        );
     }
 }

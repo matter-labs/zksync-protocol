@@ -7,7 +7,6 @@ use sha256_round_function::sha256_memory_queries;
 use super::*;
 use crate::ethereum_types::U256;
 
-use crate::witness::individual_circuits::memory_related::ecmultipairing_naive::ecmultipairing_naive_memory_queries;
 use crate::zk_evm::aux_structures::DecommittmentQuery;
 use crate::zk_evm::aux_structures::LogQuery as LogQuery_;
 use crate::zk_evm::aux_structures::MemoryQuery;
@@ -18,7 +17,6 @@ use crate::zk_evm::zk_evm_abstractions::precompiles::sha256::Sha256RoundWitness;
 pub(crate) mod decommit_code;
 pub(crate) mod ecadd;
 pub(crate) mod ecmul;
-pub(crate) mod ecmultipairing_naive;
 pub(crate) mod ecpairing;
 pub(crate) mod ecrecover;
 pub(crate) mod keccak256_round_function;
@@ -39,7 +37,6 @@ pub(crate) struct ImplicitMemoryQueries {
     pub ecadd_memory_queries: Vec<MemoryQuery>,
     pub ecmul_memory_queries: Vec<MemoryQuery>,
     pub ecpairing_memory_queries: Vec<MemoryQuery>,
-    pub ecmultipairing_naive_memory_queries: Vec<MemoryQuery>,
 }
 
 impl ImplicitMemoryQueries {
@@ -53,7 +50,6 @@ impl ImplicitMemoryQueries {
             + self.ecadd_memory_queries.len()
             + self.ecmul_memory_queries.len()
             + self.ecpairing_memory_queries.len()
-            + self.ecmultipairing_naive_memory_queries.len()
     }
 
     fn get_vector(&self, index: usize) -> Option<&Vec<MemoryQuery>> {
@@ -67,7 +63,6 @@ impl ImplicitMemoryQueries {
             6 => Some(&self.ecadd_memory_queries),
             7 => Some(&self.ecmul_memory_queries),
             8 => Some(&self.ecpairing_memory_queries),
-            9 => Some(&self.ecmultipairing_naive_memory_queries),
             _ => None,
         }
     }
@@ -133,9 +128,6 @@ pub fn get_implicit_memory_queries(
         ecadd_memory_queries: ecadd_memory_queries(&precompiles_inputs.ecadd_witnesses),
         ecmul_memory_queries: ecmul_memory_queries(&precompiles_inputs.ecmul_witnesses),
         ecpairing_memory_queries: ecpairing_memory_queries(&precompiles_inputs.ecpairing_witnesses),
-        ecmultipairing_naive_memory_queries: ecmultipairing_naive_memory_queries(
-            &precompiles_inputs.ecmultipairing_naive_witnesses,
-        ),
     }
 }
 
@@ -181,10 +173,6 @@ pub(crate) struct ImplicitMemoryStates<F: SmallField> {
     pub ecmul_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     pub ecpairing_simulator_snapshots: Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
     pub ecpairing_memory_states: Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
-    pub ecmultipairing_naive_simulator_snapshots:
-        Vec<SimulatorSnapshot<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
-    pub ecmultipairing_naive_memory_states:
-        Vec<QueueStateWitness<F, FULL_SPONGE_QUEUE_STATE_WIDTH>>,
 }
 
 impl<F: SmallField> ImplicitMemoryStates<F> {
@@ -198,7 +186,6 @@ impl<F: SmallField> ImplicitMemoryStates<F> {
             + self.ecadd_memory_states.len()
             + self.ecmul_memory_states.len()
             + self.ecpairing_memory_states.len()
-            + self.ecmultipairing_naive_memory_states.len()
     }
 }
 use crate::witness::aux_data_structs::MemoryQueuePerCircuitSimulator;
@@ -293,11 +280,6 @@ pub(crate) fn simulate_implicit_memory_queues<
     implicit_memory_states.ecpairing_simulator_snapshots = simulate_subqueue(
         &implicit_memory_queries.ecpairing_memory_queries,
         &mut implicit_memory_states.ecpairing_memory_states,
-    );
-
-    implicit_memory_states.ecmultipairing_naive_simulator_snapshots = simulate_subqueue(
-        &implicit_memory_queries.ecmultipairing_naive_memory_queries,
-        &mut implicit_memory_states.ecmultipairing_naive_memory_states,
     );
 
     implicit_memory_states
