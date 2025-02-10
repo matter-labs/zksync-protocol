@@ -279,7 +279,7 @@ pub fn scheduler_function<
     let global_context = GlobalContext {
         zkporter_is_available: block_meta_parameters.zkporter_is_available,
         default_aa_code_hash: block_meta_parameters.default_aa_code_hash,
-        evm_simulator_code_hash: block_meta_parameters.evm_simulator_code_hash,
+        evm_emulator_code_hash: block_meta_parameters.evm_emulator_code_hash,
     };
 
     // we can form all the observable inputs already as those are just functions of observable outputs

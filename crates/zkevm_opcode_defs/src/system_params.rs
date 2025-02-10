@@ -8,8 +8,6 @@ pub const MAX_TX_ERGS_LIMIT: u32 = 80_000_000;
 
 pub const VM_INITIAL_FRAME_ERGS: u32 = u32::MAX;
 
-pub const EVM_SIMULATOR_STIPEND: u32 = 1u32 << 30;
-
 /// How much a single circuit should cost in terms of ergs.
 pub const ERGS_PER_CIRCUIT: u32 = 80000;
 
@@ -87,6 +85,8 @@ pub const ADDRESS_CODE_ORACLE: u16 = 0x8011;
 pub const BOOTLOADER_MAX_MEMORY: u32 = u32::MAX;
 // 4 KB for new frames is "free"
 pub const NEW_FRAME_MEMORY_STIPEND: u32 = 1u32 << 12;
+// 56 KB for new EVM frames is "free"
+pub const NEW_EVM_FRAME_MEMORY_STIPEND: u32 = 56 * 1u32 << 10;
 // 2 MB for kernel frames, where we can be sure about the behavior.
 // Note, that this number should high enough to allow any bytecode for `decommit` opcode.
 pub const NEW_KERNEL_FRAME_MEMORY_STIPEND: u32 = 1u32 << 21;

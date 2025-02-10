@@ -40,7 +40,7 @@ pub mod utils;
 
 use boojum::pairing::ff;
 
-pub const DEFAULT_NUM_PERMUTATION_ARGUMENT_REPETITIONS: usize = 2;
+pub const DEFAULT_NUM_PERMUTATION_ARGUMENT_REPETITIONS: usize = 3;
 
 pub const fn bit_width_to_bitmask(width: usize) -> u64 {
     (1u64 << width) - 1
