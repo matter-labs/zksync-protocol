@@ -18,13 +18,19 @@ fn ensure_cycle_within_2_26_limit(cycles: usize, gates: usize, additive: usize) 
         println!("cycles*gates+additive : {}", cycles * gates + additive);
         return cycles;
     }
-    println!("two_power_26 - additive / gates: {}", (two_power_26 - additive) / gates);
+    println!(
+        "two_power_26 - additive / gates: {}",
+        (two_power_26 - additive) / gates
+    );
     (two_power_26 - additive) / gates
 }
 
 fn compute_inner<
-    SF: ZkSyncUniformSynthesisFunction<Bn256, RoundFunction=GenericHasher<Bn256, RescueParams<Bn256, 2, 3>, 2, 3>>,
-    F: Fn(usize) -> SF::Config
+    SF: ZkSyncUniformSynthesisFunction<
+        Bn256,
+        RoundFunction = GenericHasher<Bn256, RescueParams<Bn256, 2, 3>, 2, 3>,
+    >,
+    F: Fn(usize) -> SF::Config,
 >(
     config_fn: F,
     optional_circuit_limit_generation_mode_fn: Option<fn(usize) -> usize>,
@@ -40,17 +46,13 @@ fn compute_inner<
         let mut setup_assembly = SetupAssembly::<
             _,
             PlonkCsWidth4WithNextStepAndCustomGatesParams,
-            SelectorOptimizedWidth4MainGateWithDNext
+            SelectorOptimizedWidth4MainGateWithDNext,
         >::new();
 
         let config = config_fn(size);
 
-        let circuit = ZkSyncUniformCircuitInstance::<_, SF>::new(
-            None,
-            config,
-            round_function.clone(),
-            None,
-        );
+        let circuit =
+            ZkSyncUniformCircuitInstance::<_, SF>::new(None, config, round_function.clone(), None);
 
         circuit.synthesize(&mut setup_assembly).unwrap();
 
@@ -81,24 +83,24 @@ fn compute_inner<
             cycles = circuit_limit_generation_mode_fn(cycles);
         }
     }
-    println!("Can fit {} cycles for circuit type {}", cycles, SF::description());
+    println!(
+        "Can fit {} cycles for circuit type {}",
+        cycles,
+        SF::description()
+    );
 
     let (_, round_function, _) = create_test_artifacts_with_optimized_gate();
 
     let mut setup_assembly = SetupAssembly::<
         _,
         PlonkCsWidth4WithNextStepAndCustomGatesParams,
-        SelectorOptimizedWidth4MainGateWithDNext
+        SelectorOptimizedWidth4MainGateWithDNext,
     >::new();
 
     let config = config_fn(cycles);
 
-    let circuit = ZkSyncUniformCircuitInstance::<_, SF>::new(
-        None,
-        config,
-        round_function.clone(),
-        None,
-    );
+    let circuit =
+        ZkSyncUniformCircuitInstance::<_, SF>::new(None, config, round_function.clone(), None);
 
     println!("Synthesising largest size");
     circuit.synthesize(&mut setup_assembly).unwrap();
@@ -110,121 +112,49 @@ fn compute_inner<
 pub fn get_circuit_capacity(circuit_type: u8) -> usize {
     match circuit_type {
         3 => compute_inner::<VmMainInstanceSynthesisFunction<_, VmWitnessOracle<_>>, _>(
-            |x: usize| {
-                x
-            }, None,
-        ),
-        4 => compute_inner::<CodeDecommittmentsSorterSynthesisFunction, _>(
-            |x: usize| {
-                x
-            },
+            |x: usize| x,
             None,
         ),
-        5 => compute_inner::<CodeDecommitterInstanceSynthesisFunction, _>(
-            |x: usize| {
-                x
-            },
-            None,
-        ),
-        6 => compute_inner::<LogDemuxInstanceSynthesisFunction, _>(
-            |x: usize| {
-                x
-            },
-            None,
-        ),
-        7 => compute_inner::<Keccak256RoundFunctionInstanceSynthesisFunction, _>(
-            |x: usize| {
-                x
-            },
-            None,
-        ),
-        8 => compute_inner::<Sha256RoundFunctionInstanceSynthesisFunction, _>(
-            |x: usize| {
-                x
-            },
-            None,
-        ),
-        9 => compute_inner::<ECRecoverFunctionInstanceSynthesisFunction, _>(
-            |x: usize| {
-                x
-            },
-            None,
-        ),
-        10 => compute_inner::<RAMPermutationInstanceSynthesisFunction, _>(
-            |x: usize| {
-                x
-            },
-            None,
-        ),
-        11 => compute_inner::<StorageSortAndDedupInstanceSynthesisFunction, _>(
-            |x: usize| {
-                x
-            },
-            None,
-        ),
+        4 => compute_inner::<CodeDecommittmentsSorterSynthesisFunction, _>(|x: usize| x, None),
+        5 => compute_inner::<CodeDecommitterInstanceSynthesisFunction, _>(|x: usize| x, None),
+        6 => compute_inner::<LogDemuxInstanceSynthesisFunction, _>(|x: usize| x, None),
+        7 => {
+            compute_inner::<Keccak256RoundFunctionInstanceSynthesisFunction, _>(|x: usize| x, None)
+        }
+        8 => compute_inner::<Sha256RoundFunctionInstanceSynthesisFunction, _>(|x: usize| x, None),
+        9 => compute_inner::<ECRecoverFunctionInstanceSynthesisFunction, _>(|x: usize| x, None),
+        10 => compute_inner::<RAMPermutationInstanceSynthesisFunction, _>(|x: usize| x, None),
+        11 => compute_inner::<StorageSortAndDedupInstanceSynthesisFunction, _>(|x: usize| x, None),
         12 => compute_inner::<StorageApplicationInstanceSynthesisFunction, _>(
-            |x: usize| {
-                (x, USE_BLAKE2S_EXTRA_TABLES)
-            },
+            |x: usize| (x, USE_BLAKE2S_EXTRA_TABLES),
             None,
         ),
         13 => compute_inner::<StorageInitialWritesRehasherInstanceSynthesisFunction, _>(
-            |x: usize| {
-                x
-            },
+            |x: usize| x,
             None,
         ),
         14 => compute_inner::<StorageRepeatedWritesRehasherInstanceSynthesisFunction, _>(
-            |x: usize| {
-                x
-            },
+            |x: usize| x,
             None,
         ),
         15 | 16 => compute_inner::<EventsAndL1MessagesSortAndDedupInstanceSynthesisFunction, _>(
-            |x: usize| {
-                x
-            },
+            |x: usize| x,
             None,
         ),
         // L1MessagesRehasherInstanceSynthesisFunction
         17 | 18 => compute_inner::<MessagesMerklizerInstanceSynthesisFunction, _>(
-            |x: usize| {
-                (x, L1_MESSAGES_MERKLIZER_OUTPUT_LINEAR_HASH)
-            },
+            |x: usize| (x, L1_MESSAGES_MERKLIZER_OUTPUT_LINEAR_HASH),
             // Round down cycles to power of 2 as L1 message merklizer circuit expects it to be power of 2
             // https://github.com/matter-labs/sync_vm/blob/b538a6105bbc0586ad437484f7f76b2c3e329c46/src/glue/merkleize_l1_messages/merkleize.rs#L298-L301
-            Some(|cycles: usize| { 2usize.pow((cycles as f64).log2().floor() as u32) }),
+            Some(|cycles: usize| 2usize.pow((cycles as f64).log2().floor() as u32)),
         ),
-        19 => compute_inner::<ModexpFunctionInstanceSynthesisFunction, _>(
-            |x: usize| {
-                x
-            },
-            None,
+        19 => compute_inner::<ModexpFunctionInstanceSynthesisFunction, _>(|x: usize| x, None),
+        20 => compute_inner::<ECAddFunctionInstanceSynthesisFunction, _>(|x: usize| x, None),
+        21 => compute_inner::<ECMulFunctionInstanceSynthesisFunction, _>(|x: usize| x, None),
+        22 => compute_inner::<ECPairingFunctionInstanceSynthesisFunction, _>(|x: usize| x, None),
+        _ => panic!(
+            "Unknown circuit type for which the limit can be computed {}",
+            circuit_type
         ),
-        20 => compute_inner::<ECAddFunctionInstanceSynthesisFunction, _>(
-            |x: usize| {
-                x
-            },
-            None,
-        ),
-        21 => compute_inner::<ECMulFunctionInstanceSynthesisFunction, _>(
-            |x: usize| {
-                x
-            },
-            None,
-        ),
-        22 => compute_inner::<ECPairingFunctionInstanceSynthesisFunction, _>(
-            |x: usize| {
-                x
-            },
-            None,
-        ),
-        23 => compute_inner::<ECMultiPairingNaiveFunctionInstanceSynthesisFunction, _>(
-            |x: usize| {
-                x
-            },
-            None,
-        ),
-        _ => panic!("Unknown circuit type for which the limit can be computed {}", circuit_type)
     }
 }

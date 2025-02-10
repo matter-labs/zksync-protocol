@@ -53,7 +53,6 @@ pub struct SchedulerCircuitInstanceWitness<
     pub ecadd_observable_output: PrecompileFunctionOutputDataWitness<F>,
     pub ecmul_observable_output: PrecompileFunctionOutputDataWitness<F>,
     pub ecpairing_observable_output: PrecompileFunctionOutputDataWitness<F>,
-    pub ecmultipairing_naive_observable_output: PrecompileFunctionOutputDataWitness<F>,
 
     // RAM permutation doesn't produce anything
     pub storage_sorter_observable_output: StorageDeduplicatorOutputDataWitness<F>,
@@ -112,8 +111,6 @@ impl<F: SmallField, H: RecursiveTreeHasher<F, Num<F>>, EXT: FieldExtension<2, Ba
             ecadd_observable_output: PrecompileFunctionOutputData::placeholder_witness(),
             ecmul_observable_output: PrecompileFunctionOutputData::placeholder_witness(),
             ecpairing_observable_output: PrecompileFunctionOutputData::placeholder_witness(),
-            ecmultipairing_naive_observable_output:
-                PrecompileFunctionOutputData::placeholder_witness(),
 
             storage_sorter_observable_output: StorageDeduplicatorOutputData::placeholder_witness(),
             storage_application_observable_output:

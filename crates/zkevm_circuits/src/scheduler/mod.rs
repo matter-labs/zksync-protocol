@@ -228,10 +228,6 @@ pub fn scheduler_function<
     let ecpairing_observable_output =
         PrecompileFunctionOutputData::allocate(cs, witness.ecpairing_observable_output.clone());
 
-    let ecmultipairing_naive_observable_output = PrecompileFunctionOutputData::allocate(
-        cs,
-        witness.ecmultipairing_naive_observable_output.clone(),
-    );
     let storage_sorter_observable_output = StorageDeduplicatorOutputData::allocate(
         cs,
         witness.storage_sorter_observable_output.clone(),

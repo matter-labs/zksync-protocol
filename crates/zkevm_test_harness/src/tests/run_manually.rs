@@ -244,7 +244,6 @@ pub(crate) fn run_with_options(entry_point_bytecode: Vec<[u8; 32]>, options: Opt
         cycles_per_ecpairing_circuit: 1,
 
         limit_for_l1_messages_pudata_hasher: 8,
-        cycles_per_ecmultipairing_naive_circuit: 1,
     };
 
     use crate::witness::tree::BinarySparseStorageTree;
