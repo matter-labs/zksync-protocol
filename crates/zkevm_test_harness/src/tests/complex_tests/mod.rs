@@ -431,7 +431,7 @@ fn run_and_try_create_witness_inner(
 
     let circuits_len = basic_block_circuits.len();
     // Number of circuits of a given type.
-    let mut instances_idx = [0usize; 255];
+    let mut instances_idx = [0usize; 256];
 
     for (idx, el) in basic_block_circuits.clone().into_iter().enumerate() {
         let descr = el.short_description();
