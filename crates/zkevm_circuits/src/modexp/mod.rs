@@ -11,15 +11,12 @@ use std::sync::{Arc, RwLock};
 
 use boojum::algebraic_props::round_function::AlgebraicRoundFunction;
 
-use boojum::cs::gates::PublicInputGate;
 use boojum::cs::traits::cs::ConstraintSystem;
 use boojum::field::SmallField;
 use boojum::gadgets::boolean::Boolean;
 
 use boojum::gadgets::num::Num;
-use boojum::gadgets::queue::CircuitQueueWitness;
-use boojum::gadgets::queue::QueueState;
-use boojum::gadgets::traits::allocatable::{CSAllocatableExt, CSPlaceholder};
+use boojum::gadgets::traits::allocatable::CSAllocatableExt;
 use boojum::gadgets::traits::round_function::CircuitRoundFunction;
 use boojum::gadgets::traits::selectable::Selectable;
 use boojum::gadgets::traits::witnessable::WitnessHookable;
@@ -28,16 +25,17 @@ use boojum::gadgets::u256::UInt256;
 use boojum::gadgets::u32::UInt32;
 use boojum::gadgets::u8::UInt8;
 use cs_derive::*;
-use derivative::Derivative;
 use zkevm_opcode_defs::system_params::PRECOMPILE_AUX_BYTE;
 
 use crate::base_structures::log_query::*;
 use crate::base_structures::memory_query::*;
-use crate::base_structures::precompile_input_outputs::PrecompileFunctionOutputData;
-use crate::demux_log_queue::StorageLogQueue;
+use crate::bn254::utils::{
+    add_query_to_queue, add_read_values_to_queue, check_precompile_meta,
+    compute_final_requests_and_memory_states, create_requests_state_and_memory_state,
+    generate_input_commitment,
+};
 use crate::ethereum_types::U256;
 use crate::fsm_input_output::circuit_inputs::INPUT_OUTPUT_COMMITMENT_LENGTH;
-use crate::fsm_input_output::*;
 use crate::modexp::implementation::u256::modexp_32_32_32;
 use crate::modexp::input::{ModexpCircuitInputOutput, ModexpCircuitInstanceWitness};
 use crate::storage_application::ConditionalWitnessAllocator;
@@ -104,32 +102,18 @@ where
     requests_queue_state_from_input.enforce_trivial_head(cs);
 
     let requests_queue_state_from_fsm = structured_input.hidden_fsm_input.log_queue_state;
-
-    let requests_queue_state = QueueState::conditionally_select(
-        cs,
-        start_flag,
-        &requests_queue_state_from_input,
-        &requests_queue_state_from_fsm,
-    );
-
-    let mut requests_queue = StorageLogQueue::<F, R>::from_state(cs, requests_queue_state);
-    let queue_witness = CircuitQueueWitness::from_inner_witness(requests_queue_witness);
-    requests_queue.witness = Arc::new(queue_witness);
-
-    let memory_queue_state_from_input =
-        structured_input.observable_input.initial_memory_queue_state;
-    memory_queue_state_from_input.enforce_trivial_head(cs);
-
     let memory_queue_state_from_fsm = structured_input.hidden_fsm_input.memory_queue_state;
 
-    let memory_queue_state = QueueState::conditionally_select(
+    let (mut requests_queue, mut memory_queue) = create_requests_state_and_memory_state(
         cs,
-        start_flag,
-        &memory_queue_state_from_input,
+        &structured_input,
+        &requests_queue_state_from_input,
+        &requests_queue_state_from_fsm,
         &memory_queue_state_from_fsm,
+        start_flag,
+        requests_queue_witness,
     );
 
-    let mut memory_queue = MemoryQueue::<F, R>::from_state(cs, memory_queue_state);
     let read_queries_allocator = ConditionalWitnessAllocator::<F, UInt256<F>> {
         witness_source: Arc::new(RwLock::new(memory_reads_witness)),
     };
@@ -155,61 +139,29 @@ where
         let timestamp_to_use_for_read = request.timestamp;
         let timestamp_to_use_for_write = timestamp_to_use_for_read.add_no_overflow(cs, one_u32);
 
-        Num::conditionally_enforce_equal(
+        check_precompile_meta(
             cs,
             should_process,
-            &Num::from_variable(request.aux_byte.get_variable()),
-            &Num::from_variable(aux_byte_for_precompile.get_variable()),
+            precompile_address,
+            request,
+            aux_byte_for_precompile,
         );
-        for (a, b) in request
-            .address
-            .inner
-            .iter()
-            .zip(precompile_address.inner.iter())
-        {
-            Num::conditionally_enforce_equal(
-                cs,
-                should_process,
-                &Num::from_variable(a.get_variable()),
-                &Num::from_variable(b.get_variable()),
-            );
-        }
 
         let mut read_values = [zero_u256; NUM_MEMORY_READS_PER_CYCLE];
-        let mut bias_variable = should_process.get_variable();
-        for dst in read_values.iter_mut() {
-            let read_query_value = read_queries_allocator.conditionally_allocate_biased(
-                cs,
-                should_process,
-                bias_variable,
-            );
-            bias_variable = read_query_value.inner[0].get_variable();
 
-            *dst = read_query_value;
+        add_read_values_to_queue::<F, CS, R>(
+            cs,
+            should_process,
+            &mut read_values,
+            &read_queries_allocator,
+            &mut memory_queue,
+            timestamp_to_use_for_read,
+            precompile_call_params.input_page,
+            &mut precompile_call_params.input_offset,
+            boolean_false,
+            one_u32,
+        );
 
-            let read_query = MemoryQuery {
-                timestamp: timestamp_to_use_for_read,
-                memory_page: precompile_call_params.input_page,
-                index: precompile_call_params.input_offset,
-                rw_flag: boolean_false,
-                is_ptr: boolean_false,
-                value: read_query_value,
-            };
-
-            let _ = memory_queue.push(cs, read_query, should_process);
-
-            precompile_call_params.input_offset = precompile_call_params
-                .input_offset
-                .add_no_overflow(cs, one_u32);
-        }
-
-        if crate::config::CIRCUIT_VERSOBE {
-            if should_process.witness_hook(cs)().unwrap() == true {
-                for each in read_values.iter() {
-                    dbg!(each.witness_hook(cs)());
-                }
-            }
-        }
         let [base, exponent, modulus] = read_values;
         let result = modexp_32_32_32(cs, &base, &exponent, &modulus);
 
@@ -219,32 +171,25 @@ where
             }
         }
 
-        let result_query = MemoryQuery {
-            timestamp: timestamp_to_use_for_write,
-            memory_page: precompile_call_params.output_page,
-            index: precompile_call_params.output_offset,
-            rw_flag: boolean_true,
-            is_ptr: boolean_false,
-            value: result,
-        };
-
-        let _ = memory_queue.push(cs, result_query, should_process);
+        add_query_to_queue(
+            cs,
+            should_process,
+            &mut memory_queue,
+            timestamp_to_use_for_write,
+            precompile_call_params.output_page,
+            &mut precompile_call_params.output_offset,
+            boolean_true,
+            boolean_false,
+            result,
+            one_u32,
+        );
     }
 
-    requests_queue.enforce_consistency(cs);
-
-    let done = requests_queue.is_empty(cs);
-    structured_input.completion_flag = done;
-    structured_input.observable_output = PrecompileFunctionOutputData::placeholder(cs);
-
-    let final_memory_state = memory_queue.into_state();
-    let final_requests_state = requests_queue.into_state();
-
-    structured_input.observable_output.final_memory_state = QueueState::conditionally_select(
+    let (final_requests_state, final_memory_state) = compute_final_requests_and_memory_states(
         cs,
-        structured_input.completion_flag,
-        &final_memory_state,
-        &structured_input.observable_output.final_memory_state,
+        requests_queue,
+        &mut structured_input,
+        memory_queue,
     );
 
     structured_input.hidden_fsm_output.log_queue_state = final_requests_state;
@@ -252,13 +197,5 @@ where
 
     structured_input.hook_compare_witness(cs, &closed_form_input);
 
-    let compact_form =
-        ClosedFormInputCompactForm::from_full_form(cs, &structured_input, round_function);
-    let input_commitment = commit_variable_length_encodable_item(cs, &compact_form, round_function);
-    for el in input_commitment.iter() {
-        let gate = PublicInputGate::new(el.get_variable());
-        gate.add_to_cs(cs);
-    }
-
-    input_commitment
+    generate_input_commitment(cs, round_function, structured_input)
 }

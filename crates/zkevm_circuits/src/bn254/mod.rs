@@ -27,6 +27,7 @@ pub mod ec_pairing;
 pub mod fixed_base_mul_table;
 #[cfg(test)]
 pub mod tests;
+pub mod utils;
 mod validation;
 
 // --- Base and scalar field params for BN256 curve ---
