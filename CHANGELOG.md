@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.151.2](https://github.com/matter-labs/zksync-protocol/compare/v0.151.1...v0.151.2) - 2025-02-10
+
+### Fixed
+
+- Update geometry and generate vks (#110)
+
+### Other
+
+- update Cargo.toml dependencies
+- Update crypto deps and vks (#118)
+
 ## [0.151.1](https://github.com/matter-labs/zksync-protocol/compare/v0.151.0...v0.151.1) - 2025-02-06
 
 ### Other
