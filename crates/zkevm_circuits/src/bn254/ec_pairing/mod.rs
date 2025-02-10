@@ -253,6 +253,22 @@ where
             cs,
             &[state.read_precompile_call, state.read_words_for_round],
         );
+
+        let one = Fq12::one(cs, state.pairing_inner_state.get_params());
+
+        // If we're starting with a new precompile call, we should reset the accumulator.
+        let mut previous_acc = <Fq12<
+            _,
+            BN256Fq,
+            NonNativeFieldOverU16<_, bn256::Fq, 17>,
+            BN256Extension12Params,
+        > as NonNativeField<F, BN256Fq>>::conditionally_select(
+            cs,
+            state.read_precompile_call,
+            &one,
+            &state.pairing_inner_state,
+        );
+
         state.read_precompile_call = boolean_false;
 
         let zero_pairs_left = state.precompile_call_params.num_pairs.is_zero(cs);
@@ -311,7 +327,7 @@ where
         let (success, mut result) = pair(cs, &p_x, &p_y, &q_x_c0, &q_x_c1, &q_y_c0, &q_y_c1);
         NonNativeField::normalize(&mut result, cs);
 
-        let mut acc = result.mul(cs, &mut state.pairing_inner_state.clone());
+        let mut acc = result.mul(cs, &mut previous_acc);
         state.pairing_inner_state = <Fq12<
             _,
             BN256Fq,
