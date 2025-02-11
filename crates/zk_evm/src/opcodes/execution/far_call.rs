@@ -429,7 +429,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
             #[allow(dropping_references)]
             drop(current_stack_mut);
 
-            let (mut callee_stipend, mut extra_ergs_from_caller_to_callee) =
+            let (callee_stipend, mut extra_ergs_from_caller_to_callee) =
                 get_stipend_and_extra_cost(&called_address, far_call_abi.to_system);
 
             let remaining_ergs_of_caller_frame =

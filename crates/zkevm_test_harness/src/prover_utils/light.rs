@@ -27,9 +27,6 @@ use crate::snark_wrapper::implementations::poseidon2::tree_hasher::AbsorptionMod
 
 type F = GoldilocksField;
 
-type EXT = GoldilocksExt2;
-type H = GoldilocksPoseidon2Sponge<AbsorptionModeOverwrite>;
-
 use crate::boojum::cs::implementations::setup::FinalizationHintsForProver;
 
 pub fn create_light_base_layer_setup_data(

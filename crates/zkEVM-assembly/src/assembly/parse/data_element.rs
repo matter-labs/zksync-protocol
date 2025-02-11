@@ -68,7 +68,7 @@ fn parse_label_name(input: &str) -> IResult<&str, Vec<DataElement>> {
     Ok(("", vec![DataElement::LabelName(label_name.to_string())]))
 }
 
-fn parse_zeroes<'a>(input: &'a str) -> IResult<&str, usize> {
+fn parse_zeroes<'a>(input: &'a str) -> IResult<&'a str, usize> {
     // we want to parse something `.cell signed_integer`
     // and transform it into the unsigned 32 byte
 
@@ -113,7 +113,7 @@ fn serialize_biguint(input: BigUint) -> Option<[u8; 32]> {
     Some(result)
 }
 
-fn parse_cell<'a>(input: &'a str) -> IResult<&str, BigUint> {
+fn parse_cell<'a>(input: &'a str) -> IResult<&'a str, BigUint> {
     // we want to parse something `.cell signed_integer`
     // and transform it into the unsigned 32 byte
 
@@ -161,7 +161,7 @@ fn parse_cell<'a>(input: &'a str) -> IResult<&str, BigUint> {
     Ok(("", unsigned))
 }
 
-fn parse_name<'a>(input: &'a str) -> IResult<&str, &str> {
+fn parse_name<'a>(input: &'a str) -> IResult<&'a str, &'a str> {
     let mut parser = nom::sequence::tuple::<_, _, nom::error::Error<_>, _>((
         nom::character::complete::space0,
         nom::bytes::complete::tag(".cell"),
