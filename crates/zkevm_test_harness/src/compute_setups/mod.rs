@@ -288,10 +288,7 @@ fn get_leaf_circuits(
 ) -> crate::data_source::SourceResult<Vec<ZkSyncRecursiveLayerCircuit>> {
     let mut result = vec![];
 
-    for base_circuit_type in ((BaseLayerCircuitType::VM as u8)
-        ..=(BaseLayerCircuitType::Secp256r1Verify as u8))
-        .chain(std::iter::once(BaseLayerCircuitType::EIP4844Repack as u8))
-    {
+    for base_circuit_type in BaseLayerCircuitType::as_iter_u8() {
         let _recursive_circuit_type = base_circuit_type_into_recursive_leaf_circuit_type(
             BaseLayerCircuitType::from_numeric_value(base_circuit_type),
         );

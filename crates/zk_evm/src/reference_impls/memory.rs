@@ -505,22 +505,6 @@ mod tests {
                 .value
         }
 
-        fn read_code_query(&mut self, location: MemoryLocation) -> U256 {
-            assert!(location.memory_type == MemoryType::Code);
-            self.memory
-                .specialized_code_query(
-                    0,
-                    MemoryQuery {
-                        timestamp: Timestamp(0),
-                        location,
-                        value: U256::zero(),
-                        rw_flag: false,
-                        value_is_pointer: false,
-                    },
-                )
-                .value
-        }
-
         fn get_heap_location(&self, index: u32) -> MemoryLocation {
             MemoryLocation {
                 index: MemoryIndex(index),
