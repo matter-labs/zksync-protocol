@@ -223,6 +223,8 @@ impl<const B: bool> Precompile for ECAddPrecompile<B> {
             let x_result_query =
                 memory.execute_partial_query(monotonic_cycle_counter, x_result_query);
 
+            write_location.index.0 += 1;
+
             let y_result_query = MemoryQuery {
                 timestamp: timestamp_to_write,
                 location: write_location,
