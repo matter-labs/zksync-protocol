@@ -18,18 +18,11 @@ pub mod test {
         create_and8_table, create_byte_split_table, create_xor8_table, And8Table, ByteSplitTable,
         Xor8Table,
     };
-    use boojum::gadgets::u2048::UInt2048;
     use boojum::gadgets::u256::UInt256;
 
-    use crate::modexp::implementation::u256::{modexp_32_32_32, modexp_32_4_32};
-    use crate::modexp::tests_json::u2048::Modmul256BytesTestCase;
-    use crate::modexp::tests_json::u256::{
-        Modexp32BytesLargeExpTestCase, Modexp32BytesSmallExpTestCase, Modmul32BytesTestCase,
-    };
-    use crate::modexp::tests_json::{
-        MODEXP_32_32_32_TEST_CASES, MODEXP_32_4_32_TEST_CASES, MODMUL_256_256_TEST_CASES,
-        MODMUL_32_32_TEST_CASES,
-    };
+    use crate::modexp::implementation::u256::modexp_32_32_32;
+    use crate::modexp::tests_json::u256::{Modexp32BytesLargeExpTestCase, Modmul32BytesTestCase};
+    use crate::modexp::tests_json::{MODEXP_32_32_32_TEST_CASES, MODMUL_32_32_TEST_CASES};
 
     type F = GoldilocksField;
     type P = GoldilocksField;
@@ -159,22 +152,12 @@ pub mod test {
         Boolean::enforce_equal(cs, &equals, &boolean_true);
     }
 
-    fn assert_equal_uint2048<CS>(cs: &mut CS, a: &UInt2048<F>, b: &UInt2048<F>)
-    where
-        CS: ConstraintSystem<F>,
-    {
-        let equals = UInt2048::equals(cs, a, b);
-        let boolean_true = Boolean::allocated_constant(cs, true);
-        Boolean::enforce_equal(cs, &equals, &boolean_true);
-    }
-
     /// This function tests the modular exponentiation, that is
     /// an operation `b^e mod m`, where b is the base, e is the exponent,
     /// and m is the modulus when (b,e,m) are 32-bytes long.
     ///
     /// The function reads the test cases from [`MODEXP_32_32_32_TEST_CASES`] and runs them.
     #[test]
-    #[ignore = "too-large circuit, should be run manually"]
     fn test_modexp_32_32_32() {
         // Preparing the constraint system and parameters
         let mut owned_cs = create_test_cs(1 << 20);
@@ -194,38 +177,6 @@ pub mod test {
             // Asserting
             assert_equal_uint256(cs, &actual_modexp, &expected_modexp);
         }
-    }
-
-    /// This function tests the modular exponentiation, that is
-    /// an operation `b^e mod m`, where b is the base, e is the exponent,
-    /// and m is the modulus when (b,m) are 32-bytes long, and e is a 4-byte integer.
-    ///
-    /// The function reads the test cases from [`MODEXP_32_4_32_TEST_CASES`] and runs them.
-    #[test]
-    #[ignore = "too-large circuit, should be run manually"]
-    fn test_modexp_32_4_32() {
-        // Preparing the constraint system and parameters
-        let mut owned_cs = create_test_cs(1 << 20);
-        let cs = &mut owned_cs;
-
-        // Running tests from file
-        for (_, raw) in MODEXP_32_4_32_TEST_CASES.tests.iter().enumerate() {
-            // Input:
-            let test = Modexp32BytesSmallExpTestCase::from_raw(cs, &raw);
-
-            // Expected:
-            let actual_modexp = modexp_32_4_32(cs, &test.base, &test.exponent, &test.modulus);
-
-            // Actual:
-            let expected_modexp = test.expected.clone();
-
-            // Asserting
-            assert_equal_uint256(cs, &actual_modexp, &expected_modexp);
-        }
-
-        // Printing the number of constraints
-        let cs = owned_cs.into_assembly::<std::alloc::Global>();
-        cs.print_gate_stats();
     }
 
     /// This function tests the modular multiplication, that is
@@ -270,61 +221,6 @@ pub mod test {
         let test_case = Modmul32BytesTestCase::from_raw(cs, &raw);
 
         // Actual:
-        let _ = test_case.a.modmul(cs, &test_case.b, &test_case.modulus);
-
-        // Printing the number of constraints
-        let cs = owned_cs.into_assembly::<std::alloc::Global>();
-        cs.print_gate_stats();
-    }
-
-    /// This function tests the modular multiplication, that is
-    /// an operation `a*b mod m`, where a and b are two integers,
-    /// e is the exponent, and m is the modulus.
-    ///
-    /// The function reads the test cases from [`MODMUL_256_256_TEST_CASES`] and runs them.
-    #[test]
-    #[ignore = "too-large circuit, should be run manually"]
-    fn test_modmul_256_bytes() {
-        // Preparing the constraint system and parameters
-        let mut owned_cs = create_test_cs(1 << 24);
-        let cs = &mut owned_cs;
-
-        // Running tests from file
-        for (_, raw) in MODMUL_256_256_TEST_CASES.tests.iter().enumerate() {
-            // Input:
-            let test = Modmul256BytesTestCase::from_raw(cs, &raw);
-
-            // Expected:
-            let actual_modmul = test.a.modmul(cs, &test.b, &test.modulus);
-
-            // Actual:
-            let expected_modmul = test.expected.clone();
-
-            // Asserting
-            assert_equal_uint2048(cs, &actual_modmul, &expected_modmul);
-        }
-
-        // Printing the number of constraints
-        let cs = owned_cs.into_assembly::<std::alloc::Global>();
-        cs.print_gate_stats();
-    }
-
-    /// This function runs an operation `a*b mod m`, where a and b are two integers,
-    /// e is the exponent, m is the modulus, and checks the number of constraints.
-    ///
-    /// The function reads the test cases from [`MODMUL_256_256_TEST_CASES`] and runs them.
-    #[test]
-    #[ignore = "too-large circuit, should be run manually"]
-    fn debug_modmul_256_bytes() {
-        // Preparing the constraint system and parameters
-        let mut owned_cs = create_test_cs(1 << 26);
-        let cs = &mut owned_cs;
-
-        // Input:
-        let raw = &MODMUL_256_256_TEST_CASES.tests[0];
-        let test_case = Modmul256BytesTestCase::from_raw(cs, &raw);
-
-        // Performing the actual computation:
         let _ = test_case.a.modmul(cs, &test_case.b, &test_case.modulus);
 
         // Printing the number of constraints
