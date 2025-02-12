@@ -273,7 +273,10 @@ where
     for _ in 1..PRECOMPUTATION_TABLE_SIZE {
         // 2P, 3P, ...
         tmp = tmp.add_mixed(cs, &mut p_affine);
-        let affine = tmp.convert_to_affine(cs);
+        let affine;
+        unsafe {
+            affine = tmp.convert_to_affine(cs);
+        }
         table.push(affine);
     }
     assert_eq!(table.len(), PRECOMPUTATION_TABLE_SIZE);
