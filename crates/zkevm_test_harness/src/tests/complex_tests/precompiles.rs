@@ -115,7 +115,7 @@ fn simulate_subqueue(
 /// Returns precompile success, and precompile returned value
 fn test_ecpairing_using_tuples(tuples: Vec<[[u8; 32]; 6]>) -> (U256, U256) {
     let mut memory = SimpleMemory::new();
-    let mut precompiles_processor = DefaultPrecompilesProcessor::<false>;
+    let mut precompiles_processor = DefaultPrecompilesProcessor::<true>;
 
     let page_number = 4u32;
     // create heap page
