@@ -18,7 +18,6 @@ pub mod test {
         create_and8_table, create_byte_split_table, create_xor8_table, And8Table, ByteSplitTable,
         Xor8Table,
     };
-    use boojum::gadgets::u2048::UInt2048;
     use boojum::gadgets::u256::UInt256;
 
     use crate::modexp::implementation::u256::modexp_32_32_32;
@@ -149,15 +148,6 @@ pub mod test {
         CS: ConstraintSystem<F>,
     {
         let equals = UInt256::equals(cs, a, b);
-        let boolean_true = Boolean::allocated_constant(cs, true);
-        Boolean::enforce_equal(cs, &equals, &boolean_true);
-    }
-
-    fn assert_equal_uint2048<CS>(cs: &mut CS, a: &UInt2048<F>, b: &UInt2048<F>)
-    where
-        CS: ConstraintSystem<F>,
-    {
-        let equals = UInt2048::equals(cs, a, b);
         let boolean_true = Boolean::allocated_constant(cs, true);
         Boolean::enforce_equal(cs, &equals, &boolean_true);
     }
