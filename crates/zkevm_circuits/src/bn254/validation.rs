@@ -3,11 +3,10 @@ use boojum::cs::traits::cs::ConstraintSystem;
 use boojum::field::SmallField;
 use boojum::gadgets::boolean::Boolean;
 use boojum::gadgets::non_native_field::implementations::NonNativeFieldOverU16Params;
-use boojum::gadgets::non_native_field::traits::NonNativeField;
 use boojum::gadgets::u256::UInt256;
 use std::sync::Arc;
 
-use crate::bn254::{BN256BaseNNField, BN256BaseNNFieldParams, BN256Fq, BN256Fq2NNField};
+use crate::bn254::{BN256BaseNNField, BN256BaseNNFieldParams, BN256Fq};
 use crate::ethereum_types::U256;
 use boojum::pairing::ff::PrimeField;
 
@@ -75,36 +74,6 @@ pub(crate) fn is_on_curve<F: SmallField, CS: ConstraintSystem<F>>(
     BN256BaseNNField::equals(cs, &mut y_squared, &mut x_cubed_plus_b)
 }
 
-/// Checks that the passed point is on G2 `BN256` curve.
-/// The `Infinity` point is not counted as on curve.
-/// See https://hackmd.io/@jpw/bn254#Twists for further details.
-pub(crate) fn is_on_twist_curve<F: SmallField, CS: ConstraintSystem<F>>(
-    cs: &mut CS,
-    point: (&BN256Fq2NNField<F>, &BN256Fq2NNField<F>),
-    params: &Arc<BN256BaseNNFieldParams>,
-) -> Boolean<F> {
-    let (x, y) = point;
-
-    let mut x = x.clone();
-    let mut y = y.clone();
-
-    let b_c0 = BN256Fq::from_str(B_TWIST_C0).unwrap();
-    let b_c1 = BN256Fq::from_str(B_TWIST_C1).unwrap();
-
-    let b_c0 = BN256BaseNNField::allocated_constant(cs, b_c0, params);
-    let b_c1 = BN256BaseNNField::allocated_constant(cs, b_c1, params);
-
-    let mut b = BN256Fq2NNField::new(b_c0, b_c1);
-
-    let mut x_squared = x.square(cs);
-    let mut x_cubed = x_squared.mul(cs, &mut x);
-
-    let mut x_cubed_plus_b = x_cubed.add(cs, &mut b);
-    let mut y_squared = y.square(cs);
-
-    y_squared.equals(cs, &mut x_cubed_plus_b)
-}
-
 /// Check whether passed point is classified as `Infinity`.
 /// See https://eips.ethereum.org/EIPS/eip-196 for further details.
 // We use `UInt256` instead of `BN256BaseNNField`
@@ -118,25 +87,4 @@ pub(crate) fn is_affine_infinity<F: SmallField, CS: ConstraintSystem<F>>(
     let y_is_zero = y.is_zero(cs);
 
     x_is_zero.and(cs, y_is_zero)
-}
-
-/// Check whether passed point in G2 is classified as `Infinity`.
-/// See https://eips.ethereum.org/EIPS/eip-196 for further details.
-// We use `UInt256` instead of `BN256BaseNNField`
-// because we need to be able to check the unmasked value.
-pub(crate) fn is_twist_affine_infinity<F: SmallField, CS: ConstraintSystem<F>>(
-    cs: &mut CS,
-    point: (&UInt256<F>, &UInt256<F>, &UInt256<F>, &UInt256<F>),
-) -> Boolean<F> {
-    let (x_c0, x_c1, y_c0, y_c1) = point;
-
-    let x_c0_is_zero = x_c0.is_zero(cs);
-    let x_c1_is_zero = x_c1.is_zero(cs);
-    let y_c0_is_zero = y_c0.is_zero(cs);
-    let y_c1_is_zero = y_c1.is_zero(cs);
-
-    Boolean::multi_and(
-        cs,
-        &[x_c0_is_zero, x_c1_is_zero, y_c0_is_zero, y_c1_is_zero],
-    )
 }
