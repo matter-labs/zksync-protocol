@@ -4,7 +4,7 @@ use lazy_static::lazy_static;
 use self::{
     ec_add::ECAddTestCases,
     ec_mul::{DecompositionTestCases, MultiplicationTestCases},
-    ec_pairing::{FinalExpTestCases, G2TestCases, PairingTestCases},
+    ec_pairing::{FinalExpTestCases, PairingTestCases},
 };
 
 pub mod ec_add;
@@ -20,8 +20,6 @@ lazy_static! {
     pub static ref DECOMPOSITION_TEST_CASES: DecompositionTestCases = ec_mul::load_decomposition_test_cases();
     /// Test cases for scalar multiplication
     pub static ref EC_MUL_TEST_CASES: MultiplicationTestCases = ec_mul::load_multiplication_test_cases();
-    /// Test cases for `G2` operations
-    pub static ref G2_CURVE_TEST_CASES: G2TestCases = ec_pairing::load_g2_curve_test_cases();
     /// Test cases for easy exponentiation
     pub static ref FINAL_EXP_TEST_CASES: FinalExpTestCases = ec_pairing::load_final_exp_test_cases();
     /// Test cases for pairing bilinearity

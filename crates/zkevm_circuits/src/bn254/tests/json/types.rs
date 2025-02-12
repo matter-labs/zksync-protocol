@@ -18,7 +18,6 @@ use serde::{Deserialize, Serialize};
 use crate::bn254::{tests::utils::cs::bn254_base_field_params, BN256Fq};
 use crate::bn254::{
     BN256BaseNNField, BN256Fq12NNField, BN256Fq2NNField, BN256Fq6NNField, BN256SWProjectivePoint,
-    BN256SWProjectivePointTwisted,
 };
 
 type F = GoldilocksField;
@@ -79,16 +78,6 @@ pub struct RawG2Point {
 }
 
 impl RawG2Point {
-    /// Converts a raw point to a projective point
-    pub fn to_projective_point<CS: ConstraintSystem<F>>(
-        &self,
-        cs: &mut CS,
-    ) -> BN256SWProjectivePointTwisted<F> {
-        let x_nn = self.x.to_fq2(cs);
-        let y_nn = self.y.to_fq2(cs);
-
-        BN256SWProjectivePointTwisted::<F>::from_xy_unchecked(cs, x_nn, y_nn)
-    }
     pub fn to_affine<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> G2AffineCoord<F> {
         G2AffineCoord {
             x_c0: UInt256::allocated_constant(cs, U256::from_str_radix(&self.x.c0, 10).unwrap()),

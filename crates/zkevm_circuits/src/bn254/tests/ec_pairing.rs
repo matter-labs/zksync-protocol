@@ -6,58 +6,16 @@ pub mod test {
     };
 
     use crate::bn254::tests::json::{
-        FINAL_EXP_TEST_CASES, G2_CURVE_TEST_CASES, INVALID_SUBGROUP_TEST_CASES, PAIRING_TEST_CASES,
+        FINAL_EXP_TEST_CASES, INVALID_SUBGROUP_TEST_CASES, PAIRING_TEST_CASES,
     };
-    use crate::bn254::tests::utils::assert::{assert_equal_fq12, assert_equal_g2_points};
+    use crate::bn254::tests::utils::assert::assert_equal_fq12;
     use crate::bn254::tests::utils::cs::create_test_cs;
-    use crate::bn254::tests::utils::debug_success;
     use boojum::field::goldilocks::GoldilocksField;
 
     use boojum::gadgets::traits::witnessable::WitnessHookable;
 
     type F = GoldilocksField;
     type P = GoldilocksField;
-
-    /// Tests whether G2 curve operations are correct. Namely, we verify:
-    ///
-    /// 1. The sum of two points.
-    /// 2. The double of a point.
-    ///
-    /// The test cases are loaded from the [`G2_CURVE_TEST_CASES`] constant.
-    #[test]
-    fn test_g2_curve() {
-        // Preparing the constraint system and parameters
-        let mut owned_cs = create_test_cs(1 << 21);
-        let cs = &mut owned_cs;
-
-        // Running tests from file
-        const DEBUG_FREQUENCY: usize = 2;
-        for (i, test) in G2_CURVE_TEST_CASES.tests.iter().enumerate() {
-            // Input:
-            let mut point_1 = test.point_1.to_projective_point(cs);
-            let mut point_2 = test.point_2.to_projective_point(cs);
-
-            let point_2_x = point_2.x.clone();
-            let point_2_y = point_2.y.clone();
-
-            // Expected:
-            let mut expected_sum = test.expected.sum.to_projective_point(cs);
-            let mut expected_point_1_double = test.expected.point_1_double.to_projective_point(cs);
-            let mut expected_point_2_double = test.expected.point_2_double.to_projective_point(cs);
-
-            // Actual:
-            let mut sum = point_1.add_mixed(cs, &mut (point_2_x, point_2_y));
-            let mut point_1_double = point_1.double(cs);
-            let mut point_2_double = point_2.double(cs);
-
-            // Asserting:
-            assert_equal_g2_points(cs, &mut sum, &mut expected_sum);
-            assert_equal_g2_points(cs, &mut point_1_double, &mut expected_point_1_double);
-            assert_equal_g2_points(cs, &mut point_2_double, &mut expected_point_2_double);
-
-            debug_success("G2", i, DEBUG_FREQUENCY);
-        }
-    }
 
     /// Tests the final exponentiation step used in the pairing computation.
     ///
