@@ -2,7 +2,10 @@
 
 use std::sync::Arc;
 
+use crate::bn254::ec_pairing::alternative_precompile_naive::{G1AffineCoord, G2AffineCoord};
 use boojum::cs::traits::cs::ConstraintSystem;
+use boojum::ethereum_types::U256;
+use boojum::gadgets::u256::UInt256;
 use boojum::{
     field::goldilocks::GoldilocksField,
     pairing::{
@@ -60,6 +63,12 @@ impl RawG1Point {
 
         (x_nn, y_nn)
     }
+    pub fn to_affine<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> G1AffineCoord<F> {
+        G1AffineCoord {
+            x: UInt256::allocated_constant(cs, U256::from_str_radix(&self.x, 10).unwrap()),
+            y: UInt256::allocated_constant(cs, U256::from_str_radix(&self.y, 10).unwrap()),
+        }
+    }
 }
 
 /// Representation of a G2 elliptic curve point in raw form (as strings)
@@ -79,6 +88,14 @@ impl RawG2Point {
         let y_nn = self.y.to_fq2(cs);
 
         BN256SWProjectivePointTwisted::<F>::from_xy_unchecked(cs, x_nn, y_nn)
+    }
+    pub fn to_affine<CS: ConstraintSystem<F>>(&self, cs: &mut CS) -> G2AffineCoord<F> {
+        G2AffineCoord {
+            x_c0: UInt256::allocated_constant(cs, U256::from_str_radix(&self.x.c0, 10).unwrap()),
+            x_c1: UInt256::allocated_constant(cs, U256::from_str_radix(&self.x.c1, 10).unwrap()),
+            y_c0: UInt256::allocated_constant(cs, U256::from_str_radix(&self.y.c0, 10).unwrap()),
+            y_c1: UInt256::allocated_constant(cs, U256::from_str_radix(&self.y.c1, 10).unwrap()),
+        }
     }
 }
 
