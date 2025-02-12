@@ -474,11 +474,10 @@ fn callstack_simulation(
          callstack_entry: ExtendedCallstackEntry<GoldilocksField>,
          callstack_simulator_state: CallstackSimulatorState<GoldilocksField>| {
             if let Some((prev_cycle, _)) = callstack_witnesses_for_main_vm.last() {
-                assert!(
-                    cycle_to_use != *prev_cycle,
+                assert_ne!(
+                    cycle_to_use, *prev_cycle,
                     "trying to add callstack witness for cycle {}, but previous one is on cycle {}",
-                    cycle_to_use,
-                    prev_cycle
+                    cycle_to_use, prev_cycle
                 );
             }
             callstack_witnesses_for_main_vm
@@ -1435,10 +1434,7 @@ pub(crate) fn create_artifacts_from_tracer<'a>(
 
     assert!(vm_snapshots.len() >= 2); // we need at least entry point and the last save (after exit)
 
-    assert!(
-        callstack_with_aux_data.depth == 0,
-        "parent frame didn't exit"
-    );
+    assert_eq!(callstack_with_aux_data.depth, 0, "parent frame didn't exit");
 
     let full_callstack_history = std::mem::take(&mut callstack_with_aux_data.full_history);
     // Since we finished the VM execution, current callstack entry now should be a root (outermost) frame

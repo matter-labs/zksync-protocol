@@ -1,6 +1,3 @@
-use std::fs::File;
-use std::io::Write;
-
 use codegen::Scope;
 use rayon::prelude::*;
 
@@ -12,14 +9,6 @@ use zkevm_test_harness::capacity_estimator::{
     transient_storage_sorter_capacity,
 };
 use zkevm_test_harness::toolset::GeometryConfig;
-
-fn save_geometry_config_file(geometry_config: String, filepath: &str) {
-    let file_content =
-        "// This file is auto-generated, do not edit it manually\n\n".to_owned() + &geometry_config;
-    let mut f = File::create(filepath).expect("Unable to create file");
-    f.write_all(file_content.as_bytes())
-        .expect("Unable to write data");
-}
 
 fn all_runners() -> Vec<Box<dyn Fn() -> usize + Send>> {
     vec![
@@ -152,5 +141,4 @@ fn main() {
     ));
     function.line("}");
     println!("Generated config:\n {}", scope.to_string());
-    save_geometry_config_file(scope.to_string(), "src/geometry_config/mod.rs");
 }
