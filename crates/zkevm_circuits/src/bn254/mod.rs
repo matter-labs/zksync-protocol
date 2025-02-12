@@ -1,4 +1,3 @@
-use boojum::gadgets::curves::sw_projective::extended::ExtendedSWProjectivePoint;
 use boojum::gadgets::curves::sw_projective::SWProjectivePoint;
 use boojum::gadgets::non_native_field::implementations::{
     NonNativeFieldOverU16, NonNativeFieldOverU16Params,
@@ -56,12 +55,9 @@ pub type BN256Fq12NNField<F> =
 pub type BN256TorusWrapper<F> =
     TorusWrapper<F, BN256Fq, BN256BaseNNField<F>, BN256Extension12Params>;
 
-// --- SW Projective points for BN256 curves: regular and twisted ---
+// --- SW Projective points for BN256 curve regular ---
 /// SW Projective point for BN256 curve over non-extended base field
 pub type BN256SWProjectivePoint<F> = SWProjectivePoint<F, BN256Affine, BN256BaseNNField<F>>;
-/// SW Projective point for twisted BN256 curve over extended base field `Fp2`
-pub type BN256SWProjectivePointTwisted<F> =
-    ExtendedSWProjectivePoint<F, BN256Fq, BN256AffineTwisted, BN256Fq2NNField<F>>;
 
 // --- Parameters creation functions ---
 /// Returns BN254 base field parameters

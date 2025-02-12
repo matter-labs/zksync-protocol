@@ -24,7 +24,7 @@ where
 {
     fn geometry() -> CSGeometry {
         CSGeometry {
-            num_columns_under_copy_permutation: 200,
+            num_columns_under_copy_permutation: 100,
             num_witness_columns: 0,
             num_constant_columns: 8,
             max_allowed_constraint_degree: 4,
@@ -33,8 +33,8 @@ where
 
     fn lookup_parameters() -> LookupParameters {
         LookupParameters::UseSpecializedColumnsWithTableIdAsConstant {
-            width: 3,
-            num_repetitions: 8,
+            width: 1,
+            num_repetitions: 4,
             share_table_id: true,
         }
     }
@@ -60,9 +60,13 @@ where
             builder,
             GatePlacementStrategy::UseGeneralPurposeColumns,
         );
+
         let builder = BooleanConstraintGate::configure_builder(
             builder,
-            GatePlacementStrategy::UseGeneralPurposeColumns,
+            GatePlacementStrategy::UseSpecializedColumns {
+                num_repetitions: 5,
+                share_constants: false,
+            },
         );
         let builder = UIntXAddGate::<32>::configure_builder(
             builder,
@@ -121,8 +125,8 @@ where
     }
 
     fn add_tables<CS: ConstraintSystem<F>>(cs: &mut CS) {
-        let table = create_xor8_table();
-        cs.add_lookup_table::<Xor8Table, 3>(table);
+        let table = create_range_check_16_bits_table();
+        cs.add_lookup_table::<RangeCheck16BitsTable, 1>(table);
     }
 
     fn synthesize_into_cs_inner<CS: ConstraintSystem<F>>(

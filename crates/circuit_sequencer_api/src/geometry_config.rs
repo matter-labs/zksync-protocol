@@ -33,12 +33,12 @@ pub enum ProtocolGeometry {
     V1_4_2,
     V1_5_0,
     V1_5_1,
-    V1_7_0,
+    V1_5_2,
 }
 
 impl ProtocolGeometry {
     pub const fn latest() -> Self {
-        ProtocolGeometry::V1_7_0
+        ProtocolGeometry::V1_5_2
     }
 
     pub const fn config(self) -> GeometryConfig {
@@ -48,7 +48,7 @@ impl ProtocolGeometry {
             ProtocolGeometry::V1_4_2 => get_geometry_config_1_4_2(),
             ProtocolGeometry::V1_5_0 => get_geometry_config_1_5_0(),
             ProtocolGeometry::V1_5_1 => get_geometry_config_1_5_1(),
-            ProtocolGeometry::V1_7_0 => get_geometry_config_1_7_0(),
+            ProtocolGeometry::V1_5_2 => get_geometry_config_1_5_2(),
         }
     }
 }
@@ -195,7 +195,7 @@ const fn get_geometry_config_1_5_1() -> GeometryConfig {
 }
 
 /// 1.7.0 with precompiles.
-pub const fn get_geometry_config_1_7_0() -> GeometryConfig {
+pub const fn get_geometry_config_1_5_2() -> GeometryConfig {
     GeometryConfig {
         cycles_per_vm_snapshot: 5351,
         cycles_code_decommitter_sorter: 111250,
@@ -211,9 +211,9 @@ pub const fn get_geometry_config_1_7_0() -> GeometryConfig {
         limit_for_l1_messages_pudata_hasher: 774,
         cycles_per_transient_storage_sorter: 50875,
         cycles_per_secp256r1_verify_circuit: 4,
-        cycles_per_modexp_circuit: 13,
-        cycles_per_ecadd_circuit: 1488,
-        cycles_per_ecmul_circuit: 23,
+        cycles_per_modexp_circuit: 25,
+        cycles_per_ecadd_circuit: 812,
+        cycles_per_ecmul_circuit: 15,
         cycles_per_ecpairing_circuit: 1,
     }
 }
