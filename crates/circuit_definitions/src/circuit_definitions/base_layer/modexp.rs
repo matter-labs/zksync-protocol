@@ -24,7 +24,7 @@ where
 {
     fn geometry() -> CSGeometry {
         CSGeometry {
-            num_columns_under_copy_permutation: 200,
+            num_columns_under_copy_permutation: 80,
             num_witness_columns: 0,
             num_constant_columns: 8,
             max_allowed_constraint_degree: 4,
@@ -33,8 +33,8 @@ where
 
     fn lookup_parameters() -> LookupParameters {
         LookupParameters::UseSpecializedColumnsWithTableIdAsConstant {
-            width: 3,
-            num_repetitions: 8,
+            width: 1,
+            num_repetitions: 32,
             share_table_id: true,
         }
     }
@@ -113,7 +113,7 @@ where
     type RoundFunction = R;
 
     fn description() -> String {
-        "Elliptic Curve Addition".to_string()
+        "Modular exponentiation".to_string()
     }
 
     fn size_hint() -> (Option<usize>, Option<usize>) {
@@ -121,8 +121,8 @@ where
     }
 
     fn add_tables<CS: ConstraintSystem<F>>(cs: &mut CS) {
-        let table = create_xor8_table();
-        cs.add_lookup_table::<Xor8Table, 3>(table);
+        let table = create_range_check_table::<F, 8>();
+        cs.add_lookup_table::<RangeCheckTable<8>, 1>(table);
     }
 
     fn synthesize_into_cs_inner<CS: ConstraintSystem<F>>(
