@@ -3,8 +3,8 @@ use std::str::FromStr;
 use circuit_definitions::{
     base_layer_proof_config,
     circuit_definitions::base_layer::{
-        ECAddFunctionInstanceSynthesisFunction, ECPairingFunctionInstanceSynthesisFunction,
-        ZkSyncBaseLayerCircuit,
+        ECAddFunctionInstanceSynthesisFunction, ECMulFunctionInstanceSynthesisFunction,
+        ECPairingFunctionInstanceSynthesisFunction, ZkSyncBaseLayerCircuit,
     },
     ZkSyncDefaultRoundFunction, BASE_LAYER_CAP_SIZE, BASE_LAYER_FRI_LDE_FACTOR,
 };
@@ -28,7 +28,8 @@ use circuit_encodings::{
     LogQueueSimulator,
 };
 use zkevm_assembly::zkevm_opcode_defs::{
-    PrecompileCallABI, ECADD_PRECOMPILE_ADDRESS, ECPAIRING_PRECOMPILE_ADDRESS, PRECOMPILE_AUX_BYTE,
+    PrecompileCallABI, ECADD_PRECOMPILE_ADDRESS, ECMUL_PRECOMPILE_ADDRESS,
+    ECPAIRING_PRECOMPILE_ADDRESS, PRECOMPILE_AUX_BYTE,
 };
 
 use crate::{
@@ -40,6 +41,7 @@ use crate::{
         aux_data_structs::one_per_circuit_accumulator::LastPerCircuitAccumulator,
         individual_circuits::memory_related::{
             ecadd::{ecadd_decompose_into_per_circuit_witness, ecadd_memory_queries},
+            ecmul::{ecmul_decompose_into_per_circuit_witness, ecmul_memory_queries},
             ecpairing::{ecpairing_decompose_into_per_circuit_witness, ecpairing_memory_queries},
             SimulatorSnapshot,
         },
@@ -394,6 +396,146 @@ fn test_ecadd_using_tuple(tuple: Vec<[[u8; 32]; 2]>) -> (U256, U256, U256) {
     (writes[0].value, writes[1].value, writes[2].value)
 }
 
+fn test_ecmul_using_tuple(tuple: Vec<[[u8; 32]; 3]>) -> (U256, U256, U256) {
+    let mut memory = SimpleMemory::new();
+    let mut precompiles_processor = DefaultPrecompilesProcessor::<true>;
+
+    let page_number = 4u32;
+    // create heap page
+    memory.populate_page(vec![
+        (page_number, vec![U256::zero(); 1 << 10]),
+        (page_number + 1, vec![]),
+    ]);
+
+    let num_words_used = fill_memory(tuple, page_number, &mut memory);
+
+    let precompile_call_params = PrecompileCallABI {
+        input_memory_offset: 0,
+        input_memory_length: num_words_used as u32,
+        output_memory_offset: num_words_used as u32,
+        output_memory_length: 3,
+        memory_page_to_read: page_number,
+        memory_page_to_write: page_number,
+        precompile_interpreted_data: 0,
+    };
+    let precompile_call_params_encoded = precompile_call_params.to_u256();
+
+    let address = Address::from_low_u64_be(ECMUL_PRECOMPILE_ADDRESS as u64);
+
+    let precompile_query = LogQuery {
+        timestamp: Timestamp(1u32),
+        tx_number_in_block: 0,
+        shard_id: 0,
+        aux_byte: PRECOMPILE_AUX_BYTE,
+        address,
+        key: precompile_call_params_encoded,
+        read_value: U256::zero(),
+        written_value: U256::zero(),
+        rw_flag: false,
+        rollback: false,
+        is_service: false,
+    };
+
+    let result: Option<(
+        Vec<MemoryQuery>,
+        Vec<MemoryQuery>,
+        circuit_encodings::zk_evm::abstractions::PrecompileCyclesWitness,
+    )> = precompiles_processor.execute_precompile(4, precompile_query, &mut memory);
+    let (_reads, writes, witness) = result.unwrap();
+    assert_eq!(writes.len(), 3);
+
+    let mut witness = match witness {
+        PrecompileCyclesWitness::ECMul(witness) => witness,
+        _ => panic!(),
+    };
+
+    let ecmul_witnesses = vec![(4u32, precompile_query, witness.pop().unwrap())];
+
+    let ecmul_memory_queries = ecmul_memory_queries(&ecmul_witnesses);
+
+    let mut ecmul_memory_states = vec![];
+    let mut states_accumulator2 = LastPerCircuitAccumulator::new(1);
+    let (ecmul_simulator_snapshots, _simulator) = simulate_subqueue(
+        &ecmul_memory_queries,
+        &mut ecmul_memory_states,
+        &mut states_accumulator2,
+    );
+
+    let ecmul_queries = vec![precompile_query];
+
+    let num_rounds_per_circuit = 1;
+    let round_function = ZkSyncDefaultRoundFunction::default();
+
+    let mut states_accumulator = LastPerCircuitAccumulator::new(1);
+    let mut simulator = LogQueueSimulator::empty();
+
+    let (_old_tail, state_witness) =
+        simulator.push_and_output_intermediate_data(precompile_query, &round_function);
+    states_accumulator.push(state_witness);
+
+    let demuxed_ecmul_queue = LogQueueStates::<GoldilocksField> {
+        states_accumulator,
+        simulator,
+    };
+
+    let ecpairing_circuits_data = ecmul_decompose_into_per_circuit_witness(
+        ecmul_memory_queries,
+        ecmul_simulator_snapshots,
+        ecmul_memory_states,
+        ecmul_witnesses,
+        ecmul_queries,
+        demuxed_ecmul_queue,
+        num_rounds_per_circuit,
+        &round_function,
+    );
+
+    let worker = Worker::new_with_num_threads(8);
+
+    let (setup_base, setup, vk, setup_tree, vars_hint, wits_hint, finalization_hint) = {
+        let circuit = ecpairing_circuits_data[0].clone();
+
+        let mut maker = CircuitMaker::new(1, round_function.clone());
+        let basic_circuit = maker.process::<ECMulFunctionInstanceSynthesisFunction>(circuit, circuit_encodings::zkevm_circuits::scheduler::aux::BaseLayerCircuitType::ECMulPrecompile);
+        let basic_circuit = ZkSyncBaseLayerCircuit::ECMul(basic_circuit);
+        create_base_layer_setup_data(
+            basic_circuit.clone(),
+            &worker,
+            BASE_LAYER_FRI_LDE_FACTOR,
+            BASE_LAYER_CAP_SIZE,
+        )
+    };
+    let circuits = ecpairing_circuits_data.len();
+
+    for (i, circuit) in ecpairing_circuits_data.into_iter().enumerate() {
+        let mut maker = CircuitMaker::new(1, round_function.clone());
+        let basic_circuit = maker.process::<ECMulFunctionInstanceSynthesisFunction>(circuit, circuit_encodings::zkevm_circuits::scheduler::aux::BaseLayerCircuitType::ECMulPrecompile);
+        let basic_circuit = ZkSyncBaseLayerCircuit::ECMul(basic_circuit);
+
+        println!("Proving! {} / {}   ", i + 1, circuits);
+        let now = std::time::Instant::now();
+
+        let proof = prove_base_layer_circuit::<NoPow>(
+            basic_circuit.clone(),
+            &worker,
+            base_layer_proof_config(),
+            &setup_base,
+            &setup,
+            &setup_tree,
+            &vk,
+            &vars_hint,
+            &wits_hint,
+            &finalization_hint,
+        );
+
+        println!("Proving is DONE, taken {:?}", now.elapsed());
+
+        let is_valid = verify_base_layer_proof::<NoPow>(&basic_circuit, &proof, &vk);
+        assert!(is_valid);
+    }
+
+    (writes[0].value, writes[1].value, writes[2].value)
+}
+
 fn test_ecpairing_from_hex(raw_input: &str) -> (U256, U256) {
     let input_bytes = hex::decode(raw_input).unwrap();
 
@@ -433,6 +575,18 @@ fn test_ecadd_from_hex(raw_input: &str) -> (U256, U256, U256) {
     let tuple = vec![[x1, y1], [x2, y2]];
 
     test_ecadd_using_tuple(tuple)
+}
+
+fn test_ec_mul_from_hex(raw_input: &str) -> (U256, U256, U256) {
+    let input_bytes = hex::decode(raw_input).unwrap();
+
+    let x1: [u8; 32] = input_bytes[0..32].try_into().unwrap();
+    let y1: [u8; 32] = input_bytes[32..64].try_into().unwrap();
+    let scalar: [u8; 32] = input_bytes[64..96].try_into().unwrap();
+
+    let tuple = vec![[x1, y1, scalar]];
+
+    test_ecmul_using_tuple(tuple)
 }
 
 #[test]
@@ -554,7 +708,7 @@ fn ec_add_cdetrio1_test() {
 
 #[test]
 fn ec_add_cdetrio2_test() {
-    let raw_input = "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+    let raw_input = "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
 
     let (success, x, y) = test_ecadd_from_hex(raw_input);
 
@@ -565,7 +719,7 @@ fn ec_add_cdetrio2_test() {
 
 #[test]
 fn ec_add_cdetrio3_test() {
-    let raw_input = "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+    let raw_input = "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
 
     let (success, x, y) = test_ecadd_from_hex(raw_input);
 
@@ -621,7 +775,7 @@ fn ec_add_cdetrio13_test() {
 
 #[test]
 fn ec_add_cdetrio14_test() {
-    let raw_input = "17c139df0efee0f766bc0204762b774362e4ded88953a39ce849a8a7fa163fa901e0559bacb160664764a357af8a9fe70baa9258e0b959273ffc5718c6d4cc7c17c139df0efee0f766bc0204762b774362e4ded88953a39ce849a8a7fa163fa92e83f8d734803fc370eba25ed1f6b8768bd6d83887b87165fc2434fe11a830cb00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+    let raw_input = "17c139df0efee0f766bc0204762b774362e4ded88953a39ce849a8a7fa163fa901e0559bacb160664764a357af8a9fe70baa9258e0b959273ffc5718c6d4cc7c17c139df0efee0f766bc0204762b774362e4ded88953a39ce849a8a7fa163fa92e83f8d734803fc370eba25ed1f6b8768bd6d83887b87165fc2434fe11a830cb";
 
     let (success, x, y) = test_ecadd_from_hex(raw_input);
 
@@ -664,12 +818,150 @@ fn ec_add_invalid_3_test() {
 }
 
 #[test]
-fn ec_add_add_to_zero_test() {
-    let raw_input = "17c139df0efee0f766bc0204762b774362e4ded88953a39ce849a8a7fa163fa901e0559bacb160664764a357af8a9fe70baa9258e0b959273ffc5718c6d4cc7c17c139df0efee0f766bc0204762b774362e4ded88953a39ce849a8a7fa163fa92e83f8d734803fc370eba25ed1f6b8768bd6d83887b87165fc2434fe11a830cb00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+fn ec_mul_test() {
+    let raw_input = "1a87b0584ce92f4593d161480614f2989035225609f08058ccfa3d0f940febe31a2f3c951f6dadcc7ee9007dff81504b0fcd6d7cf59996efdc33d92bf7f9f8f630644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000";
+    let expected_x =
+        U256::from_str("1a87b0584ce92f4593d161480614f2989035225609f08058ccfa3d0f940febe3").unwrap();
+    let expected_y =
+        U256::from_str("163511ddc1c3f25d396745388200081287b3fd1472d8339d5fecb2eae0830451").unwrap();
 
-    let (success, x, y) = test_ecadd_from_hex(raw_input);
+    let (success, x, y) = test_ec_mul_from_hex(raw_input);
+
+    assert_eq!(success, U256::one());
+    assert_eq!(x, expected_x);
+    assert_eq!(y, expected_y);
+}
+
+#[test]
+fn ec_mul_invalid_test() {
+    let raw_input = "000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000001";
+
+    let (success, x, y) = test_ec_mul_from_hex(raw_input);
+
+    assert_eq!(success, U256::zero());
+    assert_eq!(x, U256::zero());
+    assert_eq!(y, U256::zero());
+}
+
+#[test]
+fn ec_mul_zero_test() {
+    let raw_input = "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+
+    let (success, x, y) = test_ec_mul_from_hex(raw_input);
 
     assert_eq!(success, U256::one());
     assert_eq!(x, U256::zero());
     assert_eq!(y, U256::zero());
+}
+
+#[test]
+fn ec_mul_chfast1_test() {
+    let raw_input = "2bd3e6d0f3b142924f5ca7b49ce5b9d54c4703d7ae5648e61d02268b1a0a9fb721611ce0a6af85915e2f1d70300909ce2e49dfad4a4619c8390cae66cefdb20400000000000000000000000000000000000000000000000011138ce750fa15c2";
+
+    let expected_x =
+        U256::from_str("070a8d6a982153cae4be29d434e8faef8a47b274a053f5a4ee2a6c9c13c31e5c").unwrap();
+    let expected_y =
+        U256::from_str("031b8ce914eba3a9ffb989f9cdd5b0f01943074bf4f0f315690ec3cec6981afc").unwrap();
+
+    let (success, x, y) = test_ec_mul_from_hex(raw_input);
+
+    assert_eq!(success, U256::one());
+    assert_eq!(x, expected_x);
+    assert_eq!(y, expected_y);
+}
+
+#[test]
+fn ec_mul_scalar_one_test() {
+    let raw_input = "2bd3e6d0f3b142924f5ca7b49ce5b9d54c4703d7ae5648e61d02268b1a0a9fb721611ce0a6af85915e2f1d70300909ce2e49dfad4a4619c8390cae66cefdb2040000000000000000000000000000000000000000000000000000000000000001";
+
+    let expected_x =
+        U256::from_str("2bd3e6d0f3b142924f5ca7b49ce5b9d54c4703d7ae5648e61d02268b1a0a9fb7").unwrap();
+    let expected_y =
+        U256::from_str("21611ce0a6af85915e2f1d70300909ce2e49dfad4a4619c8390cae66cefdb204").unwrap();
+
+    let (success, x, y) = test_ec_mul_from_hex(raw_input);
+
+    assert_eq!(success, U256::one());
+    assert_eq!(x, expected_x);
+    assert_eq!(y, expected_y);
+}
+
+#[test]
+fn ec_mul_chfast2_test() {
+    let raw_input = "070a8d6a982153cae4be29d434e8faef8a47b274a053f5a4ee2a6c9c13c31e5c031b8ce914eba3a9ffb989f9cdd5b0f01943074bf4f0f315690ec3cec6981afc30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd46";
+
+    let expected_x =
+        U256::from_str("025a6f4181d2b4ea8b724290ffb40156eb0adb514c688556eb79cdea0752c2bb").unwrap();
+    let expected_y =
+        U256::from_str("2eff3f31dea215f1eb86023a133a996eb6300b44da664d64251d05381bb8a02e").unwrap();
+
+    let (success, x, y) = test_ec_mul_from_hex(raw_input);
+
+    assert_eq!(success, U256::one());
+    assert_eq!(x, expected_x);
+    assert_eq!(y, expected_y);
+}
+
+#[test]
+fn ec_mul_chfast3_test() {
+    let raw_input = "025a6f4181d2b4ea8b724290ffb40156eb0adb514c688556eb79cdea0752c2bb2eff3f31dea215f1eb86023a133a996eb6300b44da664d64251d05381bb8a02e183227397098d014dc2822db40c0ac2ecbc0b548b438e5469e10460b6c3e7ea3";
+
+    let expected_x =
+        U256::from_str("14789d0d4a730b354403b5fac948113739e276c23e0258d8596ee72f9cd9d323").unwrap();
+    let expected_y =
+        U256::from_str("0af18a63153e0ec25ff9f2951dd3fa90ed0197bfef6e2a1a62b5095b9d2b4a27").unwrap();
+
+    let (success, x, y) = test_ec_mul_from_hex(raw_input);
+
+    assert_eq!(success, U256::one());
+    assert_eq!(x, expected_x);
+    assert_eq!(y, expected_y);
+}
+
+#[test]
+fn ec_mul_cdetrio1_test() {
+    let raw_input = "1a87b0584ce92f4593d161480614f2989035225609f08058ccfa3d0f940febe31a2f3c951f6dadcc7ee9007dff81504b0fcd6d7cf59996efdc33d92bf7f9f8f6ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+
+    let expected_x =
+        U256::from_str("2cde5879ba6f13c0b5aa4ef627f159a3347df9722efce88a9afbb20b763b4c41").unwrap();
+    let expected_y =
+        U256::from_str("1aa7e43076f6aee272755a7f9b84832e71559ba0d2e0b17d5f9f01755e5b0d11").unwrap();
+
+    let (success, x, y) = test_ec_mul_from_hex(raw_input);
+
+    assert_eq!(success, U256::one());
+    assert_eq!(x, expected_x);
+    assert_eq!(y, expected_y);
+}
+
+#[test]
+fn ec_mul_cdetrio6_test() {
+    let raw_input = "17c139df0efee0f766bc0204762b774362e4ded88953a39ce849a8a7fa163fa901e0559bacb160664764a357af8a9fe70baa9258e0b959273ffc5718c6d4cc7cffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+
+    let expected_x =
+        U256::from_str("29e587aadd7c06722aabba753017c093f70ba7eb1f1c0104ec0564e7e3e21f60").unwrap();
+    let expected_y =
+        U256::from_str("22b1143f6a41008e7755c71c3d00b6b915d386de21783ef590486d8afa8453b1").unwrap();
+
+    let (success, x, y) = test_ec_mul_from_hex(raw_input);
+
+    assert_eq!(success, U256::one());
+    assert_eq!(x, expected_x);
+    assert_eq!(y, expected_y);
+}
+
+#[test]
+fn ec_mul_cdetrio11_test() {
+    let raw_input = "039730ea8dff1254c0fee9c0ea777d29a9c710b7e616683f194f18c43b43b869073a5ffcc6fc7a28c30723d6e58ce577356982d65b833a5a5c15bf9024b43d98ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+
+    let expected_x =
+        U256::from_str("00a1a234d08efaa2616607e31eca1980128b00b415c845ff25bba3afcb81dc00").unwrap();
+    let expected_y =
+        U256::from_str("242077290ed33906aeb8e42fd98c41bcb9057ba03421af3f2d08cfc441186024").unwrap();
+
+    let (success, x, y) = test_ec_mul_from_hex(raw_input);
+
+    assert_eq!(success, U256::one());
+    assert_eq!(x, expected_x);
+    assert_eq!(y, expected_y);
 }

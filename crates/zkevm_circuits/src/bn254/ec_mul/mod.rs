@@ -108,14 +108,17 @@ fn ecmul_precompile_inner<F: SmallField, CS: ConstraintSystem<F>>(
     let point =
         BN256SWProjectivePoint::conditionally_select(cs, point_on_curve, &unchecked_point, &zero);
 
-    // Scalar is masked with zero in-place if it is not in field.
-    let mut scalar = ArrayVec::from([*scalar]);
-    let scalar_in_field = validate_in_field(cs, &mut scalar, scalar_field_params);
-    let [scalar] = scalar.into_inner().unwrap();
-    let scalar = convert_uint256_to_field_element(cs, &scalar, scalar_field_params);
+    // Scalar needs to be normalized in case its > p
+    let mut scalar_fe = convert_uint256_to_field_element(cs, scalar, scalar_field_params);
+    scalar_fe.normalize(cs);
 
-    let mut result =
-        width_4_windowed_multiplication(cs, point, scalar, base_field_params, scalar_field_params);
+    let mut result = width_4_windowed_multiplication(
+        cs,
+        point,
+        scalar_fe,
+        base_field_params,
+        scalar_field_params,
+    );
 
     let ((mut x, mut y), _) = result.convert_to_affine_or_default(cs, BN256Affine::zero());
 
@@ -126,7 +129,6 @@ fn ecmul_precompile_inner<F: SmallField, CS: ConstraintSystem<F>>(
 
     let mut are_valid_inputs = ArrayVec::<_, EXCEPTION_FLAGS_ARR_LEN>::new();
     are_valid_inputs.extend(coordinates_are_in_field);
-    are_valid_inputs.extend(scalar_in_field);
     are_valid_inputs.push(point_is_valid);
 
     let success = Boolean::multi_and(cs, &are_valid_inputs[..]);

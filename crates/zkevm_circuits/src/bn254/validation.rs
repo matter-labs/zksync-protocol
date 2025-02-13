@@ -3,6 +3,7 @@ use boojum::cs::traits::cs::ConstraintSystem;
 use boojum::field::SmallField;
 use boojum::gadgets::boolean::Boolean;
 use boojum::gadgets::non_native_field::implementations::NonNativeFieldOverU16Params;
+use boojum::gadgets::traits::witnessable::WitnessHookable;
 use boojum::gadgets::u256::UInt256;
 use std::sync::Arc;
 
