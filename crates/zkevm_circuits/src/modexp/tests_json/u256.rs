@@ -10,7 +10,6 @@ type F = GoldilocksField;
 
 /// Path to the test cases
 const MODEXP_32_32_32_TEST_CASES_STR: &str = include_str!("modexp_32-32-32_tests.json");
-const MODEXP_32_4_32_TEST_CASES_STR: &str = include_str!("modexp_32-4-32_tests.json");
 const MODMUL_32_32_TEST_CASES_STR: &str = include_str!("modmul_32-32_tests.json");
 
 // --- Modexp Tests ---
@@ -84,11 +83,6 @@ pub struct Modexp32BytesTestCases {
 /// Load 32-32-32 modexp test cases from the file
 pub(in super::super) fn load_modexp_32_32_32_test_cases() -> Modexp32BytesTestCases {
     serde_json::from_str(MODEXP_32_32_32_TEST_CASES_STR).expect("Failed to deserialize")
-}
-
-/// Load 32-4-32 modexp test cases from the file
-pub(in super::super) fn load_modexp_32_4_32_test_cases() -> Modexp32BytesTestCases {
-    serde_json::from_str(MODEXP_32_4_32_TEST_CASES_STR).expect("Failed to deserialize")
 }
 
 // --- Modmul Tests ---
