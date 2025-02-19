@@ -155,7 +155,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
         let current_callstack_mut = vm_state.local_state.callstack.get_current_stack_mut();
 
         // potentially pay for memory growth
-        if vm_state.version >= Version::MemoryGrowthFix {
+        if vm_state.version >= Version::Version27 {
             match inner_variant {
                 UMAOpcode::HeapRead
                 | UMAOpcode::HeapWrite

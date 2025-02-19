@@ -382,7 +382,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
             let current_stack_mut = vm_state.local_state.callstack.get_current_stack_mut();
 
             // potentially pay for memory growth
-            let remaining_ergs_after_growth = if vm_state.version >= Version::MemoryGrowthFix {
+            let remaining_ergs_after_growth = if vm_state.version >= Version::Version27 {
                 match far_call_abi.forwarding_mode {
                     a @ FarCallForwardPageType::UseHeap
                     | a @ FarCallForwardPageType::UseAuxHeap => {

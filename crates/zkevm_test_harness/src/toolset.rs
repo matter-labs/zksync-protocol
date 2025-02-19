@@ -68,7 +68,7 @@ pub fn create_out_of_circuit_vm<S: Storage>(
         tools.decommittment_processor,
         tools.witness_tracer,
         block_properties,
-        Version::MemoryGrowthFix,
+        Version::Version27,
     );
 
     let initial_context = initial_out_of_circuit_context(

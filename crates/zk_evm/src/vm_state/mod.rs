@@ -180,7 +180,7 @@ pub struct VmState<
 #[derive(Debug, PartialEq, PartialOrd)]
 pub enum Version {
     Initial = 0,
-    MemoryGrowthFix = 1,
+    Version27 = 1,
 }
 
 impl<
