@@ -18,6 +18,7 @@ pub struct ProvingToolset<S: Storage> {
 }
 
 use circuit_definitions::zk_evm::aux_structures::PubdataCost;
+use circuit_encodings::zk_evm::vm_state::Version;
 pub use circuit_sequencer_api::geometry_config::GeometryConfig;
 
 pub fn create_tools<S: Storage>(storage: S, config: &GeometryConfig) -> ProvingToolset<S> {
@@ -67,6 +68,7 @@ pub fn create_out_of_circuit_vm<S: Storage>(
         tools.decommittment_processor,
         tools.witness_tracer,
         block_properties,
+        Version::MemoryGrowthFix,
     );
 
     let initial_context = initial_out_of_circuit_context(
