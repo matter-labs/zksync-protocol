@@ -134,7 +134,7 @@ fn test_ecpairing_using_tuples(tuples: Vec<[[u8; 32]; 6]>) -> (U256, U256) {
         input_memory_offset: 0,
         input_memory_length: num_words_used as u32,
         output_memory_offset: num_words_used as u32,
-        output_memory_length: 1,
+        output_memory_length: 2,
         memory_page_to_read: page_number,
         memory_page_to_write: page_number,
         precompile_interpreted_data: num_pairings,
@@ -744,6 +744,15 @@ fn test_modexp_from_hex(raw_input: &str) -> U256 {
 }
 
 #[test]
+fn ec_pairing_empty_data() {
+    let raw_input = "";
+
+    let (success, result) = test_ecpairing_from_hex(raw_input);
+    assert_eq!(success, U256::one());
+    assert_eq!(result, U256::one());
+}
+
+#[test]
 // Single pair - should return true.
 fn ec_pairing_single_test() {
     let raw_input = "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c21800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa";
@@ -773,6 +782,15 @@ fn ec_pairing_not_pairing_test() {
     assert_eq!(result, U256::zero());
 }
 
+#[test]
+fn ec_pairing_all_modules_test() {
+    // [module, module, module, module, module, module]
+    let raw_input = "30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd4730644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd4730644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd4730644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd4730644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd4730644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47";
+
+    let (success, result) = test_ecpairing_from_hex(raw_input);
+    assert_eq!(success, U256::one());
+    assert_eq!(result, U256::zero());
+}
 #[test]
 fn ec_pairing_not_pairing_invalid_g2_subgroup_test() {
     let raw_input = "0412aa5b0805215b55a5e2dbf0662031aad0f5ef13f28b25df20b8670d1c59a616fb4b64ccff216fa5272e1e987c0616d60d8883d5834229c685949047e9411d2d81dbc969f72bc0454ff8b04735b717b725fee98a2fcbcdcf6c5b51b1dff33f075239888fc8448ab781e2a8bb85eb556469474cd707d4b913bee28679920eb61ef1c268b7c4c78959f099a043ecd5e537fe3069ac9197235f16162372848cba209cfadc22f7e80d399d1886f1c53898521a34c62918ed802305f32b4070a3c4";
@@ -851,28 +869,6 @@ fn ec_add_chfast2_test() {
 
 #[test]
 fn ec_add_cdetrio1_test() {
-    let raw_input = "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
-
-    let (success, x, y) = test_ecadd_from_hex(raw_input);
-
-    assert_eq!(success, U256::one());
-    assert_eq!(x, U256::zero());
-    assert_eq!(y, U256::zero());
-}
-
-#[test]
-fn ec_add_cdetrio2_test() {
-    let raw_input = "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
-
-    let (success, x, y) = test_ecadd_from_hex(raw_input);
-
-    assert_eq!(success, U256::one());
-    assert_eq!(x, U256::zero());
-    assert_eq!(y, U256::zero());
-}
-
-#[test]
-fn ec_add_cdetrio3_test() {
     let raw_input = "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
 
     let (success, x, y) = test_ecadd_from_hex(raw_input);
@@ -972,6 +968,47 @@ fn ec_add_invalid_3_test() {
 }
 
 #[test]
+fn ec_add_invalid_4_test() {
+    let raw_input = "30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd4730644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd4730644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd4730644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47";
+    let (success, x, y) = test_ecadd_from_hex(raw_input);
+
+    assert_eq!(success, U256::zero());
+    assert_eq!(x, U256::zero());
+    assert_eq!(y, U256::zero());
+}
+
+#[test]
+fn ec_add_invalid_5_test() {
+    let raw_input = "0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+
+    let (success, x, y) = test_ecadd_from_hex(raw_input);
+
+    assert_eq!(success, U256::zero());
+    assert_eq!(x, U256::zero());
+    assert_eq!(y, U256::zero());
+}
+
+#[test]
+fn ec_add_invalid_6_test() {
+    let raw_input = "30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd4830644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd4930644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd4830644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd49";
+    let (success, x, y) = test_ecadd_from_hex(raw_input);
+
+    assert_eq!(success, U256::zero());
+    assert_eq!(x, U256::zero());
+    assert_eq!(y, U256::zero());
+}
+
+#[test]
+fn ec_add_invalid_7_test() {
+    let raw_input = "30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd4830644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd4900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+    let (success, x, y) = test_ecadd_from_hex(raw_input);
+
+    assert_eq!(success, U256::zero());
+    assert_eq!(x, U256::zero());
+    assert_eq!(y, U256::zero());
+}
+
+#[test]
 fn ec_mul_test() {
     let raw_input = "1a87b0584ce92f4593d161480614f2989035225609f08058ccfa3d0f940febe31a2f3c951f6dadcc7ee9007dff81504b0fcd6d7cf59996efdc33d92bf7f9f8f630644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000";
     let expected_x =
@@ -989,6 +1026,18 @@ fn ec_mul_test() {
 #[test]
 fn ec_mul_invalid_test() {
     let raw_input = "000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000001";
+
+    let (success, x, y) = test_ec_mul_from_hex(raw_input);
+
+    assert_eq!(success, U256::zero());
+    assert_eq!(x, U256::zero());
+    assert_eq!(y, U256::zero());
+}
+
+#[test]
+fn ec_mul_invalid_2_test() {
+    // x = (0 + module), y = (0 + module), s = module
+    let raw_input = "30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd4730644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd4730644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47";
 
     let (success, x, y) = test_ec_mul_from_hex(raw_input);
 
@@ -1160,3 +1209,59 @@ fn mod_exp_eip_198_3_test() {
 
     assert_eq!(res, expected_res);
 }
+
+#[test]
+fn mod_exp_zeros_test() {
+    // base = 0x00, exp == 0x00, mod = 0x00
+    let raw_input = "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+    let expected_res = U256::zero();
+
+    let res = test_modexp_from_hex(raw_input);
+
+    assert_eq!(res, expected_res);
+}
+
+#[test]
+fn mod_exp_modulo_zero() {
+    // base = 0x05, exp == 0x04, mod = 0x00
+    let raw_input = "000000000000000000000000000000000000000000000000000000000000000500000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000";
+    let expected_res = U256::zero();
+
+    let res = test_modexp_from_hex(raw_input);
+
+    assert_eq!(res, expected_res);
+}
+
+#[test]
+fn mod_exp_exp_zero() {
+    // base = 0x05, exp == 0x00, mod = 0x0a
+    let raw_input = "00000000000000000000000000000000000000000000000000000000000000050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a";
+    let expected_res = U256::one();
+
+    let res = test_modexp_from_hex(raw_input);
+
+    assert_eq!(res, expected_res);
+}
+
+#[test]
+fn mod_exp_exp_zero_mod_one() {
+    // base = 0x05, exp == 0x00, mod = 0x01
+    let raw_input = "00000000000000000000000000000000000000000000000000000000000000050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001";
+    let expected_res = U256::zero();
+
+    let res = test_modexp_from_hex(raw_input);
+
+    assert_eq!(res, expected_res);
+}
+
+#[test]
+fn mod_exp_simple_test() {
+    // base = 0x04, exp == 0x01, mod = 0x01
+    let raw_input = "000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000003";
+    let expected_res = U256::one();
+
+    let res = test_modexp_from_hex(raw_input);
+
+    assert_eq!(res, expected_res);
+}
+
