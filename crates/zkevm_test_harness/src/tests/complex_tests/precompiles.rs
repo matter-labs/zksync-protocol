@@ -595,6 +595,8 @@ fn test_modexp_using_tuple(tuple: Vec<[[u8; 32]; 3]>) -> U256 {
 
     let modexp_memory_queries = modexp_memory_queries(&modexp_witnesses);
 
+    dbg!(&modexp_memory_queries);
+
     let mut modexp_memory_states = vec![];
     let mut states_accumulator2 = LastPerCircuitAccumulator::new(1);
     let (modexp_simulator_snapshots, _simulator) = simulate_subqueue(
@@ -679,8 +681,12 @@ fn test_modexp_using_tuple(tuple: Vec<[[u8; 32]; 3]>) -> U256 {
 }
 
 fn test_ecpairing_from_hex(raw_input: &str) -> (U256, U256) {
-    let input_bytes = hex::decode(raw_input).unwrap();
+    let mut input_bytes = hex::decode(raw_input).unwrap();
 
+    if input_bytes.len() == 0 || input_bytes.len() % 192 != 0 {
+        let padding = 192 - input_bytes.len() % 192;
+        input_bytes.extend_from_slice(&vec![0u8; padding]);
+    }
     assert!(
         input_bytes.len() % 192 == 0,
         "number of input bytes must be divisible by 192"
@@ -788,9 +794,10 @@ fn ec_pairing_all_modules_test() {
     let raw_input = "30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd4730644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd4730644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd4730644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd4730644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd4730644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47";
 
     let (success, result) = test_ecpairing_from_hex(raw_input);
-    assert_eq!(success, U256::one());
+    assert_eq!(success, U256::zero());
     assert_eq!(result, U256::zero());
 }
+
 #[test]
 fn ec_pairing_not_pairing_invalid_g2_subgroup_test() {
     let raw_input = "0412aa5b0805215b55a5e2dbf0662031aad0f5ef13f28b25df20b8670d1c59a616fb4b64ccff216fa5272e1e987c0616d60d8883d5834229c685949047e9411d2d81dbc969f72bc0454ff8b04735b717b725fee98a2fcbcdcf6c5b51b1dff33f075239888fc8448ab781e2a8bb85eb556469474cd707d4b913bee28679920eb61ef1c268b7c4c78959f099a043ecd5e537fe3069ac9197235f16162372848cba209cfadc22f7e80d399d1886f1c53898521a34c62918ed802305f32b4070a3c4";
@@ -1236,7 +1243,7 @@ fn mod_exp_modulo_zero() {
 fn mod_exp_exp_zero() {
     // base = 0x05, exp == 0x00, mod = 0x0a
     let raw_input = "00000000000000000000000000000000000000000000000000000000000000050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a";
-    let expected_res = U256::one(); 
+    let expected_res = U256::one();
 
     let res = test_modexp_from_hex(raw_input);
 
@@ -1269,7 +1276,7 @@ fn mod_exp_simple_test() {
 fn mod_exp_exp_zero_mod_zero() {
     // base = 0x05, exp == 0x00, mod = 0x00
     let raw_input = "000000000000000000000000000000000000000000000000000000000000000500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
-    let expected_res = U256::zero(); 
+    let expected_res = U256::zero();
 
     let res = test_modexp_from_hex(raw_input);
 

@@ -5,7 +5,7 @@ use zkevm_opcode_defs::bn254::{CurveAffine, CurveProjective};
 use zkevm_opcode_defs::ethereum_types::U256;
 pub use zkevm_opcode_defs::sha2::Digest;
 
-use crate::utils::bn254::{point_to_u256_tuple, ECPointCoordinates};
+use crate::utils::bn254::{point_to_u256_tuple, validate_values_in_field, ECPointCoordinates};
 
 use super::*;
 
@@ -264,12 +264,26 @@ pub fn ecadd_inner(
     (x1, y1): ECPointCoordinates,
     (x2, y2): ECPointCoordinates,
 ) -> Result<ECPointCoordinates> {
+    if !validate_values_in_field(&[
+        &x1.to_string(),
+        &y1.to_string(),
+        &x2.to_string(),
+        &y2.to_string(),
+    ]) {
+        return Err(Error::msg("invalid values"));
+    }
+
     // Converting coordinates to the finite field format
     // and validating that the conversion is successful
     let x1_field = Fq::from_str(x1.to_string().as_str()).ok_or(Error::msg("invalid x1"))?;
     let y1_field = Fq::from_str(y1.to_string().as_str()).ok_or(Error::msg("invalid y1"))?;
     let x2_field = Fq::from_str(x2.to_string().as_str()).ok_or(Error::msg("invalid x2"))?;
     let y2_field = Fq::from_str(y2.to_string().as_str()).ok_or(Error::msg("invalid y2"))?;
+
+    dbg!(&x1_field);
+    dbg!(&y1_field);
+    dbg!(&x2_field);
+    dbg!(&y2_field);
 
     // If one of the points is zero, then both coordinates are zero,
     // which aligns with the from_xy_checked method implementation.

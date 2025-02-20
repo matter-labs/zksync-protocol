@@ -54,9 +54,7 @@ where
 
     // See EIP-198; if exponent is zero, we shall return zero.
 
-
-
     let res = a.mask_negated(cs, mod_is_zero);
 
-    res 
+    res
 }
