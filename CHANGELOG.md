@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.151.3](https://github.com/matter-labs/zksync-protocol/compare/v0.151.2...v0.151.3) (2025-02-20)
+
+
+### Features
+
+* compatibility for old memory model ([#129](https://github.com/matter-labs/zksync-protocol/issues/129)) ([75ed663](https://github.com/matter-labs/zksync-protocol/commit/75ed6637883c6a17834244eef3f57faac3ae3904))
+
 ## [0.151.2](https://github.com/matter-labs/zksync-protocol/compare/v0.151.1...v0.151.2) - 2025-02-10
 
 ### Fixed
