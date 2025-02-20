@@ -39,7 +39,7 @@ where
         .map(|x| x.into_num().spread_into_bits::<CS, 8>(cs))
         .flatten()
         .collect::<Vec<_>>();
-
+    let mod_is_zero = modulus.is_zero(cs);
     for e in binary_expansion.into_iter().rev() {
         // a <- a^2 mod (modulus)
         let a_squared = a.modmul(cs, &a, modulus);
@@ -53,7 +53,10 @@ where
     }
 
     // See EIP-198; if exponent is zero, we shall return zero.
-    let e_is_zero = exponent.is_zero(cs);
-    let a = a.mask_negated(cs, e_is_zero);
-    a
+
+
+
+    let res = a.mask_negated(cs, mod_is_zero);
+
+    res 
 }

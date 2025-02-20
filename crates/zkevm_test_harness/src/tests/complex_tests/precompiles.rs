@@ -1236,7 +1236,7 @@ fn mod_exp_modulo_zero() {
 fn mod_exp_exp_zero() {
     // base = 0x05, exp == 0x00, mod = 0x0a
     let raw_input = "00000000000000000000000000000000000000000000000000000000000000050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a";
-    let expected_res = U256::one();
+    let expected_res = U256::one(); 
 
     let res = test_modexp_from_hex(raw_input);
 
@@ -1265,3 +1265,24 @@ fn mod_exp_simple_test() {
     assert_eq!(res, expected_res);
 }
 
+#[test]
+fn mod_exp_exp_zero_mod_zero() {
+    // base = 0x05, exp == 0x00, mod = 0x00
+    let raw_input = "000000000000000000000000000000000000000000000000000000000000000500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+    let expected_res = U256::zero(); 
+
+    let res = test_modexp_from_hex(raw_input);
+
+    assert_eq!(res, expected_res);
+}
+
+#[test]
+fn mod_base_zero_exp_zero() {
+    // base = 0x00, exp == 0x00, mod = 0x0a
+    let raw_input = "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a";
+    let expected_res = U256::one();
+
+    let res = test_modexp_from_hex(raw_input);
+
+    assert_eq!(res, expected_res);
+}

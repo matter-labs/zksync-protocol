@@ -134,7 +134,7 @@ impl<const B: bool> Precompile for ModexpPrecompile<B> {
 /// https://cse.buffalo.edu/srds2009/escs2009_submission_Gopal.pdf.
 pub fn modexp_inner(b: U256, e: U256, m: U256) -> U256 {
     // See EIP-198 for specification
-    if b.is_zero() || e.is_zero() || m.is_zero() {
+    if b.is_zero()  || m.is_zero() {
         return U256::zero();
     }
 
