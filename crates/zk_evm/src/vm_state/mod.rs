@@ -183,6 +183,12 @@ pub enum Version {
     Version27 = 1,
 }
 
+impl Version {
+    pub fn latest() -> Self {
+        Version::Version27
+    }
+}
+
 impl<
         S: zk_evm_abstractions::vm::Storage,
         M: zk_evm_abstractions::vm::Memory,

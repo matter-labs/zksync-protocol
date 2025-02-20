@@ -60,6 +60,29 @@ pub fn create_out_of_circuit_vm<S: Storage>(
     SimpleDecommitter<true>,
     WitnessTracer,
 > {
+    create_out_of_circuit_vm_with_subversion(
+        tools,
+        block_properties,
+        caller_address,
+        entry_point_address,
+        Version::latest(),
+    )
+}
+
+pub fn create_out_of_circuit_vm_with_subversion<S: Storage>(
+    tools: ProvingToolset<S>,
+    block_properties: BlockProperties,
+    caller_address: Address,
+    entry_point_address: Address,
+    version: Version,
+) -> VmState<
+    S,
+    SimpleMemory,
+    InMemoryEventSink,
+    DefaultPrecompilesProcessor<true>,
+    SimpleDecommitter<true>,
+    WitnessTracer,
+> {
     let mut vm = VmState::empty_state(
         tools.storage,
         tools.memory,
@@ -68,7 +91,7 @@ pub fn create_out_of_circuit_vm<S: Storage>(
         tools.decommittment_processor,
         tools.witness_tracer,
         block_properties,
-        Version::Version27,
+        version,
     );
 
     let initial_context = initial_out_of_circuit_context(
