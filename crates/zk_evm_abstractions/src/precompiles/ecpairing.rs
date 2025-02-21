@@ -5,6 +5,8 @@ use zkevm_opcode_defs::bn254::{CurveAffine, CurveProjective};
 use zkevm_opcode_defs::ethereum_types::U256;
 pub use zkevm_opcode_defs::sha2::Digest;
 
+use crate::utils::bn254::validate_values_in_field;
+
 use super::*;
 
 // NOTE: We need x1, y1, x2, y2, x3, y3:
@@ -325,6 +327,17 @@ fn check_if_in_subgroup(point: G2) -> bool {
 pub fn pair(input: &EcPairingInputTuple) -> Result<Fq12> {
     // Setting variables for the coordinates of the points
     let (x1, y1, x2, y2, x3, y3) = (input[0], input[1], input[2], input[3], input[4], input[5]);
+
+    if !validate_values_in_field(&[
+        &x1.to_string(),
+        &y1.to_string(),
+        &x2.to_string(),
+        &y2.to_string(),
+        &x3.to_string(),
+        &y3.to_string(),
+    ]) {
+        return Err(Error::msg("invalid values"));
+    }
 
     // Converting coordinates to the finite field format
     // and validating that the conversion is successful

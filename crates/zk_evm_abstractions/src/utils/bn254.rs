@@ -7,6 +7,8 @@ use zkevm_opcode_defs::{
     ethereum_types::U256,
 };
 
+const P: &str = "21888242871839275222246405745257275088696311157297823662689037894645226208583";
+
 pub type ECPointCoordinates = (U256, U256);
 
 /// This function converts a [`G1Affine`] point into a tuple of two [`U256`].
@@ -22,6 +24,17 @@ pub fn point_to_u256_tuple(point: G1Affine) -> ECPointCoordinates {
     let x = U256::from_str(format!("{}", x.into_repr()).as_str()).unwrap();
     let y = U256::from_str(format!("{}", y.into_repr()).as_str()).unwrap();
     (x, y)
+}
+
+/// Validate that all the values are less than the modulus.
+pub fn validate_values_in_field(values: &[&str]) -> bool {
+    for value in values {
+        let value = U256::from_str_radix(value, 10).unwrap();
+        if value >= U256::from_str_radix(P, 10).unwrap() {
+            return false;
+        }
+    }
+    true
 }
 
 #[cfg(test)]

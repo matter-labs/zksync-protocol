@@ -134,29 +134,25 @@ impl<const B: bool> Precompile for ModexpPrecompile<B> {
 /// https://cse.buffalo.edu/srds2009/escs2009_submission_Gopal.pdf.
 pub fn modexp_inner(b: U256, e: U256, m: U256) -> U256 {
     // See EIP-198 for specification
-    if b.is_zero() || e.is_zero() || m.is_zero() {
+    if m.is_zero() {
         return U256::zero();
     }
 
     let mut a = U256::one();
-
     let modmul = |a: U256, b: U256, m: U256| {
         let product: zkevm_opcode_defs::ethereum_types::U512 = a.full_mul(b);
         let (_, rem) = product.div_mod(m.into());
-
         let result: U256 = rem.try_into().unwrap();
         result
     };
-
-    for i in (0..e.bits()).rev() {
+    for i in (0..256).rev() {
         let bit = e.bit(i);
-
         a = modmul(a, a, m);
+
         if bit {
             a = modmul(a, b, m);
         }
     }
-
     a
 }
 
@@ -213,5 +209,16 @@ pub mod tests {
             U256::from_str("0x2779a7e4d2b26461c6557a12eb86285eeeb9cf5a40155305177854b15b4ed3df")
                 .unwrap()
         );
+    }
+
+    #[test]
+    fn test() {
+        use super::*;
+
+        let b = U256::from_str("0x05").unwrap();
+        let e = U256::from_str("0x00").unwrap();
+        let m = U256::from_str("0x01").unwrap();
+
+        let result = modexp_inner(b, e, m);
     }
 }

@@ -144,7 +144,7 @@ pub mod test {
         modexp_test_inner_from_u64(2, 3, 100, 8);
         // If any argument is 0 - the answer should be 0
         modexp_test_inner_from_u64(0, 3, 100, 0);
-        modexp_test_inner_from_u64(2, 0, 100, 0);
+        modexp_test_inner_from_u64(2, 0, 100, 1);
         modexp_test_inner_from_u64(2, 3, 0, 0);
 
         modexp_test_inner_from_u64(2, 3, 8, 0);

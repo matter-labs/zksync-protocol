@@ -7,7 +7,7 @@ use zkevm_opcode_defs::bn254::{CurveAffine, CurveProjective};
 use zkevm_opcode_defs::ethereum_types::U256;
 pub use zkevm_opcode_defs::sha2::Digest;
 
-use crate::utils::bn254::{point_to_u256_tuple, ECPointCoordinates};
+use crate::utils::bn254::{point_to_u256_tuple, validate_values_in_field, ECPointCoordinates};
 
 use super::*;
 
@@ -250,6 +250,10 @@ impl<const B: bool> Precompile for ECMulPrecompile<B> {
 ///
 /// If the points are not on the curve, the function will return an error.
 pub fn ecmul_inner((x1, y1): ECPointCoordinates, s: U256) -> Result<ECPointCoordinates> {
+    if !validate_values_in_field(&[&x1.to_string(), &y1.to_string()]) {
+        return Err(Error::msg("invalid values"));
+    }
+
     // Converting coordinates to the finite field format
     // and validating that the conversion is successful
     let x1_field = Fq::from_str(x1.to_string().as_str()).ok_or(Error::msg("invalid x1"))?;
