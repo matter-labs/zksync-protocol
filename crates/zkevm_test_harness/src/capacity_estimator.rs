@@ -40,7 +40,7 @@ where
             std::any::type_name::<SF>()
         );
 
-        if size == next_size {
+        if (size == next_size) & !(size == 1) {
             break;
         }
 
@@ -110,7 +110,8 @@ where
             }
             Err(_e) => {
                 if next_size == start_size {
-                    panic!("Initial search point is too large");
+                    print!("ERROR: Initial search point is too large");
+                    return 0;
                 }
                 if next_size == size + 1 {
                     break;
@@ -218,6 +219,30 @@ pub fn secp256r1_verify_capacity() -> usize {
     compute_size_inner::<SF, _>(SF::geometry(), 20, Some(2), |x: usize| x)
 }
 
+pub fn modexp_capacity() -> usize {
+    type SF = ModexpFunctionInstanceSynthesisFunction;
+
+    compute_size_inner::<SF, _>(SF::geometry(), 20, Some(2), |x: usize| x)
+}
+
+pub fn ecadd_capacity() -> usize {
+    type SF = ECAddFunctionInstanceSynthesisFunction;
+
+    compute_size_inner::<SF, _>(SF::geometry(), 20, Some(2), |x: usize| x)
+}
+
+pub fn ecmul_capacity() -> usize {
+    type SF = ECMulFunctionInstanceSynthesisFunction;
+
+    compute_size_inner::<SF, _>(SF::geometry(), 20, Some(2), |x: usize| x)
+}
+
+pub fn ecpairing_capacity() -> usize {
+    type SF = ECPairingFunctionInstanceSynthesisFunction;
+
+    compute_size_inner::<SF, _>(SF::geometry(), 20, Some(1), |x: usize| x)
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -263,5 +288,9 @@ mod test {
             "Size of secp256r1_verify_capacity: {}",
             secp256r1_verify_capacity()
         );
+        println!("Size of modexp_capacity: {}", modexp_capacity());
+        println!("Size of ecadd_capacity: {}", ecadd_capacity());
+        println!("Size of ecmul_capacity: {}", ecmul_capacity());
+        println!("Size of ecpairing_capacity: {}", ecpairing_capacity());
     }
 }

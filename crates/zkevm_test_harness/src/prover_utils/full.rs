@@ -88,10 +88,15 @@ pub fn prove_base_layer_circuit<POW: PoWRunner>(
     let geometry = circuit.geometry();
     let (max_trace_len, num_vars) = circuit.size_hint();
 
-    let builder_impl = CsReferenceImplementationBuilder::<GoldilocksField, P, ProvingCSConfig>::new(
-        geometry,
-        max_trace_len.unwrap(),
-    );
+    let builder_impl = CsReferenceImplementationBuilder::<
+        GoldilocksField,
+        P,
+        ProvingCSConfig,
+        crate::boojum::dag::StCircuitResolver<
+            GoldilocksField,
+            <ProvingCSConfig as CSConfig>::ResolverConfig,
+        >,
+    >::new(geometry, max_trace_len.unwrap());
     let builder = new_builder::<_, GoldilocksField>(builder_impl);
 
     let cs = match circuit {
@@ -216,6 +221,38 @@ pub fn prove_base_layer_circuit<POW: PoWRunner>(
             cs.into_assembly::<std::alloc::Global>()
         }
         ZkSyncBaseLayerCircuit::EIP4844Repack(inner) => {
+            let builder = inner.configure_builder_proxy(builder);
+            let mut cs = builder.build(num_vars.unwrap());
+            inner.add_tables_proxy(&mut cs);
+            inner.synthesize_proxy(&mut cs);
+            cs.pad_and_shrink_using_hint(finalization_hint);
+            cs.into_assembly::<std::alloc::Global>()
+        }
+        ZkSyncBaseLayerCircuit::Modexp(inner) => {
+            let builder = inner.configure_builder_proxy(builder);
+            let mut cs = builder.build(num_vars.unwrap());
+            inner.add_tables_proxy(&mut cs);
+            inner.synthesize_proxy(&mut cs);
+            cs.pad_and_shrink_using_hint(finalization_hint);
+            cs.into_assembly::<std::alloc::Global>()
+        }
+        ZkSyncBaseLayerCircuit::ECAdd(inner) => {
+            let builder = inner.configure_builder_proxy(builder);
+            let mut cs = builder.build(num_vars.unwrap());
+            inner.add_tables_proxy(&mut cs);
+            inner.synthesize_proxy(&mut cs);
+            cs.pad_and_shrink_using_hint(finalization_hint);
+            cs.into_assembly::<std::alloc::Global>()
+        }
+        ZkSyncBaseLayerCircuit::ECMul(inner) => {
+            let builder = inner.configure_builder_proxy(builder);
+            let mut cs = builder.build(num_vars.unwrap());
+            inner.add_tables_proxy(&mut cs);
+            inner.synthesize_proxy(&mut cs);
+            cs.pad_and_shrink_using_hint(finalization_hint);
+            cs.into_assembly::<std::alloc::Global>()
+        }
+        ZkSyncBaseLayerCircuit::ECPairing(inner) => {
             let builder = inner.configure_builder_proxy(builder);
             let mut cs = builder.build(num_vars.unwrap());
             inner.add_tables_proxy(&mut cs);
@@ -352,7 +389,11 @@ pub fn prove_recursion_layer_circuit<POW: PoWRunner>(
         | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForL1MessagesHasher(inner)
         | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForTransientStorageSorter(inner)
         | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForSecp256r1Verify(inner)
-        | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForEIP4844Repack(inner) => {
+        | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForEIP4844Repack(inner)
+        | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForModexp(inner)
+        | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForECAdd(inner)
+        | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForECMul(inner)
+        | ZkSyncRecursiveLayerCircuit::LeafLayerCircuitForECPairing(inner) => {
             let builder = inner.configure_builder_proxy(builder);
             let mut cs = builder.build(num_vars.unwrap());
             inner.add_tables(&mut cs);
