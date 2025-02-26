@@ -15,14 +15,21 @@ use crate::boojum::worker::Worker;
 use crate::ethereum_types::Address;
 use crate::ethereum_types::H160;
 use crate::ethereum_types::U256;
+use crate::prover_utils::create_base_layer_setup_data;
+use crate::prover_utils::prove_base_layer_circuit;
+use crate::prover_utils::verify_base_layer_proof;
 use crate::witness::tree::BinarySparseStorageTree;
 use crate::witness::tree::ZkSyncStorageLeaf;
 use crate::zk_evm::aux_structures::LogQuery;
 use crate::zk_evm::bytecode_to_code_hash;
 use crate::zk_evm::testing::storage::InMemoryStorage;
+use circuit_definitions::base_layer_proof_config;
 use circuit_definitions::circuit_definitions::base_layer::ZkSyncBaseLayerCircuit;
 use circuit_definitions::circuit_definitions::recursion_layer::ZkSyncRecursiveLayerCircuit;
 use circuit_definitions::ZkSyncDefaultRoundFunction;
+use circuit_definitions::BASE_LAYER_CAP_SIZE;
+use circuit_definitions::BASE_LAYER_FRI_LDE_FACTOR;
+use circuit_encodings::boojum::cs::implementations::pow::NoPow;
 use std::alloc::Global;
 use std::collections::HashMap;
 
@@ -122,7 +129,7 @@ pub(crate) fn base_test_circuit(circuit: ZkSyncBaseLayerCircuit) {
     let arg = num_vars.unwrap();
     let builder = new_builder::<_, GoldilocksField>(builder_impl);
 
-    let mut cs = match circuit {
+    let mut cs = match circuit.clone() {
         ZkSyncBaseLayerCircuit::MainVM(inner) => {
             let builder = inner.configure_builder_proxy(builder);
             let mut cs = builder.build(arg);
@@ -255,6 +262,46 @@ pub(crate) fn base_test_circuit(circuit: ZkSyncBaseLayerCircuit) {
 
     let is_satisfied = cs.check_if_satisfied(&worker);
     assert!(is_satisfied);
+
+    let worker = Worker::new_with_num_threads(8);
+    let (setup_base, setup, vk, setup_tree, vars_hint, wits_hint, finalization_hint) =
+        create_base_layer_setup_data(
+            circuit.clone(),
+            &worker,
+            BASE_LAYER_FRI_LDE_FACTOR,
+            BASE_LAYER_CAP_SIZE,
+        );
+
+    println!("VK: {:?}", vk.setup_merkle_tree_cap);
+
+        
+    let proof = prove_base_layer_circuit::<NoPow>(
+        circuit.clone(),
+        &worker,
+        base_layer_proof_config(),
+        &setup_base,
+        &setup,
+        &setup_tree,
+        &vk,
+        &vars_hint,
+        &wits_hint,
+        &finalization_hint,
+    );
+
+    let is_valid = verify_base_layer_proof::<NoPow>(&circuit, &proof, &vk);
+
+    assert!(is_valid);
+
+    use std::fs::File;
+use std::io::Write;
+use serde_json;
+
+    let serialized = serde_json::to_string(&proof).expect("Failed to serialize proof");
+    let mut file = File::create("proof.json").expect("Failed to create proof.json");
+    file.write_all(serialized.as_bytes()).expect("Failed to write proof to file");
+
+
+
 }
 
 pub(crate) fn test_recursive_circuit(circuit: ZkSyncRecursiveLayerCircuit) {

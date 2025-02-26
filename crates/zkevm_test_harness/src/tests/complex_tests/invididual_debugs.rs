@@ -5,10 +5,12 @@ mod test {
     use super::super::*;
     use std::io::Read;
 
+    // To run: cargo test --release read_and_run -- --ignored --nocapture
     #[ignore = "For manual running only"]
     #[test]
     fn read_and_run() {
-        let circuit_file_name = "prover_jobs_23_05.bin";
+        dbg!("@@ STARTing");
+        let circuit_file_name = "10_2_10_BasicCircuits_0.bin";
         let buffer = std::fs::read(circuit_file_name).unwrap();
         debug::debug_circuit(&buffer);
     }

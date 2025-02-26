@@ -104,6 +104,13 @@ fn debug_basic_circuit(circuit: ZkSyncBaseLayerCircuit) {
                 .collect();
             dbg!(requests);
         }
+        ZkSyncBaseLayerCircuit::StorageApplication(inner) => {
+            let witness = inner.clone_witness().unwrap();
+            /*dbg!(
+                witness
+
+            );*/
+        }
         _ => {}
     }
 
