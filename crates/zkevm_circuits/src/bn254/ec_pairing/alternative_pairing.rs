@@ -1929,5 +1929,4 @@ mod tests {
 
         owned_cs.print_gate_stats();
     }
-
 }
