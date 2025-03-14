@@ -258,7 +258,7 @@ fn test_ecpairing_using_tuples(tuples: Vec<[[u8; 32]; 6]>) -> (U256, U256) {
     (writes[0].value, writes[1].value)
 }
 
-fn test_ecadd_using_tuple(tuple: Vec<[[u8; 32]; 2]>) -> (U256, U256, U256) {
+pub fn test_ecadd_using_tuple(tuple: Vec<[[u8; 32]; 2]>) -> (U256, U256, U256) {
     let mut memory = SimpleMemory::new();
     let mut precompiles_processor = DefaultPrecompilesProcessor::<true>;
 
