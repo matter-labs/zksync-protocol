@@ -14,6 +14,10 @@ description = "ZKsync Era proving utilities"
 name = "geometry_config_generator"
 path = "src/geometry_config_generator/main.rs"
 
+[[bin]]
+name = "fuzz"
+path = "src/fuzz/fuzz.rs"
+
 [dependencies]
 # "Owned" dependencies
 circuit_definitions.workspace = true
@@ -23,6 +27,7 @@ kzg.workspace = true
 zkevm-assembly.workspace = true
 
 # "External" dependencies
+honggfuzz = "0.5.54"
 rand = "0.4"
 rayon = "1.10"
 derivative = "2.2"

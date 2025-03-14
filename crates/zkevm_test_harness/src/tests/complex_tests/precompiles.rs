@@ -710,7 +710,7 @@ fn test_ecpairing_from_hex(raw_input: &str) -> (U256, U256) {
     test_ecpairing_using_tuples(tuples)
 }
 
-fn test_ecadd_from_hex(raw_input: &str) -> (U256, U256, U256) {
+pub fn test_ecadd_from_hex(raw_input: &str) -> (U256, U256, U256) {
     let input_bytes = hex::decode(raw_input).unwrap();
 
     let x1: [u8; 32] = input_bytes[0..32].try_into().unwrap();
