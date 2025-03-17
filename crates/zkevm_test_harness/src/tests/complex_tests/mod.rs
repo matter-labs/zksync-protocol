@@ -15,7 +15,6 @@ pub mod precompiles;
 #[cfg(not(test))]
 pub mod precompiles;
 
-
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::mpsc::sync_channel;
 use std::thread;

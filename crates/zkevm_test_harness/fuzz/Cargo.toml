@@ -8,9 +8,11 @@ edition = "2021"
 cargo-fuzz = true
 
 [dependencies]
+revm = {version = "19.5.0"}
 libfuzzer-sys = "0.4"
 hex = "0.4"
 arbitrary = { version = "1.1.3", features = ["derive"] }
+alloy = { version = "=0.4.0", features = ["full", "eip712"]}
 
 [dependencies.zkevm_test_harness]
 path = ".."
@@ -18,6 +20,27 @@ path = ".."
 [[bin]]
 name = "precompiles_ecadd"
 path = "fuzz_targets/precompiles_ecadd.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "precompiles_ecmul"
+path = "fuzz_targets/precompiles_ecmul.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "precompiles_modexp"
+path = "fuzz_targets/precompiles_modexp.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "precompiles_ecpairing"
+path = "fuzz_targets/precompiles_ecpairing.rs"
 test = false
 doc = false
 bench = false
