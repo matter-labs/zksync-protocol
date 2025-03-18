@@ -18,13 +18,13 @@ impl Input {
         vec![[self.b, self.e, self.m]]
     }
     pub fn to_bytes(&self) -> Vec<u8> {
-        let hex_str_32 = "0000000000000000000000000000000000000000000000000000000000000020";
+        let hex_str_32 = &*hex::decode("0000000000000000000000000000000000000000000000000000000000000020").unwrap();
         let mut result = Vec::new();
 
         // Append the 32-byte fields
-        result.extend_from_slice(&*hex::decode(hex_str_32).unwrap());
-        result.extend_from_slice(&*hex::decode(hex_str_32).unwrap());
-        result.extend_from_slice(&*hex::decode(hex_str_32).unwrap());
+        result.extend_from_slice(hex_str_32);
+        result.extend_from_slice(hex_str_32);
+        result.extend_from_slice(hex_str_32);
 
         // Append the variable-length fields
         result.extend_from_slice(&self.b);
