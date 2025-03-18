@@ -36,7 +36,7 @@ fuzz_target!(|data: Input| {
             //dbg!(&expected);
             let expected_x = U256::from_big_endian(&expected.bytes.to_vec().as_slice()[0..32]);
             let expected_y = U256::from_big_endian(&expected.bytes.to_vec().as_slice()[32..64]);
-            
+
             assert_eq!(success, U256::one());
             assert_eq!(x, expected_x);
             assert_eq!(y, expected_y);

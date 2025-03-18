@@ -40,13 +40,13 @@ fuzz_target!(|data: Input| {
     let zksync_res = test_modexp_using_tuple_fuzz(tuple);
     let bytes: alloy::primitives::Bytes = data.to_bytes().into();
     let expected_res = modexp::berlin_run(&bytes, 1 << 27);
-    
+
     match expected_res {
         Ok(expected) => {
             let expected_x = U256::from_big_endian(&expected.bytes.to_vec().as_slice()[0..32]);
             assert_eq!(expected_x, zksync_res);
         }
-        
+
         Err(_) => assert_eq!(zksync_res, U256::zero()),
     }
 });
