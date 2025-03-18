@@ -220,5 +220,6 @@ pub mod tests {
         let m = U256::from_str("0x01").unwrap();
 
         let result = modexp_inner(b, e, m);
+        assert_eq!(result, U256::from_str("0x00").unwrap());
     }
 }
