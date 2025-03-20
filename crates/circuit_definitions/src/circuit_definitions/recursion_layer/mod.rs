@@ -680,7 +680,7 @@ impl ZkSyncRecursiveLayerCircuit {
             Self::SchedulerCircuit(inner) => {
                 let geometry = ZkSyncSchedulerCircuit::geometry();
                 let (max_trace_len, num_vars) = inner.size_hint();
-                let builder_impl = CsReferenceImplementationBuilder::<F, P, ProvingCSConfig>::new(
+                let builder_impl = CsReferenceImplementationBuilder::<F, P, ProvingCSConfig, CR>::new(
                     geometry,
                     max_trace_len.unwrap(),
                 );
@@ -696,7 +696,7 @@ impl ZkSyncRecursiveLayerCircuit {
             Self::NodeLayerCircuit(inner) => {
                 let geometry = ZkSyncNodeLayerRecursiveCircuit::geometry();
                 let (max_trace_len, num_vars) = inner.size_hint();
-                let builder_impl = CsReferenceImplementationBuilder::<F, P, ProvingCSConfig>::new(
+                let builder_impl = CsReferenceImplementationBuilder::<F, P, ProvingCSConfig, CR>::new(
                     geometry,
                     max_trace_len.unwrap(),
                 );
@@ -730,7 +730,7 @@ impl ZkSyncRecursiveLayerCircuit {
             Self::RecursionTipCircuit(inner) => {
                 let geometry = ZkSyncRecursionTipCircuit::geometry();
                 let (max_trace_len, num_vars) = inner.size_hint();
-                let builder_impl = CsReferenceImplementationBuilder::<F, P, ProvingCSConfig>::new(
+                let builder_impl = CsReferenceImplementationBuilder::<F, P, ProvingCSConfig, CR>::new(
                     geometry,
                     max_trace_len.unwrap(),
                 );
