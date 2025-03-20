@@ -19,6 +19,7 @@ Commands:
     corpus                        Generate corpus files from seeds explicitly
     install                       Install dependencies
     run                           Run default fuzz tests
+    report                        Make a report
     parallel                      Run fuzz tests in parallel
         --jobs=<number>           Max number of jobs to run in parallel
         --target=<target>         Prefix for fuzz targets to run (default: '*')
@@ -39,10 +40,43 @@ function parse_args() {
     done
 }
 
+function run_report() {
+  	echo "Sending report to Slack..."
+  	if [ -z "$SLACK_WEBHOOK_URL" ]; then
+  			echo "Error: SLACK_WEBHOOK_URL is not set. Aborting.";
+  			exit 1; \
+  	fi
+
+  	commit_hash=$(git rev-parse HEAD)
+
+  	check_output="zksync-protocol fuzzer on $commit_hash: $(check)"
+  	if [ -z "$check_output" ]; then
+        echo "Error: Check output is empty. Aborting."
+        exit 1
+    fi
+
+    payload=$(printf '{"text": "%s"}' "$check_output")
+
+    # Send the payload to the Slack webhook
+    response=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "Content-Type: application/json" -d "$payload" "$SLACK_WEBHOOK_URL")
+
+    if [ "$response" -ne 200 ]; then
+        echo "Error: Failed to send report to Slack. HTTP status code: $response"
+        exit 1
+    fi
+
+    echo "Report successfully sent to Slack."
+
+}
+
 function run_run() {
-    echo "Running fuzz tests with the default settings..."
+    echo "Running fuzz tests session with the default settings..."
+    clean
+    prepare
     echo ""
     run_parallel --jobs="4" --target="precompiles" --timeout="6000"
+    echo ""
+    run_report
 }
 
 function run_parallel() {
@@ -278,6 +312,10 @@ case "$1" in
     "run")
         shift
         run_run "$@"
+        ;;
+    "report")
+        shift
+        run_report
         ;;
     *)
         usage
