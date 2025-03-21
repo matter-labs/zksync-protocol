@@ -199,6 +199,8 @@ function lint() {
 
 function smoke() {
     # Make corpus
+    clean
+    prepare
     corpus
 
     parse_args "$@"
@@ -221,6 +223,9 @@ function smoke() {
         echo "Finished fuzz target: $TARGET"
         echo "============================================"
     done
+
+    echo ""
+    run_report
 }
 
 function regression() {
