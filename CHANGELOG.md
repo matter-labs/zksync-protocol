@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.151.4](https://github.com/matter-labs/zksync-protocol/compare/v0.151.3...v0.151.4) (2025-03-21)
+
+
+### Bug Fixes
+
+* **prover:** Changed circuit resolver for NodeLayer, Scheduler & RecursionTip ([#136](https://github.com/matter-labs/zksync-protocol/issues/136)) ([191c24d](https://github.com/matter-labs/zksync-protocol/commit/191c24de7edc38319844c66343acb2377a3cb2ee))
+
 ## [0.151.3](https://github.com/matter-labs/zksync-protocol/compare/v0.151.2...v0.151.3) (2025-02-20)
 
 
