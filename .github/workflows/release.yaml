@@ -1,5 +1,12 @@
 name: Release
 
+# Give permissions to the release-please to open, update PRs
+# and commit to PRs the repository to update Cargo.lock
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
 on:
   push:
     branches:

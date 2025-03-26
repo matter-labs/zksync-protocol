@@ -173,6 +173,20 @@ pub struct VmState<
     pub precompiles_processor: PP,
     pub decommittment_processor: DP,
     pub witness_tracer: WT,
+    pub version: Version,
+}
+
+#[non_exhaustive]
+#[derive(Debug, PartialEq, PartialOrd)]
+pub enum Version {
+    Initial = 0,
+    Version27 = 1,
+}
+
+impl Version {
+    pub fn latest() -> Self {
+        Version::Version27
+    }
 }
 
 impl<
@@ -194,6 +208,7 @@ impl<
         decommittment_processor: DP,
         witness_tracer: WT,
         block_properties: crate::block_properties::BlockProperties,
+        version: Version,
     ) -> Self {
         Self {
             local_state: VmLocalState::empty_state(),
@@ -204,6 +219,7 @@ impl<
             decommittment_processor,
             witness_tracer,
             block_properties,
+            version,
         }
     }
     pub fn reset_flags(&mut self) {

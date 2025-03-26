@@ -96,10 +96,10 @@ fn precompile_inner<F: SmallField, CS: ConstraintSystem<F>>(
     }
 
     use crate::bn254::ec_pairing::alternative_pairing::multipairing_naive;
-    let (result, _, no_exeption) = multipairing_naive(cs, &mut pairing_inputs);
+    let (result, _, no_exception) = multipairing_naive(cs, &mut pairing_inputs);
     let mut are_valid_inputs = ArrayVec::<_, EXCEPTION_FLAGS_ARR_LEN>::new();
     are_valid_inputs.extend(coordinates_are_in_field);
-    are_valid_inputs.push(no_exeption);
+    are_valid_inputs.push(no_exception);
 
     let success = Boolean::multi_and(cs, &are_valid_inputs[..]);
 

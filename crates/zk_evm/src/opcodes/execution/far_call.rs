@@ -382,29 +382,81 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
             let current_stack_mut = vm_state.local_state.callstack.get_current_stack_mut();
 
             // potentially pay for memory growth
-            let remaining_ergs_after_growth = match far_call_abi.forwarding_mode {
-                a @ FarCallForwardPageType::UseHeap | a @ FarCallForwardPageType::UseAuxHeap => {
-                    let upper_bound = if pointer_validation_exceptions
-                        .contains(FatPointerValidationException::DEREF_BEYOND_HEAP_RANGE)
-                    {
-                        u32::MAX
-                    } else {
-                        far_call_abi.memory_quasi_fat_pointer.start
-                            + far_call_abi.memory_quasi_fat_pointer.length
-                    };
+            let remaining_ergs_after_growth = if vm_state.version >= Version::Version27 {
+                match far_call_abi.forwarding_mode {
+                    a @ FarCallForwardPageType::UseHeap
+                    | a @ FarCallForwardPageType::UseAuxHeap => {
+                        let upper_bound = if pointer_validation_exceptions
+                            .contains(FatPointerValidationException::DEREF_BEYOND_HEAP_RANGE)
+                        {
+                            u32::MAX
+                        } else {
+                            far_call_abi.memory_quasi_fat_pointer.start
+                                + far_call_abi.memory_quasi_fat_pointer.length
+                        };
 
-                    let current_bound = if a == FarCallForwardPageType::UseHeap {
-                        current_stack_mut.heap_bound
-                    } else if a == FarCallForwardPageType::UseAuxHeap {
-                        current_stack_mut.aux_heap_bound
-                    } else {
-                        unreachable!();
-                    };
+                        let current_bound = if a == FarCallForwardPageType::UseHeap {
+                            current_stack_mut.heap_bound
+                        } else if a == FarCallForwardPageType::UseAuxHeap {
+                            current_stack_mut.aux_heap_bound
+                        } else {
+                            unreachable!();
+                        };
 
-                    let growth_cost = upper_bound.saturating_sub(current_bound);
+                        let growth_cost = upper_bound.saturating_sub(current_bound);
 
-                    if remaining_ergs >= growth_cost {
-                        if upper_bound > current_bound {
+                        if remaining_ergs >= growth_cost {
+                            if upper_bound > current_bound {
+                                if a == FarCallForwardPageType::UseHeap {
+                                    current_stack_mut.heap_bound = upper_bound;
+                                } else if a == FarCallForwardPageType::UseAuxHeap {
+                                    current_stack_mut.aux_heap_bound = upper_bound;
+                                } else {
+                                    unreachable!();
+                                }
+                            }
+
+                            remaining_ergs - growth_cost
+                        } else {
+                            exceptions
+                                .set(FarCallExceptionFlags::NOT_ENOUGH_ERGS_TO_GROW_MEMORY, true);
+                            // we do not need to mask fat pointer, as we will jump to the page number 0,
+                            // that can not even read it
+
+                            0
+                        }
+                    }
+                    FarCallForwardPageType::ForwardFatPointer => remaining_ergs,
+                }
+            } else {
+                let memory_growth_in_bytes = match far_call_abi.forwarding_mode {
+                    a @ FarCallForwardPageType::UseHeap
+                    | a @ FarCallForwardPageType::UseAuxHeap => {
+                        // pointer is already validated, so we do not need to check that start + length do not overflow
+                        let mut upper_bound = far_call_abi.memory_quasi_fat_pointer.start
+                            + far_call_abi.memory_quasi_fat_pointer.length;
+
+                        let penalize_out_of_bounds_growth = pointer_validation_exceptions
+                            .contains(FatPointerValidationException::DEREF_BEYOND_HEAP_RANGE);
+                        if penalize_out_of_bounds_growth {
+                            upper_bound = u32::MAX;
+                        }
+
+                        let current_bound = if a == FarCallForwardPageType::UseHeap {
+                            current_stack_mut.heap_bound
+                        } else if a == FarCallForwardPageType::UseAuxHeap {
+                            current_stack_mut.aux_heap_bound
+                        } else {
+                            unreachable!();
+                        };
+                        let (mut diff, uf) = upper_bound.overflowing_sub(current_bound);
+                        if uf {
+                            // heap bound is already beyond what we pass
+                            diff = 0u32;
+                        } else {
+                            // save new upper bound in context.
+                            // Note that we are ok so save even penalizing upper bound because we will burn
+                            // all the ergs in this frame anyway, and no further resizes are possible
                             if a == FarCallForwardPageType::UseHeap {
                                 current_stack_mut.heap_bound = upper_bound;
                             } else if a == FarCallForwardPageType::UseAuxHeap {
@@ -414,20 +466,25 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
                             }
                         }
 
-                        remaining_ergs - growth_cost
-                    } else {
-                        exceptions.set(FarCallExceptionFlags::NOT_ENOUGH_ERGS_TO_GROW_MEMORY, true);
-                        // we do not need to mask fat pointer, as we will jump to the page number 0,
-                        // that can not even read it
-
-                        0
+                        diff
                     }
-                }
-                FarCallForwardPageType::ForwardFatPointer => remaining_ergs,
-            };
+                    FarCallForwardPageType::ForwardFatPointer => 0u32,
+                };
 
-            #[allow(dropping_references)]
-            drop(current_stack_mut);
+                // MEMORY_GROWTH_ERGS_PER_BYTE is always 1
+                let cost_of_memory_growth = memory_growth_in_bytes
+                    .wrapping_mul(zkevm_opcode_defs::MEMORY_GROWTH_ERGS_PER_BYTE);
+
+                if remaining_ergs >= cost_of_memory_growth {
+                    remaining_ergs - cost_of_memory_growth
+                } else {
+                    exceptions.set(FarCallExceptionFlags::NOT_ENOUGH_ERGS_TO_GROW_MEMORY, true);
+                    // we do not need to mask fat pointer, as we will jump to the page number 0,
+                    // that can not even read it
+
+                    0
+                }
+            };
 
             let (callee_stipend, mut extra_ergs_from_caller_to_callee) =
                 get_stipend_and_extra_cost(&called_address, far_call_abi.to_system);
