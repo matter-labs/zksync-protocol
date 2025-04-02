@@ -37,3 +37,6 @@ bellman = { package = "zksync_bellman", version = "=0.31.0" }
 boojum = { git = "https://github.com/matter-labs/zksync-crypto.git", branch = "feature/ec_precompiles", package = "boojum" }
 # boojum = { path = "./../zksync-crypto/crates/boojum" }
 cs_derive = { package = "zksync_cs_derive", version = "=0.31.0" }
+
+zksync_pairing = { git = "https://github.com/matter-labs/zksync-crypto.git", branch = "feature/ec_precompiles", package = "zksync_pairing" }
+#zksync_pairing = { path = "../../../zksync-crypto/crates/pairing" }
