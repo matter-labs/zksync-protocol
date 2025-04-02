@@ -14,7 +14,6 @@ pub struct DecompositionTestCase {
     pub k: String,
     pub k1: String,
     pub k2: String,
-    pub k1_negated: bool,
     pub k2_negated: bool,
 }
 
