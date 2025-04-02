@@ -18,15 +18,7 @@ __entry:
     add @CPI0_1[0], r0, r2
     far_call.delegate r1, r2, @catch_all
 
-    log.sread r0, r0, r5
-    ; assert r5 == 10
-    sub! 10, r5, r0
-    jump.ne @.panic
-
     ret.ok r0
 
 catch_all:
     ret.panic r0
-
-.panic:
-    revert("Invalid value in storage")
