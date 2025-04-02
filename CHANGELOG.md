@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.151.5](https://github.com/matter-labs/zksync-protocol/compare/v0.151.4...v0.151.5) (2025-04-02)
+
+
+### Bug Fixes
+
+* Remove num_words check for EVM bytecode decommitment ([#141](https://github.com/matter-labs/zksync-protocol/issues/141)) ([1af8ee5](https://github.com/matter-labs/zksync-protocol/commit/1af8ee585917caca7d0409252c3fff2cb3d15ba3))
+
 ## [0.151.4](https://github.com/matter-labs/zksync-protocol/compare/v0.151.3...v0.151.4) (2025-03-21)
 
 
