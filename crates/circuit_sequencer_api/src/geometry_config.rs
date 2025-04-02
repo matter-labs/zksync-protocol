@@ -212,7 +212,7 @@ pub const fn get_geometry_config_1_5_2() -> GeometryConfig {
         cycles_per_transient_storage_sorter: 50875,
         cycles_per_secp256r1_verify_circuit: 4,
         cycles_per_modexp_circuit: 25,
-        cycles_per_ecadd_circuit: 812,
+        cycles_per_ecadd_circuit: 752,
         cycles_per_ecmul_circuit: 15,
         cycles_per_ecpairing_circuit: 1,
     }
