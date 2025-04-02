@@ -110,7 +110,7 @@ impl ZkSyncRecursionLayerStorageType {
 
     pub fn leafs_as_iter_u8() -> impl Iterator<Item = u8> {
         ZkSyncRecursionLayerStorageType::LeafLayerCircuitForMainVM as u8
-            ..=ZkSyncRecursionLayerStorageType::LeafLayerCircuitForEIP4844Repack as u8
+            ..=ZkSyncRecursionLayerStorageType::LeafLayerCircuitForECPairing as u8
     }
 
     pub fn from_leaf_u8_to_basic_u8(value: u8) -> u8 {
