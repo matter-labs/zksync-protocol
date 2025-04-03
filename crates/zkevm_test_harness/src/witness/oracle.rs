@@ -43,6 +43,9 @@ use circuit_definitions::circuit_definitions::base_layer::ZkSyncBaseLayerCircuit
 use circuit_definitions::encodings::callstack_entry::ExtendedCallstackEntry;
 use circuit_definitions::encodings::recursion_request::RecursionQueueSimulator;
 use circuit_definitions::encodings::{CircuitEquivalentReflection, LogQueueSimulator};
+use circuit_definitions::zkevm_circuits::base_structures::log_query::{
+    LOG_QUERY_ABSORBTION_ROUNDS, LOG_QUERY_PACKED_WIDTH,
+};
 use circuit_definitions::zkevm_circuits::base_structures::memory_query::{
     MemoryQueryWitness, MEMORY_QUERY_PACKED_WIDTH,
 };
@@ -763,7 +766,13 @@ fn process_io_log_circuits(
 
     tracing::debug!("Running L1 messages deduplication simulation");
 
-    let mut deduplicated_to_l1_queue_simulator = Default::default();
+    let mut deduplicated_to_l1_queue_simulator: QueueSimulator<
+        GoldilocksField,
+        LogQuery,
+        QUEUE_STATE_WIDTH,
+        LOG_QUERY_PACKED_WIDTH,
+        LOG_QUERY_ABSORBTION_ROUNDS,
+    > = Default::default();
     let l1_messages_deduplicator_circuit_data = compute_events_dedup_and_sort(
         demuxed_log_queries.to_l1,
         demuxed_log_queues_states.l2_to_l1,
@@ -848,6 +857,7 @@ use crate::witness::artifacts::LogQueueStates;
 use crate::zkevm_circuits::demux_log_queue::NUM_DEMUX_OUTPUTS;
 
 use circuit_definitions::encodings::memory_query::MemoryQueueStateWitnesses;
+use circuit_encodings::QueueSimulator;
 
 fn simulate_memory_queue(
     geometry: GeometryConfig,
@@ -952,7 +962,8 @@ fn simulate_sorted_memory_queue<'a>(
         amount_of_queries
     );
 
-    let mut sorted_memory_queries_simulator = MemoryQueuePerCircuitSimulator::new();
+    let mut sorted_memory_queries_simulator: MemoryQueuePerCircuitSimulator<GoldilocksField> =
+        MemoryQueuePerCircuitSimulator::new();
 
     // for RAM permutation circuits
     let mut sorted_memory_queue_states_accumulator = LastPerCircuitAccumulator::<

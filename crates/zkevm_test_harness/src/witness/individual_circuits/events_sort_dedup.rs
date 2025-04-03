@@ -2,7 +2,9 @@ use super::*;
 use crate::ethereum_types::U256;
 use crate::witness::artifacts::LogQueueStates;
 use crate::zk_evm::aux_structures::*;
-use crate::zkevm_circuits::base_structures::log_query::LOG_QUERY_PACKED_WIDTH;
+use crate::zkevm_circuits::base_structures::log_query::{
+    LOG_QUERY_ABSORBTION_ROUNDS, LOG_QUERY_PACKED_WIDTH,
+};
 use crate::zkevm_circuits::base_structures::vm_state::QUEUE_STATE_WIDTH;
 use crate::zkevm_circuits::log_sorter::input::*;
 use crate::zkevm_circuits::DEFAULT_NUM_PERMUTATION_ARGUMENT_REPETITIONS;
@@ -17,7 +19,13 @@ pub(crate) fn compute_events_dedup_and_sort<
 >(
     unsorted_queries: Vec<LogQuery>,
     unsorted_queue: LogQueueStates<F>,
-    result_queue_simulator: &mut LogQueueSimulator<F>,
+    result_queue_simulator: &mut QueueSimulator<
+        F,
+        LogQuery,
+        QUEUE_STATE_WIDTH,
+        LOG_QUERY_PACKED_WIDTH,
+        LOG_QUERY_ABSORBTION_ROUNDS,
+    >,
     per_circuit_capacity: usize,
     round_function: &R,
 ) -> Vec<EventsDeduplicatorInstanceWitness<F>> {

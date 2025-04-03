@@ -1,6 +1,6 @@
 use super::*;
 use crate::sha3::*;
-use crate::zkevm_circuits::base_structures::log_query::*;
+use crate::zkevm_circuits::base_structures::{log_query::*, vm_state::QUEUE_STATE_WIDTH};
 use crate::zkevm_circuits::linear_hasher::input::*;
 use circuit_definitions::encodings::*;
 
@@ -8,7 +8,13 @@ pub(crate) fn compute_linear_keccak256<
     F: SmallField,
     R: BuildableCircuitRoundFunction<F, 8, 12, 4> + AlgebraicRoundFunction<F, 8, 12, 4>,
 >(
-    simulator: LogQueueSimulator<F>,
+    simulator: QueueSimulator<
+        F,
+        zk_evm::aux_structures::LogQuery,
+        QUEUE_STATE_WIDTH,
+        LOG_QUERY_PACKED_WIDTH,
+        LOG_QUERY_ABSORBTION_ROUNDS,
+    >,
     capacity: usize,
     _round_function: &R,
 ) -> Vec<LinearHasherCircuitInstanceWitness<F>> {

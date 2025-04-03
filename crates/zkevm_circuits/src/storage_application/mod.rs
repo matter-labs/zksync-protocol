@@ -98,7 +98,7 @@ pub struct ConditionalWitnessAllocator<F: SmallField, EL: CSAllocatableExt<F>> {
 
 impl<F: SmallField, EL: CSAllocatableExt<F>> ConditionalWitnessAllocator<F, EL>
 where
-    [(); EL::INTERNAL_STRUCT_LEN]:,
+    // [(); EL::INTERNAL_STRUCT_LEN]:,
     [(); EL::INTERNAL_STRUCT_LEN + 1]:,
 {
     pub fn print_debug_info(&self) {
