@@ -9,6 +9,7 @@ use crate::zkevm_circuits::base_structures::vm_state::QUEUE_STATE_WIDTH;
 use crate::zkevm_circuits::storage_validity_by_grand_product::input::*;
 use crate::zkevm_circuits::DEFAULT_NUM_PERMUTATION_ARGUMENT_REPETITIONS;
 use circuit_definitions::encodings::*;
+use circuit_definitions::zkevm_circuits::base_structures::log_query::LOG_QUERY_ABSORBTION_ROUNDS;
 use zk_evm::aux_structures::LogQueryWithExtendedEnumeration;
 
 pub(crate) fn compute_storage_dedup_and_sort<
@@ -20,7 +21,13 @@ pub(crate) fn compute_storage_dedup_and_sort<
     per_circuit_capacity: usize,
     round_function: &R,
 ) -> (
-    LogQueueSimulator<F>,
+    QueueSimulator<
+        F,
+        LogQuery,
+        QUEUE_STATE_WIDTH,
+        LOG_QUERY_PACKED_WIDTH,
+        LOG_QUERY_ABSORBTION_ROUNDS,
+    >,
     Vec<LogQuery>,
     Vec<StorageDeduplicatorInstanceWitness<F>>,
 ) {
@@ -29,7 +36,17 @@ pub(crate) fn compute_storage_dedup_and_sort<
     const SHARD_ID_TO_PROCEED: u8 = 0; // rollup shard ID
 
     if rollup_storage_queries.is_empty() {
-        return (LogQueueSimulator::<F>::empty(), vec![], vec![]);
+        return (
+            QueueSimulator::<
+                F,
+                LogQuery,
+                QUEUE_STATE_WIDTH,
+                LOG_QUERY_PACKED_WIDTH,
+                LOG_QUERY_ABSORBTION_ROUNDS,
+            >::empty(),
+            vec![],
+            vec![],
+        );
     }
 
     // first we sort the storage log (only storage now) by composite key
