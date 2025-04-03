@@ -36,7 +36,7 @@ zkevm-assembly = { version = "=0.151.5", path = "crates/zkEVM-assembly" }
 #cs_derive = { package = "zksync_cs_derive", version = "=0.31.0" }
 
 
-snark_wrapper = { path = "../zksync-crypto/crates/snark-wrapper" }
-bellman = { package = "zksync_bellman", path = "../zksync-crypto/crates/bellman" }
-boojum = { package = "boojum", path = "../zksync-crypto/crates/boojum" }
-cs_derive = { package = "zksync_cs_derive", path = "../zksync-crypto/crates/cs_derive" }
+snark_wrapper = { git = "https://github.com/matter-labs/zksync-crypto", branch = "main" }
+bellman = { package = "zksync_bellman", git = "https://github.com/matter-labs/zksync-crypto", branch = "main" }
+boojum = { package = "boojum", git = "https://github.com/matter-labs/zksync-crypto", branch = "main" }
+cs_derive = { package = "zksync_cs_derive", git = "https://github.com/matter-labs/zksync-crypto", branch = "main" }
