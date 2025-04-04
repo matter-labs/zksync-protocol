@@ -20,7 +20,7 @@ use super::*;
 
 // Width 4 windowed multiplication parameters
 const WINDOW_WIDTH: usize = 4;
-const NUM_MULTIPLICATION_STEPS_FOR_WIDTH_4: usize = 33;
+const NUM_MULTIPLICATION_STEPS_FOR_WIDTH_4: usize = 32;
 const PRECOMPUTATION_TABLE_SIZE: usize = (1 << WINDOW_WIDTH) - 1;
 
 /// BETA parameter such that phi(x, y) = (beta*x, y)
@@ -139,7 +139,6 @@ where
 pub struct ScalarDecomposition<F: SmallField> {
     pub k1: BN256ScalarNNField<F>,
     pub k2: BN256ScalarNNField<F>,
-    pub k1_was_negated: Boolean<F>,
     pub k2_was_negated: Boolean<F>,
 }
 
@@ -215,20 +214,10 @@ where
         let mut k1 = scalar.sub(cs, &mut k2_times_lambda);
         k1.normalize(cs);
 
-        let k1_u256 = convert_field_element_to_uint256(cs, k1.clone());
         let k2_u256 = convert_field_element_to_uint256(cs, k2.clone());
 
         let low_pow_2_128 = pow_2_128.to_low();
 
-        // Selecting between k1 and -k1 in Fq
-        let (_, k1_out_of_range) = low_pow_2_128.overflowing_sub(cs, &k1_u256);
-        let k1_negated = k1.negated(cs);
-        let k1 = <BN256ScalarNNField<F> as NonNativeField<F, BN256Fr>>::conditionally_select(
-            cs,
-            k1_out_of_range,
-            &k1_negated,
-            &k1,
-        );
 
         // Selecting between k2 and -k2 in Fq
         let (_, k2_out_of_range) = low_pow_2_128.overflowing_sub(cs, &k2_u256);
@@ -243,7 +232,6 @@ where
         Self {
             k1,
             k2,
-            k1_was_negated: k1_out_of_range,
             k2_was_negated: k2_out_of_range,
         }
     }
@@ -288,15 +276,6 @@ where
 
     // we also know that we will multiply k1 by points, and k2 by their endomorphisms, and if they were
     // negated above to fit into range, we negate bases here
-    for (_, y) in table.iter_mut() {
-        let negated = y.negated(cs);
-        *y = Selectable::conditionally_select(
-            cs,
-            scalar_decomposition.k1_was_negated,
-            &negated,
-            &*y,
-        );
-    }
 
     for (_, y) in endomorphisms_table.iter_mut() {
         let negated = y.negated(cs);
@@ -389,9 +368,9 @@ fn to_width_4_window_form<F: SmallField, CS: ConstraintSystem<F>>(
     cs: &mut CS,
     limited_width_scalar: BN256ScalarNNField<F>,
 ) -> Vec<Num<F>> {
-    // we know that width is 128 bits, so just do BE decomposition and put into resulting array
+    // we know that width is 127 bits, so just do BE decomposition and put into resulting array
     let zero_num = Num::zero(cs);
-    for word in limited_width_scalar.limbs[9..].iter() {
+    for word in limited_width_scalar.limbs[8..].iter() {
         let word = Num::from_variable(*word);
         Num::enforce_equal(cs, &word, &zero_num);
     }
@@ -399,18 +378,8 @@ fn to_width_4_window_form<F: SmallField, CS: ConstraintSystem<F>>(
     let byte_split_id = cs
         .get_table_id_for_marker::<ByteSplitTable<4>>()
         .expect("table should exist");
-    let mut result = Vec::with_capacity(33);
-    // special case
-    {
-        let highest_word = limited_width_scalar.limbs[8];
-        let word = unsafe { UInt16::from_variable_unchecked(highest_word) };
-        let [high, low] = word.to_be_bytes(cs);
-        Num::enforce_equal(cs, &high.into_num(), &zero_num);
-        let [l, h] = cs.perform_lookup::<1, 2>(byte_split_id, &[low.get_variable()]);
-        Num::enforce_equal(cs, &Num::from_variable(h), &zero_num);
-        let l = Num::from_variable(l);
-        result.push(l);
-    }
+
+    let mut result = Vec::with_capacity(NUM_MULTIPLICATION_STEPS_FOR_WIDTH_4);
 
     for word in limited_width_scalar.limbs[..8].iter().rev() {
         let word = unsafe { UInt16::from_variable_unchecked(*word) };
