@@ -280,10 +280,6 @@ pub fn ecadd_inner(
     let x2_field = Fq::from_str(x2.to_string().as_str()).ok_or(Error::msg("invalid x2"))?;
     let y2_field = Fq::from_str(y2.to_string().as_str()).ok_or(Error::msg("invalid y2"))?;
 
-    dbg!(&x1_field);
-    dbg!(&y1_field);
-    dbg!(&x2_field);
-    dbg!(&y2_field);
 
     // If one of the points is zero, then both coordinates are zero,
     // which aligns with the from_xy_checked method implementation.

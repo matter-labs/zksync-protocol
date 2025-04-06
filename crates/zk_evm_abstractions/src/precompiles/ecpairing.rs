@@ -1,5 +1,5 @@
 use anyhow::{Error, Result};
-use zkevm_opcode_defs::bn254::bn256::{Fq, Fq12, Fq2, G1Affine, G2Affine, G2};
+use zkevm_opcode_defs::bn254::bn256::{self, Fq, Fq12, Fq2, G1Affine, G2Affine, FROBENIUS_COEFF_FQ6_C1, G2, XI_TO_Q_MINUS_1_OVER_2};
 use zkevm_opcode_defs::bn254::ff::{Field, PrimeField};
 use zkevm_opcode_defs::bn254::{CurveAffine, CurveProjective};
 use zkevm_opcode_defs::ethereum_types::U256;
@@ -298,30 +298,23 @@ pub fn ecpairing_inner(inputs: Vec<EcPairingInputTuple>) -> Result<bool> {
     Ok(total_pairing.eq(&Fq12::one()))
 }
 
-/// Checks if a given G2 point actually belong to the proper subgroup.
-/// According to EIP-197 - there should be only one subgroup of this size.
-fn check_if_in_subgroup(point: G2) -> bool {
-    let mut group_size = U256::from_str_radix(
-        &"21888242871839275222246405745257275088548364400416034343698204186575808495617",
-        10,
-    )
-    .unwrap();
+/// Subgroup check for G2 using the Frobenius endomorphism.
+/// Based on the property: ψ(P) == [6x^2]P for BN254.
+fn check_if_in_subgroup(point: G2Affine) -> bool {
 
-    // Here we compute the point * group_size and check if == 0.
+    let mut x_p = point.into_projective();
+    
+    let x = bn256::Fr::from_str("147946756881789318990833708069417712966").unwrap();
+    x_p.mul_assign(x);
+    let (mut pi_1_q_x, mut pi_1_q_y) = point.into_xy_unchecked();
 
-    let mut result = G2::zero();
-    let mut point = point;
+    pi_1_q_x.conjugate();
+    pi_1_q_x.mul_assign(&FROBENIUS_COEFF_FQ6_C1[1]);
+    pi_1_q_y.conjugate();
+    pi_1_q_y.mul_assign(&XI_TO_Q_MINUS_1_OVER_2);
+    let frob_affine = G2Affine::from_xy_checked(pi_1_q_x, pi_1_q_y).unwrap();
 
-    while group_size != U256::zero() {
-        if group_size % 2 == U256::one() {
-            result.add_assign(&point);
-        }
-        group_size = group_size / 2;
-        let tmp = point.clone();
-        point.add_assign(&tmp);
-    }
-
-    result.eq(&G2::zero())
+    x_p == frob_affine.into_projective()
 }
 
 pub fn pair(input: &EcPairingInputTuple) -> Result<Fq12> {
@@ -353,7 +346,7 @@ pub fn pair(input: &EcPairingInputTuple) -> Result<Fq12> {
     // which aligns with the from_xy_checked method implementation.
     let point_1 = G1Affine::from_xy_checked(x1_field, y1_field)?;
 
-    // NOTE: In EIP-192 spec, 3rd and 5th positions correspond to imaginary part, while 4th and 6th to real ones.
+    // NOTE: In EIP-197 spec, 3rd and 5th positions correspond to imaginary part, while 4th and 6th to real ones.
     // Thus, it might be confusing why we switch the order below.
     let point_2_x = Fq2 {
         c0: y2_field,
@@ -365,7 +358,7 @@ pub fn pair(input: &EcPairingInputTuple) -> Result<Fq12> {
     };
     let point_2 = G2Affine::from_xy_checked(point_2_x, point_2_y)?;
 
-    if !check_if_in_subgroup(point_2.into_projective()) {
+    if !check_if_in_subgroup(point_2) {
         anyhow::bail!("G2 not on the subgroup");
     }
 
@@ -674,5 +667,17 @@ pub mod tests {
         let y3 = U256::from_str_radix("3", 10).unwrap();
 
         let _ = ecpairing_inner(vec![[x1, y1, x2, y2, x3, y3]]).unwrap();
+    }
+    #[test]
+    fn test_check_if_in_subgroup_infinity() {
+        use super::*;
+
+        let infinity_point = G2Affine::zero();
+
+        // This should return true, because the group identity is always in the subgroup.
+        assert!(
+            check_if_in_subgroup(infinity_point),
+            "infinity point should be in the subgroup"
+        );
     }
 }
