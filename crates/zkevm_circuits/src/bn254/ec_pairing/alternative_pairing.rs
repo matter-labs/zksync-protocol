@@ -542,7 +542,6 @@ impl<F: SmallField> TwistedCurvePoint<F> {
         TwistedCurvePoint { x: new_x, y: new_y }
     }
 
-    // TODO: use line object here?
     fn double_and_add<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, other: &mut Self) -> Self {
         let mut other_x_minus_this_x = other.x.sub(cs, &mut self.x);
         let mut other_y_minus_this_y = other.y.sub(cs, &mut self.y);
@@ -1464,6 +1463,7 @@ pub(crate) fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
         }
 
         for i in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
+            assert!(NUM_PAIRINGS_IN_MULTIPAIRING == 1 , "Supported only for 1 pairing");
             let line_object = oracle.next_line_object();
             let mut t = t_array[i].clone();
             let mut p = inputs[i].0.clone();
@@ -1474,17 +1474,17 @@ pub(crate) fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
             }
 
             line_func_eval.mul_into_fp12(cs, &mut f);
-            let to_add: &mut TwistedCurvePoint<F> = if bit == -1 {
-                &mut q_negated_array[i]
-            } else {
-                &mut inputs[i].1
-            };
-
-            if bit == 1 || bit == -1 {
+            if bit == 1 || bit == -1 { 
+                let to_add: &mut TwistedCurvePoint<F> = if bit == -1 { 
+                    &mut q_negated_array[i]
+                } else {
+                    &mut inputs[i].1
+                };
                 let line_object = oracle.next_line_object();
                 let line_func_eval = line_object.add_and_eval(cs, &mut t, to_add, &mut p);
                 line_func_eval.mul_into_fp12(cs, &mut f);
             }
+
 
             t_array[i] = t;
             inputs[i].0 = p;
@@ -1559,19 +1559,6 @@ pub(crate) fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
         oracle.line_function_idx,
         NUM_PAIRINGS_IN_MULTIPAIRING * BN254_NUM_ELL_COEFFS
     );
-
-    let input: Vec<_> = skip_pairings
-        .iter()
-        .map(|el| (el.get_variable(), F::ONE))
-        .collect();
-    let num_of_skipped_tuples = Num::linear_combination(cs, &input);
-
-    let mut equality_flags = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING);
-    for idx in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
-        let cur_fr = Num::allocated_constant(cs, F::from_raw_u64_unchecked(idx as u64 + 1));
-        let flag = Num::equals(cs, &num_of_skipped_tuples, &cur_fr);
-        equality_flags.push(flag);
-    }
 
     let miller_loop_res = f.clone();
 

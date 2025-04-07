@@ -201,12 +201,11 @@ where
         // q1 <- c1 * b1
         // q2 <- c2 * b2
         let mut q1 = c1.mul(cs, &mut b1);
-        let mut q1 = q1.negated(cs);
         let mut q2 = c2.mul(cs, &mut b2);
         let mut q2 = q2.negated(cs);
 
         // k2 <- q2 - q1
-        let mut k2 = q2.sub(cs, &mut q1);
+        let mut k2 = q2.add(cs, &mut q1);
         k2.normalize(cs);
 
         // k2_lambda <- k2 * lambda, k1 <- k - k2_lambda
