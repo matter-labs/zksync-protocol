@@ -521,7 +521,7 @@ impl<F: SmallField> TwistedCurvePoint<F> {
         }
     }
 
-    // TODO: use line object here?
+    // Unsupported cases: P=O, P.Y*2=0 
     fn double<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS) -> Self {
         let mut x_squared = self.x.square(cs);
         // compute 3 * x_squared
@@ -542,6 +542,7 @@ impl<F: SmallField> TwistedCurvePoint<F> {
         TwistedCurvePoint { x: new_x, y: new_y }
     }
 
+    // Unsupported cases: P=O, Q=O, P=Q, P=-Q, P+Q=-P
     fn double_and_add<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, other: &mut Self) -> Self {
         let mut other_x_minus_this_x = other.x.sub(cs, &mut self.x);
         let mut other_y_minus_this_y = other.y.sub(cs, &mut self.y);
@@ -568,7 +569,7 @@ impl<F: SmallField> TwistedCurvePoint<F> {
         TwistedCurvePoint { x: new_x, y: new_y }
     }
 
-    // TODO: use line object here?
+    // Unsupported cases: P=Q, P=-Q, P=O, Q=O
     fn add<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, other: &mut Self) -> Self {
         let mut other_x_minus_this_x = other.x.sub(cs, &mut self.x);
         let mut other_y_minus_this_y = other.y.sub(cs, &mut self.y);
@@ -587,7 +588,7 @@ impl<F: SmallField> TwistedCurvePoint<F> {
         TwistedCurvePoint { x: new_x, y: new_y }
     }
 
-    // TODO: use line object here?
+    // Unsupported cases: P=Q, P=-Q, P=O, Q=O
     fn sub<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS, other: &mut Self) -> Self {
         let mut other_x_minus_this_x = other.x.sub(cs, &mut self.x);
         let mut other_y_plus_this_y = other.y.add(cs, &mut self.y);
