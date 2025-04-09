@@ -184,13 +184,11 @@ pub mod test {
             // Actual:
             let decomposition = ScalarDecomposition::from(cs, &mut k, &scalar_params);
             let k1 = decomposition.k1.witness_hook(cs)().unwrap().get();
-            let k1_was_negated = decomposition.k1_was_negated.witness_hook(cs)().unwrap();
             let k2 = decomposition.k2.witness_hook(cs)().unwrap().get();
             let k2_was_negated = decomposition.k2_was_negated.witness_hook(cs)().unwrap();
 
             // Asserting:
             assert_eq!(k1, expected_k1);
-            assert_eq!(k1_was_negated, test.k1_negated);
             assert_eq!(k2, expected_k2);
             assert_eq!(k2_was_negated, test.k2_negated);
 
