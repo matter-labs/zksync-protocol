@@ -134,21 +134,49 @@ impl<const B: bool> Precompile for ModexpPrecompile<B> {
 /// https://cse.buffalo.edu/srds2009/escs2009_submission_Gopal.pdf.
 pub fn modexp_inner(b: U256, e: U256, m: U256) -> U256 {
     // See EIP-198 for specification
+    // If m = 0, everything is 0.
     if m.is_zero() {
         return U256::zero();
     }
+    // Some edge cases: 
+    // e = 0 => b^0 mod m => generally 1, but if m == 1 => 0
+    if e.is_zero() {
+        return if m == U256::one() {
+            U256::zero()
+        } else {
+            U256::one()
+        };
+    }
+
+    // e = 1 => b^1 mod m => just b % m
+    if e == U256::one() {
+        return b % m;
+    }
+
+    // b = 0 => 0^e ( for e>0 ) => 0
+    if b.is_zero() {
+        return U256::zero();
+    }
+
+    // b = 1 => 1^e => 1 mod m => if m == 1 => 0, else 1
+    if b == U256::one() {
+        return if m == U256::one() {
+            U256::zero()
+        } else {
+            U256::one()
+        };
+    }
 
     let mut a = U256::one();
-    let modmul = |a: U256, b: U256, m: U256| {
-        let product: zkevm_opcode_defs::ethereum_types::U512 = a.full_mul(b);
+    let modmul = |x: U256, y: U256, m: U256| {
+        let product = x.full_mul(y);
         let (_, rem) = product.div_mod(m.into());
-        let result: U256 = rem.try_into().unwrap();
-        result
+        U256::try_from(rem).unwrap()
     };
+
     for i in (0..256).rev() {
         let bit = e.bit(i);
         a = modmul(a, a, m);
-
         if bit {
             a = modmul(a, b, m);
         }

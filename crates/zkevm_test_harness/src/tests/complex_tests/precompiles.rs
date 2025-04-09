@@ -746,10 +746,13 @@ fn test_modexp_from_hex(raw_input: &str) -> U256 {
 
     test_modexp_using_tuple(tuple)
 }
+#[cfg(test)]
+pub mod tests {
+    use super::*;
 
-#[test]
-fn ec_pairing_empty_data() {
-    let raw_input = "";
+    #[test]
+    fn ec_pairing_empty_data() {
+        let raw_input = "";
 
     let (success, result) = test_ecpairing_from_hex(raw_input);
     assert_eq!(success, U256::one());
@@ -1312,4 +1315,5 @@ fn mod_base_zero_exp_zero() {
     let res = test_modexp_from_hex(raw_input);
 
     assert_eq!(res, expected_res);
+}
 }
