@@ -1,5 +1,7 @@
 use anyhow::{Error, Result};
-use zkevm_opcode_defs::bn254::bn256::{self, Fq, Fq12, Fq2, G1Affine, G2Affine, FROBENIUS_COEFF_FQ6_C1, G2, XI_TO_Q_MINUS_1_OVER_2};
+use zkevm_opcode_defs::bn254::bn256::{
+    self, Fq, Fq12, Fq2, G1Affine, G2Affine, FROBENIUS_COEFF_FQ6_C1, G2, XI_TO_Q_MINUS_1_OVER_2,
+};
 use zkevm_opcode_defs::bn254::ff::{Field, PrimeField};
 use zkevm_opcode_defs::bn254::{CurveAffine, CurveProjective};
 use zkevm_opcode_defs::ethereum_types::U256;
@@ -301,9 +303,8 @@ pub fn ecpairing_inner(inputs: Vec<EcPairingInputTuple>) -> Result<bool> {
 /// Subgroup check for G2 using the Frobenius endomorphism.
 /// Based on the property: ψ(P) == [6x^2]P for BN254.
 fn check_if_in_subgroup(point: G2Affine) -> bool {
-
     let mut x_p = point.into_projective();
-    
+
     let x = bn256::Fr::from_str("147946756881789318990833708069417712966").unwrap();
     x_p.mul_assign(x);
     let (mut pi_1_q_x, mut pi_1_q_y) = point.into_xy_unchecked();

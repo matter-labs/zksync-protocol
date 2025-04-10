@@ -138,7 +138,7 @@ pub fn modexp_inner(b: U256, e: U256, m: U256) -> U256 {
     if m.is_zero() {
         return U256::zero();
     }
-    // Some edge cases: 
+    // Some edge cases:
     // e = 0 => b^0 mod m => generally 1, but if m == 1 => 0
     if e.is_zero() {
         return if m == U256::one() {

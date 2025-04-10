@@ -98,8 +98,6 @@ pub fn add_read_values_to_queue<
             value: read_query_value,
         };
 
-        dbg!(read_query.witness_hook(cs)());
-
         let _ = memory_queue.push(cs, read_query, should_process);
 
         *input_offset = input_offset.add_no_overflow(cs, one_u32);
@@ -273,8 +271,6 @@ pub fn add_query_to_queue<
         is_ptr,
         value,
     };
-
-    dbg!(query.witness_hook(cs)());
 
     let _ = memory_queue.push(cs, query, should_process);
 
