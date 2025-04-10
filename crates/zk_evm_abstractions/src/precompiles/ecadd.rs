@@ -280,7 +280,6 @@ pub fn ecadd_inner(
     let x2_field = Fq::from_str(x2.to_string().as_str()).ok_or(Error::msg("invalid x2"))?;
     let y2_field = Fq::from_str(y2.to_string().as_str()).ok_or(Error::msg("invalid y2"))?;
 
-
     // If one of the points is zero, then both coordinates are zero,
     // which aligns with the from_xy_checked method implementation.
     // However, if some point does not lie on the curve, the method will return an error.

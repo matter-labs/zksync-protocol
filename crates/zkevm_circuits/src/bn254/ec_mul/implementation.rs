@@ -217,7 +217,6 @@ where
 
         let low_pow_2_128 = pow_2_128.to_low();
 
-
         // Selecting between k2 and -k2 in Fq
         let (_, k2_out_of_range) = low_pow_2_128.overflowing_sub(cs, &k2_u256);
         let k2_negated = k2.negated(cs);

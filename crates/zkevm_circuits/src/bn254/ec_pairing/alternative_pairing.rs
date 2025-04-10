@@ -521,7 +521,7 @@ impl<F: SmallField> TwistedCurvePoint<F> {
         }
     }
 
-    // Unsupported cases: P=O, P.Y*2=0 
+    // Unsupported cases: P=O, P.Y*2=0
     fn double<CS: ConstraintSystem<F>>(&mut self, cs: &mut CS) -> Self {
         let mut x_squared = self.x.square(cs);
         // compute 3 * x_squared
@@ -1464,7 +1464,10 @@ pub(crate) fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
         }
 
         for i in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
-            assert!(NUM_PAIRINGS_IN_MULTIPAIRING == 1 , "Supported only for 1 pairing");
+            assert!(
+                NUM_PAIRINGS_IN_MULTIPAIRING == 1,
+                "Supported only for 1 pairing"
+            );
             let line_object = oracle.next_line_object();
             let mut t = t_array[i].clone();
             let mut p = inputs[i].0.clone();
@@ -1475,8 +1478,8 @@ pub(crate) fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
             }
 
             line_func_eval.mul_into_fp12(cs, &mut f);
-            if bit == 1 || bit == -1 { 
-                let to_add: &mut TwistedCurvePoint<F> = if bit == -1 { 
+            if bit == 1 || bit == -1 {
+                let to_add: &mut TwistedCurvePoint<F> = if bit == -1 {
                     &mut q_negated_array[i]
                 } else {
                     &mut inputs[i].1
@@ -1485,7 +1488,6 @@ pub(crate) fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
                 let line_func_eval = line_object.add_and_eval(cs, &mut t, to_add, &mut p);
                 line_func_eval.mul_into_fp12(cs, &mut f);
             }
-
 
             t_array[i] = t;
             inputs[i].0 = p;
