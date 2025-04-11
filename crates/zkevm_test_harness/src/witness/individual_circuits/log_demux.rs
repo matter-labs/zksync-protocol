@@ -24,14 +24,18 @@ use oracle::WitnessGenerationArtifact;
 use zk_evm::zkevm_opcode_defs::SECP256R1_VERIFY_PRECOMPILE_ADDRESS;
 
 use crate::zk_evm::aux_structures::LogQuery as LogQuery_;
-use std::collections::HashMap;
-
 use crate::zk_evm::zkevm_opcode_defs::system_params::{
     ECRECOVER_INNER_FUNCTION_PRECOMPILE_FORMAL_ADDRESS,
     KECCAK256_ROUND_FUNCTION_PRECOMPILE_FORMAL_ADDRESS,
     SECP256R1_VERIFY_INNER_FUNCTION_PRECOMPILE_FORMAL_ADDRESS,
     SHA256_ROUND_FUNCTION_PRECOMPILE_FORMAL_ADDRESS,
 };
+use crate::zk_evm::zkevm_opcode_defs::MODEXP_PRECOMPILE_FORMAL_ADDRESS;
+use circuit_definitions::zk_evm::zkevm_opcode_defs::{
+    ECADD_PRECOMPILE_FORMAL_ADDRESS, ECMUL_PRECOMPILE_FORMAL_ADDRESS,
+    ECPAIRING_PRECOMPILE_FORMAL_ADDRESS,
+};
+use std::collections::HashMap;
 
 use crate::zk_evm::zkevm_opcode_defs::system_params::{
     EVENT_AUX_BYTE, L1_MESSAGE_AUX_BYTE, PRECOMPILE_AUX_BYTE, STORAGE_AUX_BYTE,
@@ -48,6 +52,10 @@ pub(crate) struct PrecompilesQueuesStates {
     pub sha256: LogQueueStates<Field>,
     pub ecrecover: LogQueueStates<Field>,
     pub secp256r1_verify: LogQueueStates<Field>,
+    pub modexp: LogQueueStates<Field>,
+    pub ecadd: LogQueueStates<Field>,
+    pub ecmul: LogQueueStates<Field>,
+    pub ecpairing: LogQueueStates<Field>,
 }
 
 pub(crate) struct IOLogsQueuesStates {
@@ -81,6 +89,10 @@ impl DemuxedQueuesStatesSimulator {
                 DemuxOutput::Events => geometry.cycles_per_events_or_l1_messages_sorter,
                 DemuxOutput::L2ToL1Messages => geometry.cycles_per_events_or_l1_messages_sorter,
                 DemuxOutput::PorterStorage => 0, // NOT IMPLEMENTED
+                DemuxOutput::Modexp => geometry.cycles_per_modexp_circuit,
+                DemuxOutput::ECAdd => geometry.cycles_per_ecadd_circuit,
+                DemuxOutput::ECMul => geometry.cycles_per_ecmul_circuit,
+                DemuxOutput::ECPairing => geometry.cycles_per_ecpairing_circuit,
             };
 
             let state = if let DemuxOutput::PorterStorage = output {
@@ -137,6 +149,10 @@ impl DemuxedQueuesStatesSimulator {
                     a if a == *SECP256R1_VERIFY_INNER_FUNCTION_PRECOMPILE_FORMAL_ADDRESS => {
                         Some(DemuxOutput::Secp256r1Verify)
                     }
+                    a if a == *MODEXP_PRECOMPILE_FORMAL_ADDRESS => Some(DemuxOutput::Modexp),
+                    a if a == *ECADD_PRECOMPILE_FORMAL_ADDRESS => Some(DemuxOutput::ECAdd),
+                    a if a == *ECMUL_PRECOMPILE_FORMAL_ADDRESS => Some(DemuxOutput::ECMul),
+                    a if a == *ECPAIRING_PRECOMPILE_FORMAL_ADDRESS => Some(DemuxOutput::ECPairing),
                     _ => None,
                 }
             }
@@ -168,6 +184,10 @@ impl DemuxedQueuesStatesSimulator {
                 sha256: queries.remove(&DemuxOutput::Sha256).unwrap(),
                 ecrecover: queries.remove(&DemuxOutput::ECRecover).unwrap(),
                 secp256r1_verify: queries.remove(&DemuxOutput::Secp256r1Verify).unwrap(),
+                modexp: queries.remove(&DemuxOutput::Modexp).unwrap(),
+                ecadd: queries.remove(&DemuxOutput::ECAdd).unwrap(),
+                ecmul: queries.remove(&DemuxOutput::ECMul).unwrap(),
+                ecpairing: queries.remove(&DemuxOutput::ECPairing).unwrap(),
             },
         )
     }
@@ -280,6 +300,16 @@ pub(crate) fn process_logs_demux_and_make_circuits(
     queries_iterators.insert(
         DemuxOutput::Secp256r1Verify,
         demuxed_queues.precompiles.secp256r1_verify.iter(),
+    );
+    queries_iterators.insert(
+        DemuxOutput::Modexp,
+        demuxed_queues.precompiles.modexp.iter(),
+    );
+    queries_iterators.insert(DemuxOutput::ECAdd, demuxed_queues.precompiles.ecadd.iter());
+    queries_iterators.insert(DemuxOutput::ECMul, demuxed_queues.precompiles.ecmul.iter());
+    queries_iterators.insert(
+        DemuxOutput::ECPairing,
+        demuxed_queues.precompiles.ecpairing.iter(),
     );
 
     let mut input_passthrough_data = LogDemuxerInputData::placeholder_witness();

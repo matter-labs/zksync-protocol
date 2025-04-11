@@ -23,6 +23,10 @@ fn test_base_layer_circuit_synthesis() {
         .into_iter()
         .next()
         .expect("failed to get circuit");
+    println!(
+        "Base layer circuit selected is: {:?}",
+        circuit.short_description()
+    );
     let worker = Worker::new_with_num_threads(8);
     let (_, _, _, _, _, _, finalization_hint) = create_base_layer_setup_data(
         circuit.clone(),
