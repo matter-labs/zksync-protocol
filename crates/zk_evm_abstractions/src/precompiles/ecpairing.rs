@@ -1,6 +1,6 @@
 use anyhow::{Error, Result};
 use zkevm_opcode_defs::bn254::bn256::{
-    self, Fq, Fq12, Fq2, G1Affine, G2Affine, FROBENIUS_COEFF_FQ6_C1, G2, XI_TO_Q_MINUS_1_OVER_2,
+    self, Fq, Fq12, Fq2, G1Affine, G2Affine, FROBENIUS_COEFF_FQ6_C1, XI_TO_Q_MINUS_1_OVER_2,
 };
 use zkevm_opcode_defs::bn254::ff::{Field, PrimeField};
 use zkevm_opcode_defs::bn254::{CurveAffine, CurveProjective};
