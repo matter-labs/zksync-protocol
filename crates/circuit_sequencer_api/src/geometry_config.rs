@@ -194,7 +194,7 @@ const fn get_geometry_config_1_5_1() -> GeometryConfig {
     }
 }
 
-/// 1.7.0 with precompiles.
+/// 1.5.2 with precompiles.
 pub const fn get_geometry_config_1_5_2() -> GeometryConfig {
     GeometryConfig {
         cycles_per_vm_snapshot: 5351,
