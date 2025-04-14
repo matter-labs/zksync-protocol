@@ -66,3 +66,17 @@ fn test_delegate_call_to_evm() {
         },
     );
 }
+
+#[test_log::test]
+fn test_decommit_evm() {
+    // Decomit EVM bytecode with even length in versioned bytecode hash
+    run_asm_based_test_with_evm_contracts(
+        "src/tests/simple_tests/testdata/evm_emulator/decommit_evm",
+        &[],      // zkvm contracts
+        &[65536], // evm contracts
+        Options {
+            cycles_per_vm_snapshot: 1,
+            ..Default::default()
+        },
+    );
+}
