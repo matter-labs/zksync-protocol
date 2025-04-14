@@ -244,8 +244,12 @@ pub(crate) fn compute_decommitter_circuit_snapshots<
                     is_fresh,
                 } = wit.2;
 
-                let num_words = u16::from_be_bytes([header.0[2], header.0[3]]);
-                assert!(num_words & 1 == 1); // should be odd
+                let bytecode_version = u8::from_be_bytes([header.0[0]]);
+                if bytecode_version == 1 {
+                    // Check that EraVM bytecode length is odd
+                    let num_words = u16::from_be_bytes([header.0[2], header.0[3]]);
+                    assert!(num_words & 1 == 1);
+                }
 
                 let hash_as_u256 = normalized_preimage_as_u256(&normalized_preimage);
 

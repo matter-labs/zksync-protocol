@@ -762,10 +762,11 @@ impl ZkSyncRecursiveLayerCircuit {
             Self::SchedulerCircuit(inner) => {
                 let geometry = ZkSyncSchedulerCircuit::geometry();
                 let (max_trace_len, num_vars) = inner.size_hint();
-                let builder_impl = CsReferenceImplementationBuilder::<F, P, ProvingCSConfig>::new(
-                    geometry,
-                    max_trace_len.unwrap(),
-                );
+                let builder_impl =
+                    CsReferenceImplementationBuilder::<F, P, ProvingCSConfig, CR>::new(
+                        geometry,
+                        max_trace_len.unwrap(),
+                    );
                 let cs_builder = new_builder::<_, F>(builder_impl);
                 let builder = inner.configure_builder_proxy(cs_builder);
                 let mut cs = builder.build(num_vars.unwrap());
@@ -778,10 +779,11 @@ impl ZkSyncRecursiveLayerCircuit {
             Self::NodeLayerCircuit(inner) => {
                 let geometry = ZkSyncNodeLayerRecursiveCircuit::geometry();
                 let (max_trace_len, num_vars) = inner.size_hint();
-                let builder_impl = CsReferenceImplementationBuilder::<F, P, ProvingCSConfig>::new(
-                    geometry,
-                    max_trace_len.unwrap(),
-                );
+                let builder_impl =
+                    CsReferenceImplementationBuilder::<F, P, ProvingCSConfig, CR>::new(
+                        geometry,
+                        max_trace_len.unwrap(),
+                    );
                 let cs_builder = new_builder::<_, F>(builder_impl);
                 let builder = inner.configure_builder_proxy(cs_builder);
                 let mut cs = builder.build(num_vars.unwrap());
@@ -816,10 +818,11 @@ impl ZkSyncRecursiveLayerCircuit {
             Self::RecursionTipCircuit(inner) => {
                 let geometry = ZkSyncRecursionTipCircuit::geometry();
                 let (max_trace_len, num_vars) = inner.size_hint();
-                let builder_impl = CsReferenceImplementationBuilder::<F, P, ProvingCSConfig>::new(
-                    geometry,
-                    max_trace_len.unwrap(),
-                );
+                let builder_impl =
+                    CsReferenceImplementationBuilder::<F, P, ProvingCSConfig, CR>::new(
+                        geometry,
+                        max_trace_len.unwrap(),
+                    );
                 let cs_builder = new_builder::<_, F>(builder_impl);
                 let builder = inner.configure_builder_proxy(cs_builder);
                 let mut cs = builder.build(num_vars.unwrap());
