@@ -1,4 +1,4 @@
-#![recursion_limit = "32"]
+#![recursion_limit = "64"]
 #![feature(allocator_api)]
 #![feature(array_chunks)]
 #![feature(stmt_expr_attributes)]

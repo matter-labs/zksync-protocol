@@ -6,7 +6,7 @@ pub mod oracle;
 pub mod postprocessing;
 pub mod recursive_aggregation;
 pub use circuit_sequencer_api::sort_storage_access;
-mod aux_data_structs;
+pub mod aux_data_structs;
 pub mod tracer;
 pub mod tree;
 pub mod utils;
