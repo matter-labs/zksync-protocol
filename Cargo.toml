@@ -32,3 +32,4 @@ snark_wrapper = "=0.32.0"
 bellman = { package = "zksync_bellman", version = "=0.32.0" }
 boojum = "=0.32.0"
 cs_derive = { package = "zksync_cs_derive", version = "=0.32.0" }
+zksync_pairing = "=0.32.0"

@@ -302,7 +302,7 @@ dependencies = [
  "tracing",
  "unroll",
  "zksync_cs_derive",
- "zksync_pairing 0.32.0",
+ "zksync_pairing",
 ]
 
 [[package]]
@@ -2507,7 +2507,7 @@ dependencies = [
  "serde",
  "sha2 0.10.8",
  "sha3 0.10.8",
- "zksync_pairing 0.31.0",
+ "zksync_pairing",
 ]
 
 [[package]]
@@ -2557,7 +2557,7 @@ dependencies = [
  "serde",
  "smallvec",
  "tiny-keccak 1.5.0",
- "zksync_pairing 0.32.0",
+ "zksync_pairing",
 ]
 
 [[package]]
@@ -2574,18 +2574,6 @@ dependencies = [
 
 [[package]]
 name = "zksync_ff"
-version = "0.31.0"
-source = "git+https://github.com/matter-labs/zksync-crypto.git?branch=feature%2Fec_precompiles#5a8b84e27906e8b44c2c0c0fa027f4b26d3ddbfa"
-dependencies = [
- "byteorder",
- "hex",
- "rand 0.4.6",
- "serde",
- "zksync_ff_derive 0.31.0",
-]
-
-[[package]]
-name = "zksync_ff"
 version = "0.32.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "53326e78698de1dac4bbf0dcd30a2e9d414354cd5780c36312eb880bfadd2350"
@@ -2594,21 +2582,7 @@ dependencies = [
  "hex",
  "rand 0.4.6",
  "serde",
- "zksync_ff_derive 0.32.0",
-]
-
-[[package]]
-name = "zksync_ff_derive"
-version = "0.31.0"
-source = "git+https://github.com/matter-labs/zksync-crypto.git?branch=feature%2Fec_precompiles#5a8b84e27906e8b44c2c0c0fa027f4b26d3ddbfa"
-dependencies = [
- "num-bigint 0.4.6",
- "num-integer",
- "num-traits",
- "proc-macro2 1.0.94",
- "quote 1.0.40",
- "serde",
- "syn 1.0.109",
+ "zksync_ff_derive",
 ]
 
 [[package]]
@@ -2644,18 +2618,6 @@ dependencies = [
 
 [[package]]
 name = "zksync_pairing"
-version = "0.31.0"
-source = "git+https://github.com/matter-labs/zksync-crypto.git?branch=feature%2Fec_precompiles#5a8b84e27906e8b44c2c0c0fa027f4b26d3ddbfa"
-dependencies = [
- "byteorder",
- "cfg-if",
- "rand 0.4.6",
- "serde",
- "zksync_ff 0.31.0",
-]
-
-[[package]]
-name = "zksync_pairing"
 version = "0.32.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a43eb42faf379880b35b8f5279e8030093f9f7b7a040824c8ad77b2a90cfe35"
@@ -2664,5 +2626,5 @@ dependencies = [
  "cfg-if",
  "rand 0.4.6",
  "serde",
- "zksync_ff 0.32.0",
+ "zksync_ff",
 ]

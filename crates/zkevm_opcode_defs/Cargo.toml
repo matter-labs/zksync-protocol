@@ -15,6 +15,9 @@ name = "circuit_pricing_generator"
 path = "src/circuit_pricing_generator/main.rs"
 
 [dependencies]
+# "Owned" dependencies
+zksync_pairing.workspace = true
+
 # "External" dependencies
 bitflags = "2"
 lazy_static = "1.4"
@@ -25,5 +28,3 @@ blake2 = "0.10.*"
 k256 = { version = "0.13.*", features = ["arithmetic", "ecdsa"] }
 p256 = { version = "0.13.*", features = ["arithmetic", "ecdsa"] }
 serde = { version = "1", features = ["derive"] }
-zksync_pairing = { git = "https://github.com/matter-labs/zksync-crypto.git", branch = "feature/ec_precompiles", package = "zksync_pairing" }
-#zksync_pairing = { path = "../../../zksync-crypto/crates/pairing" }
