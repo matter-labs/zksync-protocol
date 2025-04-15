@@ -331,7 +331,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "circuit_definitions"
-version = "0.151.5"
+version = "0.151.6"
 dependencies = [
  "circuit_encodings",
  "crossbeam",
@@ -343,7 +343,7 @@ dependencies = [
 
 [[package]]
 name = "circuit_encodings"
-version = "0.151.5"
+version = "0.151.6"
 dependencies = [
  "derivative",
  "serde",
@@ -353,7 +353,7 @@ dependencies = [
 
 [[package]]
 name = "circuit_sequencer_api"
-version = "0.151.5"
+version = "0.151.6"
 dependencies = [
  "derivative",
  "rayon",
@@ -2432,7 +2432,7 @@ checksum = "ced3678a2879b30306d323f4542626697a464a97c0a07c9aebf7ebca65cd4dde"
 
 [[package]]
 name = "zk_evm"
-version = "0.151.5"
+version = "0.151.6"
 dependencies = [
  "anyhow",
  "hex",
@@ -2446,7 +2446,7 @@ dependencies = [
 
 [[package]]
 name = "zk_evm_abstractions"
-version = "0.151.5"
+version = "0.151.6"
 dependencies = [
  "anyhow",
  "hex",
@@ -2458,7 +2458,7 @@ dependencies = [
 
 [[package]]
 name = "zkevm-assembly"
-version = "0.151.5"
+version = "0.151.6"
 dependencies = [
  "env_logger 0.9.3",
  "hex",
@@ -2476,7 +2476,7 @@ dependencies = [
 
 [[package]]
 name = "zkevm_circuits"
-version = "0.151.5"
+version = "0.151.6"
 dependencies = [
  "arrayvec 0.7.6",
  "boojum",
@@ -2496,7 +2496,7 @@ dependencies = [
 
 [[package]]
 name = "zkevm_opcode_defs"
-version = "0.151.5"
+version = "0.151.6"
 dependencies = [
  "bitflags 2.9.0",
  "blake2 0.10.6",
@@ -2512,7 +2512,7 @@ dependencies = [
 
 [[package]]
 name = "zkevm_test_harness"
-version = "0.151.5"
+version = "0.151.6"
 dependencies = [
  "bincode",
  "circuit_definitions",
@@ -2602,7 +2602,7 @@ dependencies = [
 
 [[package]]
 name = "zksync_kzg"
-version = "0.151.5"
+version = "0.151.6"
 dependencies = [
  "boojum",
  "derivative",
