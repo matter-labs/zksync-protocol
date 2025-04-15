@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.151.6](https://github.com/matter-labs/zksync-protocol/compare/v0.151.5...v0.151.6) (2025-04-15)
+
+
+### Features
+
+* ec precompiles  ([#92](https://github.com/matter-labs/zksync-protocol/issues/92)) ([49ae070](https://github.com/matter-labs/zksync-protocol/commit/49ae070cfcdddc8896349c0ecc325f35c03def5d))
+
 ## [0.151.5](https://github.com/matter-labs/zksync-protocol/compare/v0.151.4...v0.151.5) (2025-04-02)
 
 
