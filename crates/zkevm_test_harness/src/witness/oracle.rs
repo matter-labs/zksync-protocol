@@ -993,12 +993,21 @@ fn simulate_sorted_memory_queue<'a>(
 
 use crate::witness::artifacts::DemuxedPrecompilesLogQueries;
 use crate::witness::individual_circuits::log_demux::PrecompilesQueuesStates;
+use crate::witness::individual_circuits::memory_related::ram_permutation::compute_ram_circuit_snapshots;
+use crate::zk_evm::zk_evm_abstractions::precompiles::ecadd::ECAddRoundWitness;
+use crate::zk_evm::zk_evm_abstractions::precompiles::ecmul::ECMulRoundWitness;
+use crate::zk_evm::zk_evm_abstractions::precompiles::ecpairing::ECPairingRoundWitness;
+use crate::zk_evm::zk_evm_abstractions::precompiles::modexp::ModexpRoundWitness;
 
 pub(crate) struct PrecompilesInputData {
     pub keccak_round_function_witnesses: Vec<(Cycle, LogQuery, Vec<Keccak256RoundWitness>)>,
     pub sha256_round_function_witnesses: Vec<(Cycle, LogQuery, Vec<Sha256RoundWitness>)>,
     pub ecrecover_witnesses: Vec<(Cycle, LogQuery, ECRecoverRoundWitness)>,
     pub secp256r1_verify_witnesses: Vec<(Cycle, LogQuery, Secp256r1VerifyRoundWitness)>,
+    pub modexp_witnesses: Vec<(Cycle, LogQuery, ModexpRoundWitness)>,
+    pub ecadd_witnesses: Vec<(Cycle, LogQuery, ECAddRoundWitness)>,
+    pub ecmul_witnesses: Vec<(Cycle, LogQuery, ECMulRoundWitness)>,
+    pub ecpairing_witnesses: Vec<(Cycle, LogQuery, Vec<ECPairingRoundWitness>)>,
     pub logs_queues_states: PrecompilesQueuesStates,
     pub logs_queries: DemuxedPrecompilesLogQueries,
 }
@@ -1375,6 +1384,110 @@ fn process_memory_related_circuits(
         artifacts_callback_sender.clone(),
     );
 
+    // modexp precompile
+
+    use crate::witness::individual_circuits::memory_related::modexp::modexp_decompose_into_per_circuit_witness;
+
+    tracing::debug!("Running modexp simulation");
+
+    let modexp_circuits_data = modexp_decompose_into_per_circuit_witness(
+        implicit_memory_queries.modexp_memory_queries,
+        implicit_memory_states.modexp_simulator_snapshots,
+        implicit_memory_states.modexp_memory_states,
+        precompiles_data.modexp_witnesses,
+        precompiles_data.logs_queries.modexp,
+        precompiles_data.logs_queues_states.modexp,
+        geometry.cycles_per_modexp_circuit as usize,
+        round_function,
+    );
+
+    circuits_data.modexp_circuits_data = make_circuits(
+        geometry.cycles_per_modexp_circuit,
+        BaseLayerCircuitType::ModexpPrecompile,
+        modexp_circuits_data,
+        *round_function,
+        |x| ZkSyncBaseLayerCircuit::Modexp(x),
+        artifacts_callback_sender.clone(),
+    );
+
+    // ecadd precompile
+
+    use crate::witness::individual_circuits::memory_related::ecadd::ecadd_decompose_into_per_circuit_witness;
+
+    tracing::debug!("Running ecadd simulation");
+
+    let ecadd_circuits_data = ecadd_decompose_into_per_circuit_witness(
+        implicit_memory_queries.ecadd_memory_queries,
+        implicit_memory_states.ecadd_simulator_snapshots,
+        implicit_memory_states.ecadd_memory_states,
+        precompiles_data.ecadd_witnesses,
+        precompiles_data.logs_queries.ecadd,
+        precompiles_data.logs_queues_states.ecadd,
+        geometry.cycles_per_ecadd_circuit as usize,
+        round_function,
+    );
+
+    circuits_data.ecadd_circuits_data = make_circuits(
+        geometry.cycles_per_ecadd_circuit,
+        BaseLayerCircuitType::ECAddPrecompile,
+        ecadd_circuits_data,
+        *round_function,
+        |x| ZkSyncBaseLayerCircuit::ECAdd(x),
+        artifacts_callback_sender.clone(),
+    );
+
+    // ecmul precompile
+
+    use crate::witness::individual_circuits::memory_related::ecmul::ecmul_decompose_into_per_circuit_witness;
+
+    tracing::debug!("Running ecmul simulation");
+
+    let ecmul_circuits_data = ecmul_decompose_into_per_circuit_witness(
+        implicit_memory_queries.ecmul_memory_queries,
+        implicit_memory_states.ecmul_simulator_snapshots,
+        implicit_memory_states.ecmul_memory_states,
+        precompiles_data.ecmul_witnesses,
+        precompiles_data.logs_queries.ecmul,
+        precompiles_data.logs_queues_states.ecmul,
+        geometry.cycles_per_ecmul_circuit as usize,
+        round_function,
+    );
+
+    circuits_data.ecmul_circuits_data = make_circuits(
+        geometry.cycles_per_ecmul_circuit,
+        BaseLayerCircuitType::ECMulPrecompile,
+        ecmul_circuits_data,
+        *round_function,
+        |x| ZkSyncBaseLayerCircuit::ECMul(x),
+        artifacts_callback_sender.clone(),
+    );
+
+    // ecpairing precompile
+
+    use crate::witness::individual_circuits::memory_related::ecpairing::ecpairing_decompose_into_per_circuit_witness;
+
+    tracing::debug!("Running ecpairing simulation");
+
+    let ecpairing_circuits_data = ecpairing_decompose_into_per_circuit_witness(
+        implicit_memory_queries.ecpairing_memory_queries,
+        implicit_memory_states.ecpairing_simulator_snapshots,
+        implicit_memory_states.ecpairing_memory_states,
+        precompiles_data.ecpairing_witnesses,
+        precompiles_data.logs_queries.ecpairing,
+        precompiles_data.logs_queues_states.ecpairing,
+        geometry.cycles_per_ecpairing_circuit as usize,
+        round_function,
+    );
+
+    circuits_data.ecpairing_circuits_data = make_circuits(
+        geometry.cycles_per_ecpairing_circuit,
+        BaseLayerCircuitType::ECPairingPrecompile,
+        ecpairing_circuits_data,
+        *round_function,
+        |x| ZkSyncBaseLayerCircuit::ECPairing(x),
+        artifacts_callback_sender.clone(),
+    );
+
     circuits_data
 }
 
@@ -1429,6 +1542,10 @@ pub(crate) fn create_artifacts_from_tracer<'a>(
         sha256_round_function_witnesses,
         ecrecover_witnesses,
         secp256r1_verify_witnesses,
+        modexp_witnesses,
+        ecadd_witnesses,
+        ecmul_witnesses,
+        ecpairing_witnesses,
         mut callstack_with_aux_data,
         vm_snapshots,
         ..
@@ -1444,7 +1561,6 @@ pub(crate) fn create_artifacts_from_tracer<'a>(
     assert_eq!(witness, &entry_point_decommittment_query.1);
 
     assert!(vm_snapshots.len() >= 2); // we need at least entry point and the last save (after exit)
-
     assert_eq!(callstack_with_aux_data.depth, 0, "parent frame didn't exit");
 
     let full_callstack_history = std::mem::take(&mut callstack_with_aux_data.full_history);
@@ -1560,6 +1676,10 @@ pub(crate) fn create_artifacts_from_tracer<'a>(
         sha256_round_function_witnesses,
         ecrecover_witnesses,
         secp256r1_verify_witnesses,
+        modexp_witnesses,
+        ecadd_witnesses,
+        ecmul_witnesses,
+        ecpairing_witnesses,
         logs_queues_states: precompiles_logs_queues_states,
         logs_queries: demuxed_log_queries.precompiles,
     };
@@ -1659,6 +1779,10 @@ pub(crate) fn create_artifacts_from_tracer<'a>(
             keccak_precompile_circuits: memory_circuits_data.keccak256_circuits_data.0,
             sha256_precompile_circuits: memory_circuits_data.sha256_circuits_data.0,
             ecrecover_precompile_circuits: memory_circuits_data.ecrecover_circuits_data.0,
+            modexp_precompile_circuits: memory_circuits_data.modexp_circuits_data.0,
+            ecadd_precompile_circuits: memory_circuits_data.ecadd_circuits_data.0,
+            ecmul_precompile_circuits: memory_circuits_data.ecmul_circuits_data.0,
+            ecpairing_precompile_circuits: memory_circuits_data.ecpairing_circuits_data.0,
             ram_permutation_circuits: memory_circuits_data.ram_permutation_artifacts.0,
             storage_sorter_circuits: log_circuits_data.storage_deduplicator_artifacts.0,
             storage_application_circuits: log_circuits_data.storage_application_artifacts.0,
@@ -1689,6 +1813,10 @@ pub(crate) fn create_artifacts_from_tracer<'a>(
         .chain(log_circuits_data.l1_messages_linear_hash_artifacts.1)
         .chain(log_circuits_data.transient_storage_sorter_artifacts.1)
         .chain(memory_circuits_data.secp256r1_verify_circuits_data.1)
+        .chain(memory_circuits_data.modexp_circuits_data.1)
+        .chain(memory_circuits_data.ecadd_circuits_data.1)
+        .chain(memory_circuits_data.ecmul_circuits_data.1)
+        .chain(memory_circuits_data.ecpairing_circuits_data.1)
         .collect();
 
     (

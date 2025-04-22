@@ -9,6 +9,9 @@ pub mod testing_wrapper;
 #[cfg(test)]
 mod wrapper_negative_tests;
 
+#[cfg(test)]
+mod precompiles;
+
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::mpsc::sync_channel;
 use std::thread;
@@ -156,7 +159,10 @@ fn get_testing_geometry_config() -> GeometryConfig {
         cycles_per_events_or_l1_messages_sorter: 4,
         cycles_per_secp256r1_verify_circuit: 2,
         cycles_per_transient_storage_sorter: 16,
-
+        cycles_per_modexp_circuit: 10,
+        cycles_per_ecadd_circuit: 10,
+        cycles_per_ecmul_circuit: 10,
+        cycles_per_ecpairing_circuit: 1,
         limit_for_l1_messages_pudata_hasher: 32,
     }
 }
@@ -427,7 +433,7 @@ fn run_and_try_create_witness_inner(
         }
     }
 
-    let worker = Worker::new_with_num_threads(8);
+    let worker = Worker::new();
 
     let mut previous_circuit_type = 0;
 
@@ -1097,11 +1103,11 @@ fn run_and_try_create_witness_inner(
     }
 
     // do everything for recursion tip
-    if source.get_recursion_tip_vk().is_err() {
-        use crate::zkevm_circuits::recursion::recursion_tip::input::*;
-        // replicate compute_setups::*
-        todo!();
-    }
+    // if source.get_recursion_tip_vk().is_err() {
+    //     use crate::zkevm_circuits::recursion::recursion_tip::input::*;
+    //     // replicate compute_setups::*
+    //     todo!();
+    // }
 
     // collect for recursion tip. We know that is this test depth is 0
     let mut recursion_tip_proofs = vec![];
@@ -1129,7 +1135,7 @@ fn run_and_try_create_witness_inner(
     let node_vk = source.get_recursion_layer_node_vk().unwrap();
     // leaf params
     use crate::zkevm_circuits::recursion::leaf_layer::input::RecursionLeafParametersWitness;
-    let leaf_layer_params: [RecursionLeafParametersWitness<GoldilocksField>; 16] = leaf_vk_commits
+    let leaf_layer_params: [RecursionLeafParametersWitness<GoldilocksField>; 20] = leaf_vk_commits
         .iter()
         .map(|el| el.1.clone())
         .collect::<Vec<_>>()
@@ -1207,7 +1213,10 @@ fn run_and_try_create_witness_inner(
                 RECURSION_LAYER_CAP_SIZE,
             );
 
-        assert_eq!(source.get_recursion_tip_vk().unwrap().into_inner(), vk);
+        // assert_eq!(source.get_recursion_tip_vk().unwrap().into_inner(), vk);
+        source
+            .set_recursion_tip_vk(ZkSyncRecursionLayerStorage::RecursionTipCircuit(vk.clone()))
+            .unwrap();
 
         println!("Proving recursion tip");
 

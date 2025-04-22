@@ -246,6 +246,10 @@ pub(crate) fn run_with_options(entry_point_bytecode: Vec<[u8; 32]>, options: Opt
         cycles_per_ecrecover_circuit: 1,
         cycles_per_secp256r1_verify_circuit: 1,
         cycles_per_transient_storage_sorter: 4,
+        cycles_per_modexp_circuit: 1,
+        cycles_per_ecadd_circuit: 1,
+        cycles_per_ecmul_circuit: 1,
+        cycles_per_ecpairing_circuit: 1,
 
         limit_for_l1_messages_pudata_hasher: 8,
     };
