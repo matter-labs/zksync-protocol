@@ -12,7 +12,11 @@ use crate::witness::postprocessing::CircuitMaker;
 use crate::witness::tree::*;
 use crate::zk_evm::sha3::Keccak256;
 use crate::zk_evm::zk_evm_abstractions::precompiles::keccak256::transmute_state;
+use crate::zkevm_circuits::base_structures::log_query::{
+    LOG_QUERY_ABSORBTION_ROUNDS, LOG_QUERY_PACKED_WIDTH,
+};
 use crate::zkevm_circuits::base_structures::state_diff_record::NUM_KECCAK256_ROUNDS_PER_RECORD_ACCUMULATION;
+use crate::zkevm_circuits::base_structures::vm_state::QUEUE_STATE_WIDTH;
 use crate::zkevm_circuits::storage_application::input::*;
 use blake2::Blake2s256;
 use circuit_definitions::circuit_definitions::base_layer::{
@@ -22,6 +26,7 @@ use circuit_definitions::encodings::recursion_request::RecursionQueueSimulator;
 use circuit_definitions::encodings::state_diff_record::StateDiffRecord;
 use circuit_definitions::encodings::LogQueueSimulator;
 use circuit_definitions::zkevm_circuits::scheduler::aux::BaseLayerCircuitType;
+use circuit_encodings::QueueSimulator;
 use oracle::WitnessGenerationArtifact;
 use tracing;
 use zk_evm::aux_structures::LogQuery;
@@ -29,7 +34,13 @@ use zk_evm::aux_structures::LogQuery;
 use crate::sha3::Digest;
 
 pub(crate) fn decompose_into_storage_application_witnesses(
-    deduplicated_rollup_storage_queue_simulator: LogQueueSimulator<GoldilocksField>,
+    deduplicated_rollup_storage_queue_simulator: QueueSimulator<
+        GoldilocksField,
+        LogQuery,
+        QUEUE_STATE_WIDTH,
+        LOG_QUERY_PACKED_WIDTH,
+        LOG_QUERY_ABSORBTION_ROUNDS,
+    >,
     deduplicated_rollup_storage_queries: Vec<LogQuery>,
     mut tree: impl BinarySparseStorageTree<256, 32, 32, 8, 32, Blake2s256, ZkSyncStorageLeaf>,
     round_function: &Poseidon2Goldilocks,

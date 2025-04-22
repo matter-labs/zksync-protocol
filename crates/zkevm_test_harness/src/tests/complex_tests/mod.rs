@@ -66,7 +66,9 @@ use utils::read_basic_test_artifact;
 
 use witness::oracle::WitnessGenerationArtifact;
 use zkevm_assembly::Assembly;
-use zkevm_circuits::base_structures::vm_state::FULL_SPONGE_QUEUE_STATE_WIDTH;
+use zkevm_circuits::base_structures::{
+    recursion_query::RECURSION_QUERY_PACKED_WIDTH, vm_state::FULL_SPONGE_QUEUE_STATE_WIDTH,
+};
 
 #[ignore = "Too slow"]
 #[test]
@@ -130,7 +132,8 @@ use snark_wrapper::implementations::poseidon2::transcript::CircuitPoseidon2Trans
 use snark_wrapper::franklin_crypto::bellman::plonk::better_better_cs::setup::VerificationKey as SnarkVK;
 use snark_wrapper::franklin_crypto::bellman::plonk::better_better_cs::gates
     ::selector_optimized_with_d_next::SelectorOptimizedWidth4MainGateWithDNext;
-
+use circuit_encodings::FullWidthQueueSimulator;
+use circuit_encodings::recursion_request::RecursionRequest;
 use crate::boojum::algebraic_props::round_function::AbsorptionModeOverwrite;
 use crate::boojum::algebraic_props::sponge::GoldilocksPoseidon2Sponge;
 use crate::boojum::gadgets::recursion::recursive_tree_hasher::CircuitGoldilocksPoseidon2Sponge;
@@ -173,7 +176,13 @@ pub(crate) fn generate_base_layer(
     Vec<ZkSyncBaseLayerCircuit>,
     Vec<(
         u64,
-        RecursionQueueSimulator<Field>,
+        FullWidthQueueSimulator<
+            Field,
+            RecursionRequest<Field>,
+            RECURSION_QUERY_PACKED_WIDTH,
+            FULL_SPONGE_QUEUE_STATE_WIDTH,
+            1,
+        >,
         Vec<ZkSyncBaseLayerClosedFormInput<Field>>,
     )>,
     SchedulerCircuitInstanceWitness<

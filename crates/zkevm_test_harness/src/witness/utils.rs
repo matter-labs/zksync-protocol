@@ -45,7 +45,7 @@ pub fn log_queries_into_states<
 >(
     queries: impl Iterator<Item = LogQuery>,
     round_function: &R,
-) -> Vec<LogQueueState<F>> {
+) -> Vec<QueueIntermediateStates<F, QUEUE_STATE_WIDTH, FULL_SPONGE_QUEUE_STATE_WIDTH>> {
     let mut result = vec![];
     let mut simulator = LogQueueSimulator::<F>::empty();
     for q in queries {

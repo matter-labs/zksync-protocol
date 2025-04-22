@@ -33,6 +33,9 @@ use crate::boojum::gadgets::recursion::recursive_tree_hasher::RecursiveTreeHashe
 use crate::boojum::gadgets::traits::encodable::CircuitVarLengthEncodable;
 use crate::boojum::gadgets::traits::round_function::BuildableCircuitRoundFunction;
 use crate::boojum::gadgets::traits::witnessable::WitnessHookable;
+use crate::zkevm_circuits::base_structures::{
+    recursion_query::RECURSION_QUERY_PACKED_WIDTH, vm_state::FULL_SPONGE_QUEUE_STATE_WIDTH,
+};
 use crate::zkevm_circuits::fsm_input_output::commit_variable_length_encodable_item;
 use crate::zkevm_circuits::recursion::leaf_layer::LeafLayerRecursionConfig;
 use crate::zkevm_circuits::scheduler::aux::BaseLayerCircuitType;
@@ -41,8 +44,17 @@ use circuit_definitions::circuit_definitions::recursion_layer::leaf_layer::*;
 use circuit_definitions::circuit_definitions::recursion_layer::{
     node_layer::ZkSyncNodeLayerRecursiveCircuit, *,
 };
-use circuit_definitions::encodings::recursion_request::RecursionQueueSimulator;
 use circuit_definitions::encodings::CircuitEquivalentReflection;
+use circuit_encodings::recursion_request::RecursionRequest;
+use circuit_encodings::FullWidthQueueSimulator;
+
+pub type RecursionQueueSimulator<F> = FullWidthQueueSimulator<
+    F,
+    RecursionRequest<F>,
+    RECURSION_QUERY_PACKED_WIDTH,
+    FULL_SPONGE_QUEUE_STATE_WIDTH,
+    1,
+>;
 
 pub fn split_recursion_queue(queue: RecursionQueueSimulator<F>) -> Vec<RecursionQueueSimulator<F>> {
     let round_function = ZkSyncDefaultRoundFunction::default();
