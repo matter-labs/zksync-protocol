@@ -17,7 +17,6 @@ use circuit_encodings::{
         worker::Worker,
     },
     ethereum_types::{Address, U256},
-    memory_query::CustomMemoryQueueSimulator,
     zk_evm::{
         abstractions::{Memory, MemoryType, PrecompileCyclesWitness, PrecompilesProcessor},
         aux_structures::{
@@ -26,11 +25,14 @@ use circuit_encodings::{
         reference_impls::memory::SimpleMemory,
         zk_evm_abstractions::precompiles::DefaultPrecompilesProcessor,
     },
-    LogQueueSimulator,
+    FullWidthMemoryQueueSimulator, LogQueueSimulator,
 };
 use zkevm_assembly::zkevm_opcode_defs::{
     PrecompileCallABI, ECADD_PRECOMPILE_ADDRESS, ECMUL_PRECOMPILE_ADDRESS,
     ECPAIRING_PRECOMPILE_ADDRESS, MODEXP_PRECOMPILE_ADDRESS, PRECOMPILE_AUX_BYTE,
+};
+use zkevm_circuits::base_structures::{
+    memory_query::MEMORY_QUERY_PACKED_WIDTH, vm_state::FULL_SPONGE_QUEUE_STATE_WIDTH,
 };
 
 use crate::{
@@ -49,7 +51,16 @@ use crate::{
         },
         postprocessing::CircuitMaker,
     },
+    zkevm_circuits,
 };
+
+type CustomMemoryQueueSimulator<F> = FullWidthMemoryQueueSimulator<
+    F,
+    MemoryQuery,
+    MEMORY_QUERY_PACKED_WIDTH,
+    FULL_SPONGE_QUEUE_STATE_WIDTH,
+    1,
+>;
 
 fn fill_memory<M: Memory, const N: usize>(
     tuples: Vec<[[u8; 32]; N]>,
