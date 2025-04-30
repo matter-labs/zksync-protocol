@@ -3,6 +3,8 @@ use crate::kzg::KzgSettings;
 use crate::witness::tree::BinaryHasher;
 
 use circuit_definitions::encodings::BytesSerializable;
+use circuit_encodings::zk_evm::reference_impls::memory::SimpleMemory;
+use zkevm_assembly::zkevm_opcode_defs::FatPointer;
 
 pub fn u64_as_u32_le(value: u64) -> [u32; 2] {
     [value as u32, (value >> 32) as u32]
@@ -212,3 +214,94 @@ pub fn generate_eip4844_witness<F: SmallField>(
 pub use circuit_encodings::utils::calldata_to_aligned_data;
 pub use circuit_encodings::utils::finalize_queue_state;
 pub use circuit_encodings::utils::finalized_queue_state_as_bytes;
+
+/// Reads the memory slice represented by the fat pointer.
+/// Note, that the fat pointer must point to the accessible memory (i.e. not cleared up yet).
+pub(crate) fn read_fatpointer_from_simple_memory(
+    memory: &SimpleMemory,
+    pointer: FatPointer,
+) -> Vec<u8> {
+    let FatPointer {
+        offset,
+        length,
+        start,
+        memory_page,
+    } = pointer;
+
+    // The actual bounds of the returndata ptr is [start+offset..start+length]
+    let mem_region_start = start + offset;
+    let mem_region_length = length - offset;
+
+    read_unaligned_bytes_from_simple_memory(
+        memory,
+        memory_page as usize,
+        mem_region_start as usize,
+        mem_region_length as usize,
+    )
+}
+
+// This method should be used with relatively small lengths, since
+// we don't heavily optimize here for cases with long lengths
+pub fn read_unaligned_bytes_from_simple_memory(
+    memory: &SimpleMemory,
+    page: usize,
+    start: usize,
+    length: usize,
+) -> Vec<u8> {
+    if length == 0 {
+        return vec![];
+    }
+
+    let end = start + length - 1;
+
+    let mut current_word = start / 32;
+    let mut result = vec![];
+    while current_word * 32 <= end {
+        let word_value = memory.read_slot(page, current_word).value;
+        let word_value = {
+            let mut bytes: Vec<u8> = vec![0u8; 32];
+            word_value.to_big_endian(&mut bytes);
+            bytes
+        };
+
+        result.extend(extract_needed_bytes_from_word(
+            word_value,
+            current_word,
+            start,
+            end,
+        ));
+
+        current_word += 1;
+    }
+
+    assert_eq!(result.len(), length);
+
+    result
+}
+
+// It is expected that there is some intersection between `[word_number*32..word_number*32+31]` and `[start, end]`
+fn extract_needed_bytes_from_word(
+    word_value: Vec<u8>,
+    word_number: usize,
+    start: usize,
+    end: usize,
+) -> Vec<u8> {
+    let word_start = word_number * 32;
+    let word_end = word_start + 31; // Note, that at `word_start + 32` a new word already starts
+
+    let intersection_left = std::cmp::max(word_start, start);
+    let intersection_right = std::cmp::min(word_end, end);
+
+    if intersection_right < intersection_left {
+        vec![]
+    } else {
+        let start_bytes = intersection_left - word_start;
+        let to_take = intersection_right - intersection_left + 1;
+
+        word_value
+            .into_iter()
+            .skip(start_bytes)
+            .take(to_take)
+            .collect()
+    }
+}
