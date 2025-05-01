@@ -12,9 +12,7 @@ use circuit_definitions::boojum::gadgets::traits::witnessable::WitnessHookable;
 use circuit_definitions::circuit_definitions::{
     base_layer::*, ZkSyncUniformCircuitInstance, ZkSyncUniformSynthesisFunction,
 };
-use circuit_definitions::encodings::recursion_request::{
-    RecursionQueueSimulator, RecursionRequest,
-};
+use circuit_definitions::encodings::recursion_request::RecursionRequest;
 use circuit_definitions::zkevm_circuits::base_structures::precompile_input_outputs::PrecompileFunctionInputData;
 use circuit_definitions::zkevm_circuits::base_structures::precompile_input_outputs::PrecompileFunctionOutputData;
 use circuit_definitions::zkevm_circuits::code_unpacker_sha256::input::CodeDecommitterCircuitInstanceWitness;
@@ -68,16 +66,38 @@ use derivative::Derivative;
 use observable_witness::ObservableWitness;
 use oracle::WitnessGenerationArtifact;
 use zkevm_circuits::base_structures::memory_query::{MemoryQuery, MEMORY_QUERY_PACKED_WIDTH};
+use zkevm_circuits::base_structures::recursion_query::RECURSION_QUERY_PACKED_WIDTH;
 use zkevm_circuits::base_structures::vm_state::FULL_SPONGE_QUEUE_STATE_WIDTH;
 use zkevm_circuits::ram_permutation::input::RamPermutationCycleInputOutputWitness;
 
-use std::sync::mpsc::SyncSender;
-use std::sync::Arc;
-
 use crate::zkevm_circuits::base_structures::vm_state::VmLocalState;
+use circuit_encodings::FullWidthQueueSimulator;
+use std::sync::mpsc::SyncSender;
+
+use circuit_definitions::zkevm_circuits::bn254::ec_add::input::{
+    EcAddCircuitFSMInputOutput, EcAddCircuitInstanceWitness,
+};
+use circuit_definitions::zkevm_circuits::bn254::ec_mul::input::{
+    EcMulCircuitFSMInputOutput, EcMulCircuitInstanceWitness,
+};
+use circuit_definitions::zkevm_circuits::bn254::ec_pairing::input::{
+    EcPairingCircuitFSMInputOutput, EcPairingCircuitInstanceWitness,
+};
+use circuit_definitions::zkevm_circuits::modexp::input::{
+    ModexpCircuitFSMInputOutput, ModexpCircuitInstanceWitness,
+};
+use std::sync::Arc;
 use zkevm_circuits::fsm_input_output::circuit_inputs::main_vm::{
     VmCircuitWitness, VmInputData, VmOutputData,
 };
+
+pub type RecursionQueueSimulator<F> = FullWidthQueueSimulator<
+    F,
+    RecursionRequest<F>,
+    RECURSION_QUERY_PACKED_WIDTH,
+    FULL_SPONGE_QUEUE_STATE_WIDTH,
+    1,
+>;
 
 pub const L1_MESSAGES_MERKLIZER_OUTPUT_LINEAR_HASH: bool = false;
 
@@ -102,6 +122,11 @@ pub(crate) struct BlockFirstAndLastBasicCircuitsObservableWitnesses {
         FirstAndLastCircuitWitness<EcrecoverObservableWitness<Field>>,
     pub secp256r1_verify_circuits:
         FirstAndLastCircuitWitness<Secp256r1VerifyObservableWitness<Field>>,
+    pub modexp_precompile_circuits: FirstAndLastCircuitWitness<ModexpObservableWitness<Field>>,
+    pub ecadd_precompile_circuits: FirstAndLastCircuitWitness<ECAddObservableWitness<Field>>,
+    pub ecmul_precompile_circuits: FirstAndLastCircuitWitness<ECMulObservableWitness<Field>>,
+    pub ecpairing_precompile_circuits:
+        FirstAndLastCircuitWitness<ECPairingObservableWitness<Field>>,
     pub ram_permutation_circuits:
         FirstAndLastCircuitWitness<RamPermutationObservableWitness<Field>>,
     pub storage_sorter_circuits:
@@ -261,6 +286,52 @@ impl<F: SmallField> ClosedFormInputField<F> for EcrecoverCircuitInstanceWitness<
     }
 }
 
+impl<F: SmallField> ClosedFormInputField<F> for ModexpCircuitInstanceWitness<F> {
+    type T = ModexpCircuitFSMInputOutput<F>;
+    type IN = PrecompileFunctionInputData<F>;
+    type OUT = PrecompileFunctionOutputData<F>;
+
+    fn closed_form_input(
+        &mut self,
+    ) -> &mut ClosedFormInputWitness<F, Self::T, Self::IN, Self::OUT> {
+        &mut self.closed_form_input
+    }
+}
+impl<F: SmallField> ClosedFormInputField<F> for EcAddCircuitInstanceWitness<F> {
+    type T = EcAddCircuitFSMInputOutput<F>;
+    type IN = PrecompileFunctionInputData<F>;
+    type OUT = PrecompileFunctionOutputData<F>;
+
+    fn closed_form_input(
+        &mut self,
+    ) -> &mut ClosedFormInputWitness<F, Self::T, Self::IN, Self::OUT> {
+        &mut self.closed_form_input
+    }
+}
+impl<F: SmallField> ClosedFormInputField<F> for EcMulCircuitInstanceWitness<F> {
+    type T = EcMulCircuitFSMInputOutput<F>;
+    type IN = PrecompileFunctionInputData<F>;
+    type OUT = PrecompileFunctionOutputData<F>;
+
+    fn closed_form_input(
+        &mut self,
+    ) -> &mut ClosedFormInputWitness<F, Self::T, Self::IN, Self::OUT> {
+        &mut self.closed_form_input
+    }
+}
+
+impl<F: SmallField> ClosedFormInputField<F> for EcPairingCircuitInstanceWitness<F> {
+    type T = EcPairingCircuitFSMInputOutput<F>;
+    type IN = PrecompileFunctionInputData<F>;
+    type OUT = PrecompileFunctionOutputData<F>;
+
+    fn closed_form_input(
+        &mut self,
+    ) -> &mut ClosedFormInputWitness<F, Self::T, Self::IN, Self::OUT> {
+        &mut self.closed_form_input
+    }
+}
+
 impl<F: SmallField> ClosedFormInputField<F> for RamPermutationCircuitInstanceWitness<F> {
     type T = RamPermutationFSMInputOutput<F>;
     type IN = RamPermutationInputData<F>;
@@ -369,7 +440,7 @@ where
             geometry,
             round_function,
             observable_input: None,
-            recurion_queue_simulator: RecursionQueueSimulator::empty(),
+            recurion_queue_simulator: FullWidthQueueSimulator::empty(),
             compact_form_witnesses: vec![],
             extremes: FirstAndLastCircuitWitness::default(),
         }

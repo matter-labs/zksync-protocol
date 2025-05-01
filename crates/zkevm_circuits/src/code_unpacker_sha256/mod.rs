@@ -40,8 +40,7 @@ pub struct ConditionalWitnessSetAllocator<F: SmallField, EL: CSAllocatableExt<F>
 
 impl<F: SmallField, EL: CSAllocatableExt<F>> ConditionalWitnessSetAllocator<F, EL>
 where
-    [(); EL::INTERNAL_STRUCT_LEN]:,
-    [(); EL::INTERNAL_STRUCT_LEN + 1]:,
+    [(); <EL as CSAllocatableExt<F>>::INTERNAL_STRUCT_LEN + 1]:,
 {
     pub fn new(
         mut sequences: VecDeque<VecDeque<EL::Witness>>,
@@ -387,7 +386,6 @@ pub fn unpack_code_into_memory_inner<
 where
     [(); <DecommitQuery<F> as CSAllocatableExt<F>>::INTERNAL_STRUCT_LEN]:,
     [(); <MemoryQuery<F> as CSAllocatableExt<F>>::INTERNAL_STRUCT_LEN]:,
-    [(); UInt256::<F>::INTERNAL_STRUCT_LEN]:,
     [(); UInt256::<F>::INTERNAL_STRUCT_LEN + 1]:,
 {
     assert!(limit <= u32::MAX as usize);

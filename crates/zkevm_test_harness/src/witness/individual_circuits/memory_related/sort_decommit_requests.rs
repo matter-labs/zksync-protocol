@@ -16,6 +16,7 @@ use circuit_definitions::encodings::decommittment_request::*;
 use circuit_definitions::encodings::memory_query::MemoryQueueSimulator;
 use circuit_definitions::encodings::CircuitEquivalentReflection;
 use circuit_definitions::zk_evm::aux_structures::DecommittmentQuery;
+use circuit_encodings::FullWidthQueueIntermediateStates;
 use rayon::prelude::*;
 use std::cmp::Ordering;
 
@@ -27,15 +28,19 @@ pub(crate) fn compute_decommitts_sorter_circuit_snapshots<
     round_function: &R,
     deduplicator_circuit_capacity: usize,
 ) -> (
-    Vec<(u32, DecommittmentQueueState<F>)>,
+    Vec<(
+        u32,
+        FullWidthQueueIntermediateStates<F, FULL_SPONGE_QUEUE_STATE_WIDTH>,
+    )>,
     Vec<CodeDecommittmentsDeduplicatorInstanceWitness<F>>,
     DecommiterCircuitProcessingInputs<F>,
 ) {
     // TODO cleanup
     let mut deduplicated_decommittment_queue_simulator: DecommittmentQueueSimulator<F> =
         Default::default();
-    let mut deduplicated_decommittment_queue_states: Vec<DecommittmentQueueState<F>> =
-        Default::default();
+    let mut deduplicated_decommittment_queue_states: Vec<
+        FullWidthQueueIntermediateStates<F, FULL_SPONGE_QUEUE_STATE_WIDTH>,
+    > = Default::default();
     let mut deduplicated_decommit_requests_with_data: Vec<(DecommittmentQuery, Vec<U256>)> =
         Default::default();
 
@@ -46,8 +51,10 @@ pub(crate) fn compute_decommitts_sorter_circuit_snapshots<
         "VM should have made some code decommits"
     );
 
-    let mut all_decommittment_queue_states: Vec<(u32, DecommittmentQueueState<F>)> =
-        Vec::with_capacity(total_executed_queries);
+    let mut all_decommittment_queue_states: Vec<(
+        u32,
+        FullWidthQueueIntermediateStates<F, FULL_SPONGE_QUEUE_STATE_WIDTH>,
+    )> = Vec::with_capacity(total_executed_queries);
 
     // we produce witness for two circuits at once
 

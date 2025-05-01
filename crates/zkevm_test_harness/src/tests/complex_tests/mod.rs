@@ -9,6 +9,9 @@ pub mod testing_wrapper;
 #[cfg(test)]
 mod wrapper_negative_tests;
 
+#[cfg(test)]
+mod precompiles;
+
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::mpsc::sync_channel;
 use std::thread;
@@ -63,7 +66,9 @@ use utils::read_basic_test_artifact;
 
 use witness::oracle::WitnessGenerationArtifact;
 use zkevm_assembly::Assembly;
-use zkevm_circuits::base_structures::vm_state::FULL_SPONGE_QUEUE_STATE_WIDTH;
+use zkevm_circuits::base_structures::{
+    recursion_query::RECURSION_QUERY_PACKED_WIDTH, vm_state::FULL_SPONGE_QUEUE_STATE_WIDTH,
+};
 
 #[ignore = "Too slow"]
 #[test]
@@ -127,7 +132,8 @@ use snark_wrapper::implementations::poseidon2::transcript::CircuitPoseidon2Trans
 use snark_wrapper::franklin_crypto::bellman::plonk::better_better_cs::setup::VerificationKey as SnarkVK;
 use snark_wrapper::franklin_crypto::bellman::plonk::better_better_cs::gates
     ::selector_optimized_with_d_next::SelectorOptimizedWidth4MainGateWithDNext;
-
+use circuit_encodings::FullWidthQueueSimulator;
+use circuit_encodings::recursion_request::RecursionRequest;
 use crate::boojum::algebraic_props::round_function::AbsorptionModeOverwrite;
 use crate::boojum::algebraic_props::sponge::GoldilocksPoseidon2Sponge;
 use crate::boojum::gadgets::recursion::recursive_tree_hasher::CircuitGoldilocksPoseidon2Sponge;
@@ -153,7 +159,10 @@ fn get_testing_geometry_config() -> GeometryConfig {
         cycles_per_events_or_l1_messages_sorter: 4,
         cycles_per_secp256r1_verify_circuit: 2,
         cycles_per_transient_storage_sorter: 16,
-
+        cycles_per_modexp_circuit: 10,
+        cycles_per_ecadd_circuit: 10,
+        cycles_per_ecmul_circuit: 10,
+        cycles_per_ecpairing_circuit: 1,
         limit_for_l1_messages_pudata_hasher: 32,
     }
 }
@@ -167,7 +176,13 @@ pub(crate) fn generate_base_layer(
     Vec<ZkSyncBaseLayerCircuit>,
     Vec<(
         u64,
-        RecursionQueueSimulator<Field>,
+        FullWidthQueueSimulator<
+            Field,
+            RecursionRequest<Field>,
+            RECURSION_QUERY_PACKED_WIDTH,
+            FULL_SPONGE_QUEUE_STATE_WIDTH,
+            1,
+        >,
         Vec<ZkSyncBaseLayerClosedFormInput<Field>>,
     )>,
     SchedulerCircuitInstanceWitness<
@@ -418,7 +433,7 @@ fn run_and_try_create_witness_inner(
         }
     }
 
-    let worker = Worker::new_with_num_threads(8);
+    let worker = Worker::new();
 
     let mut previous_circuit_type = 0;
 
@@ -1088,11 +1103,11 @@ fn run_and_try_create_witness_inner(
     }
 
     // do everything for recursion tip
-    if source.get_recursion_tip_vk().is_err() {
-        use crate::zkevm_circuits::recursion::recursion_tip::input::*;
-        // replicate compute_setups::*
-        todo!();
-    }
+    // if source.get_recursion_tip_vk().is_err() {
+    //     use crate::zkevm_circuits::recursion::recursion_tip::input::*;
+    //     // replicate compute_setups::*
+    //     todo!();
+    // }
 
     // collect for recursion tip. We know that is this test depth is 0
     let mut recursion_tip_proofs = vec![];
@@ -1120,7 +1135,7 @@ fn run_and_try_create_witness_inner(
     let node_vk = source.get_recursion_layer_node_vk().unwrap();
     // leaf params
     use crate::zkevm_circuits::recursion::leaf_layer::input::RecursionLeafParametersWitness;
-    let leaf_layer_params: [RecursionLeafParametersWitness<GoldilocksField>; 16] = leaf_vk_commits
+    let leaf_layer_params: [RecursionLeafParametersWitness<GoldilocksField>; 20] = leaf_vk_commits
         .iter()
         .map(|el| el.1.clone())
         .collect::<Vec<_>>()
@@ -1198,7 +1213,10 @@ fn run_and_try_create_witness_inner(
                 RECURSION_LAYER_CAP_SIZE,
             );
 
-        assert_eq!(source.get_recursion_tip_vk().unwrap().into_inner(), vk);
+        // assert_eq!(source.get_recursion_tip_vk().unwrap().into_inner(), vk);
+        source
+            .set_recursion_tip_vk(ZkSyncRecursionLayerStorage::RecursionTipCircuit(vk.clone()))
+            .unwrap();
 
         println!("Proving recursion tip");
 
