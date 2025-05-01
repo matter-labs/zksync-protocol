@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.152.2](https://github.com/matter-labs/zksync-protocol/compare/v0.152.1...v0.152.2) (2025-05-01)
+
+
+### Features
+
+* bump rust version ([#146](https://github.com/matter-labs/zksync-protocol/issues/146)) ([e925fb7](https://github.com/matter-labs/zksync-protocol/commit/e925fb7330e4216e23cbed67d7d5dc5419f3f25e))
+
+
+### Bug Fixes
+
+* Add EVM deployment tracer in witgen ([#162](https://github.com/matter-labs/zksync-protocol/issues/162)) ([9a1dfe0](https://github.com/matter-labs/zksync-protocol/commit/9a1dfe06fb550af7876625e1cf083c78fc1e19a6))
+
 ## [0.152.1](https://github.com/matter-labs/zksync-protocol/compare/v0.152.0...v0.152.1) (2025-04-22)
 
 
