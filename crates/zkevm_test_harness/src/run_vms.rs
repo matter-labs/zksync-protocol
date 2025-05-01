@@ -6,6 +6,7 @@ use crate::snark_wrapper::boojum::field::goldilocks::GoldilocksExt2;
 use crate::snark_wrapper::boojum::gadgets::recursion::recursive_tree_hasher::CircuitGoldilocksPoseidon2Sponge;
 use crate::toolset::create_tools;
 use crate::toolset::GeometryConfig;
+use crate::tracers::default_tracer::DefaultTracer;
 use crate::witness::oracle::create_artifacts_from_tracer;
 use crate::witness::oracle::WitnessGenerationArtifact;
 use crate::witness::tracer::tracer::WitnessTracer;
@@ -42,6 +43,7 @@ use circuit_definitions::zkevm_circuits::fsm_input_output::ClosedFormInputCompac
 use circuit_definitions::{Field as MainField, ZkSyncDefaultRoundFunction};
 use std::collections::VecDeque;
 use std::sync::mpsc::SyncSender;
+use zkevm_assembly::zkevm_opcode_defs::BlobSha256Format;
 
 pub const SCHEDULER_TIMESTAMP: u32 = 1;
 
@@ -183,6 +185,8 @@ pub fn run_vms<S: Storage>(
         out_of_circuit_vm.memory.execute_partial_query(0, query);
     }
 
+    let mut default_tracer = DefaultTracer::new(out_of_circuit_tracer);
+
     // tracing::debug!("Running out of circuit for {} cycles", cycle_limit);
     println!("Running out of circuit for {} cycles", cycle_limit);
     let mut next_snapshot_will_capture_end_of_execution = false;
@@ -201,8 +205,31 @@ pub fn run_vms<S: Storage>(
             }
         }
         out_of_circuit_vm
-            .cycle(out_of_circuit_tracer)
+            .cycle(&mut default_tracer)
             .expect("cycle should finish succesfully");
+
+        // Dynamically insert newly deployed EVM contracts in decommiter
+        if default_tracer.evm_tracer.pending_bytecodes.len() != 0 {
+            let deployed_bytecodes = default_tracer
+                .evm_tracer
+                .flush_bytecodes()
+                .into_iter()
+                .filter(|(bytecode_hash, _)| {
+                    // Ignore alredy known bytecodes
+                    let mut buffer = [0u8; 32];
+                    bytecode_hash.to_big_endian(&mut buffer);
+                    let (_, normalized) = BlobSha256Format::normalize_for_decommitment(&buffer);
+                    out_of_circuit_vm
+                        .decommittment_processor
+                        .get_preimage_by_hash(normalized)
+                        .is_none()
+                })
+                .collect();
+
+            out_of_circuit_vm
+                .decommittment_processor
+                .populate(deployed_bytecodes);
+        }
     }
 
     if !out_of_circuit_vm.execution_has_ended() {
