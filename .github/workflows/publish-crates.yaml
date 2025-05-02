@@ -31,7 +31,7 @@ jobs:
     runs-on: matterlabs-ci-runner-highdisk
     steps:
       - name: Publish crates
-        uses: matter-labs/zksync-ci-common/.github/actions/publish-crates@v1
+        uses: matter-labs/zksync-ci-common/.github/actions/publish-crates@aba-rm-locked
         with:
           slack_webhook: ${{ secrets.SLACK_WEBHOOK_RELEASES }} # Slack webhook for notifications
           cargo_registry_token: ${{ secrets.CRATES_IO_TOKEN }} # Crates.io token for publishing
