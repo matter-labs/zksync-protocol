@@ -392,8 +392,10 @@ impl Memory for SimpleMemory {
         // We must keep this memory page forever for future decommits.
         let is_returndata_page_static = last_callstack_this == *CODE_ORACLE_ADDRESS;
 
+	// It is possible that the code oracle runs out of gas after decommitting code.
+	// In that case the page with the code is not the one that is returned.
         let returndata_page = if is_returndata_page_static {
-            heap_page_from_base(base_page)
+            heap_page_from_base(base_page).0
         } else {
             returndata_fat_pointer.memory_page
         };
