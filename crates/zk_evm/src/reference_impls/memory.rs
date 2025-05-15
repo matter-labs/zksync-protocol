@@ -380,13 +380,13 @@ impl Memory for SimpleMemory {
 
     fn finish_global_frame(
         &mut self,
-        _base_page: MemoryPage,
+        base_page: MemoryPage,
         last_callstack_this: Address,
         returndata_fat_pointer: FatPointer,
         _timestamp: Timestamp,
     ) {
         // Safe to unwrap here, since `finish_global_frame` is never called with empty stack
-        let _current_observable_pages = self.observable_pages.current_frame();
+        let current_observable_pages = self.observable_pages.current_frame();
         let returndata_page = returndata_fat_pointer.memory_page;
 
         // This is code oracle and some preimage has been decommitted into its memory.
@@ -394,16 +394,15 @@ impl Memory for SimpleMemory {
         let is_returndata_page_static =
             last_callstack_this == *CODE_ORACLE_ADDRESS && returndata_fat_pointer.length > 0;
 
-        // Note: we should not clean pages
-        // for &page in current_observable_pages {
-        // If the page's number is greater than or equal to the `base_page`,
-        // it means that it was created by the internal calls of this contract.
-        // We need to add this check as the calldata pointer is also part of the
-        // observable pages.
-        // if page >= base_page.0 && page != returndata_page {
-        //     self.memory.clear_page(page as usize);
-        // }
-        // }
+        for &page in current_observable_pages {
+            // If the page's number is greater than or equal to the `base_page`,
+            // it means that it was created by the internal calls of this contract.
+            // We need to add this check as the calldata pointer is also part of the
+            // observable pages.
+            if page >= base_page.0 && page != returndata_page {
+                self.memory.clear_page(page as usize);
+            }
+        }
 
         self.observable_pages.clear_frame();
         self.observable_pages.merge_frame();
