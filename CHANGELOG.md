@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.152.3](https://github.com/matter-labs/zksync-protocol/compare/v0.152.2...v0.152.3) (2025-05-15)
+
+
+### Features
+
+* Do not clean memory ([#164](https://github.com/matter-labs/zksync-protocol/issues/164)) ([d3ef62f](https://github.com/matter-labs/zksync-protocol/commit/d3ef62f9aeb3fb3e79a47c200923e20f3d61b287))
+
 ## [0.152.2](https://github.com/matter-labs/zksync-protocol/compare/v0.152.1...v0.152.2) (2025-05-01)
 
 
