@@ -387,12 +387,16 @@ impl Memory for SimpleMemory {
     ) {
         // Safe to unwrap here, since `finish_global_frame` is never called with empty stack
         let current_observable_pages = self.observable_pages.current_frame();
-        let returndata_page = returndata_fat_pointer.memory_page;
 
         // This is code oracle and some preimage has been decommitted into its memory.
         // We must keep this memory page forever for future decommits.
-        let is_returndata_page_static =
-            last_callstack_this == *CODE_ORACLE_ADDRESS && returndata_fat_pointer.length > 0;
+        let is_returndata_page_static = last_callstack_this == *CODE_ORACLE_ADDRESS;
+
+        let returndata_page = if is_returndata_page_static {
+            heap_page_from_base(base_page)
+        } else {
+            returndata_fat_pointer.memory_page
+        };
 
         for &page in current_observable_pages {
             // If the page's number is greater than or equal to the `base_page`,
