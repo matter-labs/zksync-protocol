@@ -269,6 +269,62 @@ fn test_ecpairing_using_tuples(tuples: Vec<[[u8; 32]; 6]>) -> (U256, U256) {
     (writes[0].value, writes[1].value)
 }
 
+pub fn test_ecpairing_using_tuples_fuzz(tuples: Vec<[[u8; 32]; 6]>) -> (U256, U256) {
+    let mut memory = SimpleMemory::new();
+    let mut precompiles_processor = DefaultPrecompilesProcessor::<true>;
+
+    let page_number = 4u32;
+    // create heap page
+    memory.populate_page(vec![
+        (page_number, vec![U256::zero(); 1 << 10]),
+        (page_number + 1, vec![]),
+    ]);
+    let num_pairings = tuples.len() as u64;
+    let num_words_used = fill_memory(tuples, page_number, &mut memory);
+
+    let precompile_call_params = PrecompileCallABI {
+        input_memory_offset: 0,
+        input_memory_length: num_words_used as u32,
+        output_memory_offset: num_words_used as u32,
+        output_memory_length: 2,
+        memory_page_to_read: page_number,
+        memory_page_to_write: page_number,
+        precompile_interpreted_data: num_pairings,
+    };
+    let precompile_call_params_encoded = precompile_call_params.to_u256();
+
+    let address = Address::from_low_u64_be(ECPAIRING_PRECOMPILE_ADDRESS as u64);
+
+    let precompile_query = LogQuery {
+        timestamp: Timestamp(1u32),
+        tx_number_in_block: 0,
+        shard_id: 0,
+        aux_byte: PRECOMPILE_AUX_BYTE,
+        address,
+        key: precompile_call_params_encoded,
+        read_value: U256::zero(),
+        written_value: U256::zero(),
+        rw_flag: false,
+        rollback: false,
+        is_service: false,
+    };
+
+    let result: Option<(
+        Vec<MemoryQuery>,
+        Vec<MemoryQuery>,
+        circuit_encodings::zk_evm::abstractions::PrecompileCyclesWitness,
+    )> = precompiles_processor.execute_precompile(4, precompile_query, &mut memory);
+    let (_reads, writes, witness) = result.unwrap();
+    assert_eq!(2, writes.len());
+
+    let witness = match witness {
+        PrecompileCyclesWitness::ECPairing(witness) => witness,
+        _ => panic!(),
+    };
+
+    (writes[0].value, writes[1].value)
+}
+
 fn test_ecadd_using_tuple(tuple: Vec<[[u8; 32]; 2]>) -> (U256, U256, U256) {
     let mut memory = SimpleMemory::new();
     let mut precompiles_processor = DefaultPrecompilesProcessor::<true>;
@@ -549,6 +605,119 @@ fn test_ecmul_using_tuple(tuple: Vec<[[u8; 32]; 3]>) -> (U256, U256, U256) {
     (writes[0].value, writes[1].value, writes[2].value)
 }
 
+pub fn test_ecadd_using_tuple_fuzz(tuple: Vec<[[u8; 32]; 2]>) -> (U256, U256, U256) {
+    let mut memory = SimpleMemory::new();
+    let mut precompiles_processor = DefaultPrecompilesProcessor::<true>;
+
+    let page_number = 4u32;
+    // create heap page
+    memory.populate_page(vec![
+        (page_number, vec![U256::zero(); 1 << 10]),
+        (page_number + 1, vec![]),
+    ]);
+
+    let num_words_used = fill_memory(tuple, page_number, &mut memory);
+
+    let precompile_call_params = PrecompileCallABI {
+        input_memory_offset: 0,
+        input_memory_length: num_words_used as u32,
+        output_memory_offset: num_words_used as u32,
+        output_memory_length: 3,
+        memory_page_to_read: page_number,
+        memory_page_to_write: page_number,
+        precompile_interpreted_data: 0,
+    };
+    let precompile_call_params_encoded = precompile_call_params.to_u256();
+
+    let address = Address::from_low_u64_be(ECADD_PRECOMPILE_ADDRESS as u64);
+
+    let precompile_query = LogQuery {
+        timestamp: Timestamp(1u32),
+        tx_number_in_block: 0,
+        shard_id: 0,
+        aux_byte: PRECOMPILE_AUX_BYTE,
+        address,
+        key: precompile_call_params_encoded,
+        read_value: U256::zero(),
+        written_value: U256::zero(),
+        rw_flag: false,
+        rollback: false,
+        is_service: false,
+    };
+
+    let result: Option<(
+        Vec<MemoryQuery>,
+        Vec<MemoryQuery>,
+        circuit_encodings::zk_evm::abstractions::PrecompileCyclesWitness,
+    )> = precompiles_processor.execute_precompile(4, precompile_query, &mut memory);
+
+    let (_reads, writes, witness) = result.unwrap();
+    assert_eq!(writes.len(), 3);
+
+    let witness = match witness {
+        PrecompileCyclesWitness::ECAdd(witness) => witness,
+        _ => panic!(),
+    };
+
+    (writes[0].value, writes[1].value, writes[2].value)
+}
+
+pub fn test_ecmul_using_tuple_fuzz(tuple: Vec<[[u8; 32]; 3]>) -> (U256, U256, U256) {
+    let mut memory = SimpleMemory::new();
+    let mut precompiles_processor = DefaultPrecompilesProcessor::<true>;
+
+    let page_number = 4u32;
+    // create heap page
+    memory.populate_page(vec![
+        (page_number, vec![U256::zero(); 1 << 10]),
+        (page_number + 1, vec![]),
+    ]);
+
+    let num_words_used = fill_memory(tuple, page_number, &mut memory);
+
+    let precompile_call_params = PrecompileCallABI {
+        input_memory_offset: 0,
+        input_memory_length: num_words_used as u32,
+        output_memory_offset: num_words_used as u32,
+        output_memory_length: 3,
+        memory_page_to_read: page_number,
+        memory_page_to_write: page_number,
+        precompile_interpreted_data: 0,
+    };
+    let precompile_call_params_encoded = precompile_call_params.to_u256();
+
+    let address = Address::from_low_u64_be(ECMUL_PRECOMPILE_ADDRESS as u64);
+
+    let precompile_query = LogQuery {
+        timestamp: Timestamp(1u32),
+        tx_number_in_block: 0,
+        shard_id: 0,
+        aux_byte: PRECOMPILE_AUX_BYTE,
+        address,
+        key: precompile_call_params_encoded,
+        read_value: U256::zero(),
+        written_value: U256::zero(),
+        rw_flag: false,
+        rollback: false,
+        is_service: false,
+    };
+
+    let result: Option<(
+        Vec<MemoryQuery>,
+        Vec<MemoryQuery>,
+        circuit_encodings::zk_evm::abstractions::PrecompileCyclesWitness,
+    )> = precompiles_processor.execute_precompile(4, precompile_query, &mut memory);
+    let (_reads, writes, witness) = result.unwrap();
+    assert_eq!(writes.len(), 3);
+
+    let witness = match witness {
+        PrecompileCyclesWitness::ECMul(witness) => witness,
+        _ => panic!(),
+    };
+
+    (writes[0].value, writes[1].value, writes[2].value)
+}
+
 fn test_modexp_using_tuple(tuple: Vec<[[u8; 32]; 3]>) -> U256 {
     let mut memory = SimpleMemory::new();
     let mut precompiles_processor = DefaultPrecompilesProcessor::<true>;
@@ -685,6 +854,62 @@ fn test_modexp_using_tuple(tuple: Vec<[[u8; 32]; 3]>) -> U256 {
         let is_valid = verify_base_layer_proof::<NoPow>(&basic_circuit, &proof, &vk);
         assert!(is_valid);
     }
+
+    writes[0].value
+}
+
+pub fn test_modexp_using_tuple_fuzz(tuple: Vec<[[u8; 32]; 3]>) -> U256 {
+    let mut memory = SimpleMemory::new();
+    let mut precompiles_processor = DefaultPrecompilesProcessor::<true>;
+
+    let page_number = 4u32;
+    // create heap page
+    memory.populate_page(vec![
+        (page_number, vec![U256::zero(); 1 << 10]),
+        (page_number + 1, vec![]),
+    ]);
+
+    let num_words_used = fill_memory(tuple, page_number, &mut memory);
+
+    let precompile_call_params = PrecompileCallABI {
+        input_memory_offset: 0,
+        input_memory_length: num_words_used as u32,
+        output_memory_offset: num_words_used as u32,
+        output_memory_length: 1,
+        memory_page_to_read: page_number,
+        memory_page_to_write: page_number,
+        precompile_interpreted_data: 0,
+    };
+    let precompile_call_params_encoded = precompile_call_params.to_u256();
+
+    let address = Address::from_low_u64_be(MODEXP_PRECOMPILE_ADDRESS as u64);
+
+    let precompile_query = LogQuery {
+        timestamp: Timestamp(1u32),
+        tx_number_in_block: 0,
+        shard_id: 0,
+        aux_byte: PRECOMPILE_AUX_BYTE,
+        address,
+        key: precompile_call_params_encoded,
+        read_value: U256::zero(),
+        written_value: U256::zero(),
+        rw_flag: false,
+        rollback: false,
+        is_service: false,
+    };
+
+    let result: Option<(
+        Vec<MemoryQuery>,
+        Vec<MemoryQuery>,
+        circuit_encodings::zk_evm::abstractions::PrecompileCyclesWitness,
+    )> = precompiles_processor.execute_precompile(4, precompile_query, &mut memory);
+    let (_reads, writes, witness) = result.unwrap();
+    assert_eq!(writes.len(), 1);
+
+    let witness = match witness {
+        PrecompileCyclesWitness::Modexp(witness) => witness,
+        _ => panic!(),
+    };
 
     writes[0].value
 }
