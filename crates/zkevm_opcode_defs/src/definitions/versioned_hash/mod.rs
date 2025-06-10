@@ -66,6 +66,7 @@ pub struct BlobSha256Format;
 impl BlobSha256Format {
     pub const CODE_AT_REST_MARKER: u8 = 0;
     pub const YET_CONSTRUCTED_MARKER: u8 = 1;
+    pub const DELEGATION_MARKER: u8 = 2;
 
     pub fn preimage_length_in_bytes(src: &[u8; 32]) -> u16 {
         u16::from_be_bytes([src[2], src[3]])
@@ -110,6 +111,10 @@ impl BlobSha256Format {
     pub fn is_in_construction_if_valid(src: &[u8; VERSIONED_HASH_SIZE]) -> bool {
         src[1] == Self::YET_CONSTRUCTED_MARKER
     }
+
+    pub fn is_delegation_if_valid(src: &[u8; VERSIONED_HASH_SIZE]) -> bool {
+        src[1] == Self::DELEGATION_MARKER
+    }
 }
 
 impl VersionedHashLen32 for BlobSha256Format {
@@ -117,7 +122,9 @@ impl VersionedHashLen32 for BlobSha256Format {
 
     fn is_valid(src: &[u8; 32]) -> bool {
         src[0] == Self::VERSION_BYTE
-            && (src[1] == Self::CODE_AT_REST_MARKER || src[1] == Self::YET_CONSTRUCTED_MARKER)
+            && (src[1] == Self::CODE_AT_REST_MARKER
+                || src[1] == Self::YET_CONSTRUCTED_MARKER
+                || src[1] == Self::DELEGATION_MARKER)
     }
 }
 

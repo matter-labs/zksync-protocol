@@ -123,6 +123,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
         let new_base_memory_page = vm_state.new_base_memory_page_on_call();
 
         let call_to_evm_emulator;
+        let mut should_reset_static_context = false;
 
         // NOTE: our far-call MUST take ergs to cover storage read, but we also have a contribution
         // that depends on the actual code length, so we work with it here
@@ -211,13 +212,26 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
             let can_call_evm_emulator = if is_valid_as_blob_hash {
                 let is_code_at_rest = BlobSha256Format::is_code_at_rest_if_valid(&buffer);
                 let is_constructed = BlobSha256Format::is_in_construction_if_valid(&buffer);
+                let is_delegation = BlobSha256Format::is_delegation_if_valid(&buffer);
 
                 let can_call_at_rest = !far_call_abi.constructor_call && is_code_at_rest;
                 let can_call_by_constructor = far_call_abi.constructor_call && is_constructed;
+                let can_call_by_delegation = !far_call_abi.constructor_call && is_delegation;
 
                 let can_call_code_without_masking = can_call_at_rest || can_call_by_constructor;
                 if can_call_code_without_masking == true {
+                    should_reset_static_context = true;
                     true
+                } else if can_call_by_delegation == true {
+                    // If we're delegating, we can have two situations:
+                    // - If the sender is a bootloader, we use default AA
+                    // - If the sender is a contract, we use EVM interpreter
+                    if current_address == *BOOTLOADER_FORMAL_ADDRESS {
+                        mask_to_default_aa = true;
+                        false
+                    } else {
+                        true
+                    }
                 } else {
                     // calling mode is unknown, so it's most likely a normal
                     // call to contract that is still created
@@ -644,7 +658,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
             }
         };
 
-        let is_static_to_set = if call_to_evm_emulator {
+        let is_static_to_set = if should_reset_static_context {
             false
         } else {
             new_context_is_static
