@@ -108,6 +108,11 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
                         BlobSha256Format::normalize_for_decommitment(&buffer);
                     decommit_header = header;
                     decommit_preimage_normalized = normalized_preimage;
+                } else if Eip7702DelegationFormat::is_valid(&buffer) {
+                    let (header, normalized_preimage) =
+                        Eip7702DelegationFormat::normalize_for_decommitment(&buffer);
+                    decommit_header = header;
+                    decommit_preimage_normalized = normalized_preimage;
                 } else {
                     preimage_len_in_bytes = 0;
                     decommit_preimage_format_is_invalid = true;

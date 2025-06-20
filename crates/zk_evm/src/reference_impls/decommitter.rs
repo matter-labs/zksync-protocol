@@ -3,6 +3,7 @@ use zk_evm_abstractions::queries::*;
 use zk_evm_abstractions::vm::*;
 use zk_evm_abstractions::zkevm_opcode_defs::BlobSha256Format;
 use zk_evm_abstractions::zkevm_opcode_defs::ContractCodeSha256Format;
+use zk_evm_abstractions::zkevm_opcode_defs::Eip7702DelegationFormat;
 use zk_evm_abstractions::zkevm_opcode_defs::VersionedHashLen32;
 use zk_evm_abstractions::zkevm_opcode_defs::VersionedHashNormalizedPreimage;
 
@@ -41,6 +42,9 @@ impl<const B: bool> SimpleDecommitter<B> {
                 normalized
             } else if BlobSha256Format::is_valid(&buffer) {
                 let (_, normalized) = BlobSha256Format::normalize_for_decommitment(&buffer);
+                normalized
+            } else if Eip7702DelegationFormat::is_valid(&buffer) {
+                let (_, normalized) = Eip7702DelegationFormat::normalize_for_decommitment(&buffer);
                 normalized
             } else {
                 panic!("Unknown versioned hash format {:?}", hash);
