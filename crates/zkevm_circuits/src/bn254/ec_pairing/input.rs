@@ -19,7 +19,14 @@ use boojum::gadgets::traits::selectable::Selectable;
 use boojum::gadgets::traits::witnessable::WitnessHookable;
 use serde::{Deserialize, Serialize};
 
-#[derive(Derivative, CSAllocatable, CSSelectable, CSVarLengthEncodable, WitnessHookable, WitVarLengthEncodable)]
+#[derive(
+    Derivative,
+    CSAllocatable,
+    CSSelectable,
+    CSVarLengthEncodable,
+    WitnessHookable,
+    WitVarLengthEncodable,
+)]
 #[derivative(Clone, Debug)]
 #[DerivePrettyComparison("true")]
 pub struct EcPairingFunctionFSM<F: SmallField> {
@@ -33,7 +40,6 @@ pub struct EcPairingFunctionFSM<F: SmallField> {
     pub timestamp_to_use_for_write: UInt32<F>,
     pub precompile_call_params: EcPairingPrecompileCallParams<F>,
 }
-
 
 impl<F: SmallField> CSPlaceholder<F> for EcPairingFunctionFSM<F> {
     fn placeholder<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self {
