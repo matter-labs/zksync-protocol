@@ -14,7 +14,6 @@ on:
   workflow_dispatch:
 
 jobs:
-
   release:
     uses: matter-labs/zksync-ci-common/.github/workflows/release-please.yaml@v1
     secrets:
