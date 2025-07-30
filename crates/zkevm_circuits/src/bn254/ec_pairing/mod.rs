@@ -325,6 +325,7 @@ where
         NonNativeField::normalize(&mut result, cs);
 
         let mut acc = result.mul(cs, &mut previous_acc);
+        NonNativeField::normalize(&mut acc, cs);
         state.pairing_inner_state = <Fq12<
             _,
             BN256Fq,
