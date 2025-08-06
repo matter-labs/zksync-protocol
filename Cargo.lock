@@ -2444,6 +2444,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "zk_evm_api"
+version = "0.152.3"
+dependencies = [
+ "hashbrown 0.15.2",
+ "zk_evm",
+]
+
+[[package]]
 name = "zkevm-assembly"
 version = "0.152.3"
 dependencies = [

@@ -1,0 +1,18 @@
+[package]
+name = "zk_evm_api"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "ZKsync EraVM API"
+
+
+[dependencies]
+# "Owned" dependencies
+zk_evm.workspace = true
+
+hashbrown = { version = "0.15", default-features = false, features = ["alloc", "inline-more", "default-hasher"] }
