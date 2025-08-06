@@ -8,8 +8,10 @@ use zk_evm_abstractions::{
 use super::*;
 use crate::vm_state::{CallStackEntry, VmLocalState};
 
+use alloc::vec::Vec;
+
 #[allow(unused_variables)]
-pub trait VmWitnessTracer<const N: usize, E: VmEncodingMode<N>>: Clone + std::fmt::Debug {
+pub trait VmWitnessTracer<const N: usize, E: VmEncodingMode<N>>: Clone + core::fmt::Debug {
     #[inline]
     fn start_new_execution_cycle(&mut self, current_state: &VmLocalState<N, E>) {}
 

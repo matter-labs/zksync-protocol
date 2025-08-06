@@ -15,12 +15,14 @@ description = "ZKsync out-of-circuit EraEVM implementation"
 zk_evm_abstractions.workspace = true
 
 # "External" dependencies
-serde = { version = "1", features = ["derive"] }
-serde_json = "1.0"
-anyhow = "1.0"
-num = { version = "0.4"}
+serde = { version = "1", features = ["derive"], default-features = false }
+serde_json = { version = "1.0", default-features = false, features = ["alloc"]}
+anyhow = { version = "1.0", default-features = false}
+num = { version = "0.4", default-features = false}
 static_assertions = "1"
-lazy_static = "1.4"
+lazy_static = { version = "1.4", default-features = false, features = ["spin_no_std"] }
+hashbrown = { version = "0.15", default-features = false, features = ["alloc", "inline-more", "default-hasher"] }
+
 
 [dev-dependencies]
 hex = "0.4"

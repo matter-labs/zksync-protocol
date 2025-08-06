@@ -38,7 +38,7 @@ pub struct AfterExecutionData<const N: usize = 8, E: VmEncodingMode<N> = Encodin
 }
 
 pub trait Tracer<const N: usize = 8, E: VmEncodingMode<N> = EncodingModeProduction>:
-    std::fmt::Debug
+    core::fmt::Debug
 {
     const CALL_BEFORE_DECODING: bool = false;
     const CALL_AFTER_DECODING: bool = false;

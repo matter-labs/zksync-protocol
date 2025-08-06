@@ -1,4 +1,8 @@
-use std::fmt::{Debug, Formatter};
+use core::fmt::{Debug, Formatter};
+
+use alloc::string::String;
+use alloc::vec;
+use alloc::vec::Vec;
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct Flags {
@@ -37,7 +41,7 @@ impl Flags {
 }
 
 impl Debug for Flags {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         fn bool_to_sym(b: bool) -> &'static str {
             if b {
                 "+"

@@ -6,7 +6,7 @@ pub struct DecodedOpcode<const N: usize = 8, E: VmEncodingMode<N> = EncodingMode
     pub inner: zkevm_opcode_defs::DecodedOpcode<N, E>,
 }
 
-impl<const N: usize, E: VmEncodingMode<N>> std::ops::Deref for DecodedOpcode<N, E> {
+impl<const N: usize, E: VmEncodingMode<N>> core::ops::Deref for DecodedOpcode<N, E> {
     type Target = zkevm_opcode_defs::DecodedOpcode<N, E>;
 
     fn deref(&self) -> &Self::Target {
@@ -14,20 +14,20 @@ impl<const N: usize, E: VmEncodingMode<N>> std::ops::Deref for DecodedOpcode<N, 
     }
 }
 
-impl<const N: usize, E: VmEncodingMode<N>> std::ops::DerefMut for DecodedOpcode<N, E> {
+impl<const N: usize, E: VmEncodingMode<N>> core::ops::DerefMut for DecodedOpcode<N, E> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
 }
 
-impl<const N: usize, E: VmEncodingMode<N>> std::fmt::Display for DecodedOpcode<N, E> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<const N: usize, E: VmEncodingMode<N>> core::fmt::Display for DecodedOpcode<N, E> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}", self.inner)
     }
 }
 
-impl<const N: usize, E: VmEncodingMode<N>> std::fmt::Debug for DecodedOpcode<N, E> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<const N: usize, E: VmEncodingMode<N>> core::fmt::Debug for DecodedOpcode<N, E> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}", self.inner)
     }
 }

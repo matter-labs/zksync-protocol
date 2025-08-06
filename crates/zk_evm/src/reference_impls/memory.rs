@@ -49,7 +49,7 @@ impl SparseMemoryPage {
     fn get_size(&self) -> usize {
         self.root.iter().filter_map(|x| x.as_ref()).count()
             * PAGE_SUBDIVISION_LEN
-            * std::mem::size_of::<PrimitiveValue>()
+            * core::mem::size_of::<PrimitiveValue>()
     }
 }
 
@@ -72,7 +72,7 @@ pub struct MemoryWrapper {
 impl PartialEq for MemoryWrapper {
     fn eq(&self, other: &Self) -> bool {
         let empty_page = SparseMemoryPage::default();
-        let empty_pages = std::iter::repeat(&empty_page);
+        let empty_pages = core::iter::repeat(&empty_page);
         self.memory
             .iter()
             .chain(empty_pages.clone())
@@ -94,7 +94,7 @@ impl MemoryWrapper {
     pub fn dump_page_content_as_u256_words(
         &self,
         page_number: u32,
-        range: std::ops::Range<u32>,
+        range: core::ops::Range<u32>,
     ) -> Vec<PrimitiveValue> {
         if let Some(page) = self.memory.get(page_number as usize) {
             let mut result = vec![];
@@ -215,7 +215,7 @@ impl SimpleMemory {
     pub fn dump_page_content(
         &self,
         page_number: u32,
-        range: std::ops::Range<u32>,
+        range: core::ops::Range<u32>,
     ) -> Vec<[u8; 32]> {
         let u256_words = self.dump_page_content_as_u256_words(page_number, range);
         let mut buffer = [0u8; 32];
@@ -231,7 +231,7 @@ impl SimpleMemory {
     pub fn dump_page_content_as_u256_words(
         &self,
         page: u32,
-        range: std::ops::Range<u32>,
+        range: core::ops::Range<u32>,
     ) -> Vec<U256> {
         self.memory
             .dump_page_content_as_u256_words(page, range)

@@ -1,6 +1,6 @@
 use super::*;
 
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 pub mod decommitter;
 pub mod event_sink;

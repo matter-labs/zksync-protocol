@@ -32,11 +32,10 @@ snark_wrapper = "=0.32.1"
 bellman = { package = "zksync_bellman", version = "=0.32.1" }
 boojum = "=0.32.1"
 cs_derive = { package = "zksync_cs_derive", version = "=0.32.1" }
-zksync_pairing = "=0.32.1"
-
+#zksync_pairing = "=0.32.1"
+zksync_pairing = { path = "../overrides/zksync-crypto/crates/pairing"}
 
 
 [patch.crates-io]
 spin = { path = "../overrides/spin-rs", default-features = false, features = ["once", "portable-atomic"] }
 
-zksync_pairing = { path = "../overrides/zksync-crypto/crates/pairing"}

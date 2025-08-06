@@ -13,8 +13,8 @@ pub struct EventMessage {
     pub value: U256,
 }
 
-impl std::fmt::Debug for EventMessage {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for EventMessage {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("EventMessage")
             .field("shard_id", &self.shard_id)
             .field("is_first", &self.is_first)

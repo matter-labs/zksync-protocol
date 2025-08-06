@@ -1,6 +1,6 @@
 use super::*;
 
-use std::ops::*;
+use core::ops::*;
 
 use crate::zkevm_opcode_defs::{Opcode, ShiftOpcode};
 

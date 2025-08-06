@@ -6,6 +6,8 @@ use zk_evm_abstractions::zkevm_opcode_defs::system_params::STORAGE_AUX_BYTE;
 use super::ApplicationData;
 use super::*;
 
+use hashbrown::HashSet;
+
 #[derive(Debug, Clone)]
 pub struct InMemoryStorage {
     pub inner: [HashMap<Address, HashMap<U256, U256>>; NUM_SHARDS],

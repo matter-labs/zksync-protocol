@@ -9,6 +9,13 @@
     clippy::assign_op_pattern, // Local preference.
     clippy::single_match, // Local preference.
 )]
+#![no_std]
+#![feature(allocator_api)]
+
+extern crate alloc;
+pub use alloc::boxed::Box;
+pub use alloc::vec;
+pub use alloc::vec::Vec;
 
 pub mod block_properties;
 pub mod errors;

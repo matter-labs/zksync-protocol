@@ -99,7 +99,7 @@ impl<const N: usize, E: VmEncodingMode<N>> Callstack<N, E> {
 
     #[track_caller]
     pub fn push_entry(&mut self, entry: CallStackEntry<N, E>) {
-        let old = std::mem::replace(&mut self.current, entry);
+        let old = core::mem::replace(&mut self.current, entry);
         self.inner.push(old);
         debug_assert!(
             self.depth() <= zkevm_opcode_defs::system_params::VM_MAX_STACK_DEPTH as usize
@@ -109,7 +109,7 @@ impl<const N: usize, E: VmEncodingMode<N>> Callstack<N, E> {
     #[track_caller]
     pub fn pop_entry(&mut self) -> CallStackEntry<N, E> {
         let previous = self.inner.pop().unwrap();
-        let old = std::mem::replace(&mut self.current, previous);
+        let old = core::mem::replace(&mut self.current, previous);
 
         old
     }

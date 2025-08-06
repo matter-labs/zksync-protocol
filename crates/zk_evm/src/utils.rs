@@ -5,6 +5,8 @@ use zk_evm_abstractions::vm::Memory;
 
 use lazy_static::lazy_static;
 
+use alloc::vec::Vec;
+
 lazy_static! {
     pub static ref U256_TO_ADDRESS_MASK: U256 = U256::MAX >> (256 - 160);
 }
@@ -47,13 +49,13 @@ pub fn u256_to_address_unchecked(integer: &U256) -> crate::Address {
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct GenericNoopTracer<M: Memory> {
-    _marker: std::marker::PhantomData<M>,
+    _marker: core::marker::PhantomData<M>,
 }
 
 impl<M: Memory> GenericNoopTracer<M> {
     pub fn new() -> Self {
         Self {
-            _marker: std::marker::PhantomData,
+            _marker: core::marker::PhantomData,
         }
     }
 }

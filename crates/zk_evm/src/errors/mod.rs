@@ -4,10 +4,10 @@ pub enum OpcodeDecodingError {
     EncodingIsTooLong,
 }
 
-impl std::fmt::Display for OpcodeDecodingError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+impl core::fmt::Display for OpcodeDecodingError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(f, "{:?}", self)
     }
 }
 
-impl std::error::Error for OpcodeDecodingError {}
+impl core::error::Error for OpcodeDecodingError {}
