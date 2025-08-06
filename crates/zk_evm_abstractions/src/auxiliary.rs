@@ -1,5 +1,7 @@
 use crate::vm::MemoryType;
 
+use core::cmp;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Timestamp(pub u32);
 
@@ -9,14 +11,14 @@ impl Timestamp {
     }
 }
 
-impl std::cmp::PartialOrd for Timestamp {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+impl cmp::PartialOrd for Timestamp {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         self.0.partial_cmp(&other.0)
     }
 }
 
-impl std::cmp::Ord for Timestamp {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+impl cmp::Ord for Timestamp {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
         self.0.cmp(&other.0)
     }
 }
@@ -30,14 +32,14 @@ impl MemoryIndex {
     }
 }
 
-impl std::cmp::PartialOrd for MemoryIndex {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+impl cmp::PartialOrd for MemoryIndex {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         self.0.partial_cmp(&other.0)
     }
 }
 
-impl std::cmp::Ord for MemoryIndex {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+impl cmp::Ord for MemoryIndex {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
         self.0.cmp(&other.0)
     }
 }
@@ -51,14 +53,14 @@ impl MemoryIndex {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct MemoryOffset(pub u32);
 
-impl std::cmp::PartialOrd for MemoryOffset {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+impl cmp::PartialOrd for MemoryOffset {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         self.0.partial_cmp(&other.0)
     }
 }
 
-impl std::cmp::Ord for MemoryOffset {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+impl cmp::Ord for MemoryOffset {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
         self.0.cmp(&other.0)
     }
 }
@@ -72,14 +74,14 @@ impl MemoryPage {
     }
 }
 
-impl std::cmp::PartialOrd for MemoryPage {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+impl cmp::PartialOrd for MemoryPage {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         self.0.partial_cmp(&other.0)
     }
 }
 
-impl std::cmp::Ord for MemoryPage {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+impl cmp::Ord for MemoryPage {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
         self.0.cmp(&other.0)
     }
 }
@@ -101,25 +103,25 @@ impl MemoryLocation {
     }
 }
 
-impl std::cmp::PartialOrd for MemoryLocation {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+impl cmp::PartialOrd for MemoryLocation {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl std::cmp::Ord for MemoryLocation {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+impl cmp::Ord for MemoryLocation {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
         let tt = self.page.cmp(&other.page);
-        if tt != std::cmp::Ordering::Equal {
+        if tt != cmp::Ordering::Equal {
             return tt;
         }
 
         let tt = self.index.cmp(&other.index);
-        if tt != std::cmp::Ordering::Equal {
+        if tt != cmp::Ordering::Equal {
             return tt;
         }
 
-        std::cmp::Ordering::Equal
+        cmp::Ordering::Equal
     }
 }
 
@@ -140,25 +142,25 @@ pub struct MemoryKey {
     pub timestamp: Timestamp,
 }
 
-impl std::cmp::PartialOrd for MemoryKey {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+impl cmp::PartialOrd for MemoryKey {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl std::cmp::Ord for MemoryKey {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+impl cmp::Ord for MemoryKey {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
         let tt = self.location.cmp(&other.location);
-        if tt != std::cmp::Ordering::Equal {
+        if tt != cmp::Ordering::Equal {
             return tt;
         }
 
         let tt = self.timestamp.cmp(&other.timestamp);
-        if tt != std::cmp::Ordering::Equal {
+        if tt != cmp::Ordering::Equal {
             return tt;
         }
 
-        std::cmp::Ordering::Equal
+        cmp::Ordering::Equal
     }
 }
 

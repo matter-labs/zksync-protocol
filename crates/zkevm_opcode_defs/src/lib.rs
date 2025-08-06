@@ -13,11 +13,10 @@ pub mod system_params;
 pub mod utils;
 
 use alloc::boxed::Box;
-use alloc::string::String;
-use alloc::vec::Vec;
-
 use alloc::format;
+use alloc::string::String;
 use alloc::vec;
+use alloc::vec::Vec;
 use core::default;
 use core::fmt;
 
@@ -38,7 +37,7 @@ pub use k256;
 pub use p256;
 pub use sha2;
 pub use sha3;
-//pub use zksync_pairing as bn254;
+pub use zksync_pairing as bn254;
 
 pub use self::definitions::*;
 pub use self::imm_mem_modifiers::*;

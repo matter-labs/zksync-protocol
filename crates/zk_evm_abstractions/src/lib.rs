@@ -1,3 +1,8 @@
+#![no_std]
+#![feature(allocator_api)]
+
+extern crate alloc;
+
 pub mod auxiliary;
 pub use auxiliary as aux;
 pub mod precompiles;

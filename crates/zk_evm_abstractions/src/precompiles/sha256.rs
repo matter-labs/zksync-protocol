@@ -191,7 +191,7 @@ struct Sha256VarCore {
 pub fn transmute_state(reference_state: Sha256) -> Sha256InnerState {
     // we use a trick that size of both structures is the same, and even though we do not know a stable field layout,
     // we can replicate it
-    let our_wrapper: CoreWrapper = unsafe { std::mem::transmute(reference_state) };
+    let our_wrapper: CoreWrapper = unsafe { mem::transmute(reference_state) };
 
     our_wrapper.core.state
 }

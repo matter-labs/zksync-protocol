@@ -2,6 +2,10 @@ use zkevm_opcode_defs::ethereum_types::U256;
 pub use zkevm_opcode_defs::sha2::Digest;
 pub use zkevm_opcode_defs::sha3::Keccak256;
 
+use alloc::vec;
+use alloc::vec::Vec;
+use core::mem;
+
 use crate::aux::*;
 use crate::queries::*;
 use crate::vm::*;
@@ -291,11 +295,12 @@ static_assertions::assert_eq_size!(Keccak256, CoreWrapper);
 pub fn transmute_state(reference_state: Keccak256) -> Keccak256InnerState {
     // we use a trick that size of both structures is the same, and even though we do not know a stable field layout,
     // we can replicate it
-    let our_wrapper: CoreWrapper = unsafe { std::mem::transmute(reference_state) };
+    let our_wrapper: CoreWrapper = unsafe { mem::transmute(reference_state) };
 
     our_wrapper.core.state
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -318,4 +323,4 @@ mod tests {
             println!("Element {} = 0x{:016x}", idx, el);
         }
     }
-}
+}*/

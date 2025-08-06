@@ -198,7 +198,7 @@ pub fn modexp_function<M: Memory, const B: bool>(
 
 #[cfg(test)]
 pub mod tests {
-    use std::str::FromStr;
+    use alloc::str::FromStr;
 
     /// Tests the correctness of the `modexp_inner` function for a specified
     /// set of inputs from https://www.evm.codes/precompiled#0x05.

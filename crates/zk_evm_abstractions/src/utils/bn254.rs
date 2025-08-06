@@ -1,6 +1,7 @@
 //! Helper functions and types for working with elliptic curves.
 
-use std::str::FromStr;
+use alloc::format;
+use core::str::FromStr;
 
 use zkevm_opcode_defs::{
     bn254::{bn256::G1Affine, ff::PrimeField, CurveAffine},

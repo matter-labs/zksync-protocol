@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use core::str::FromStr;
 
 use anyhow::{Error, Result};
 use zkevm_opcode_defs::bn254::bn256::{Fq, Fr, G1Affine};

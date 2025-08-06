@@ -15,10 +15,11 @@ description = "ZKsync EraVM abstractions"
 zkevm_opcode_defs.workspace = true
 
 # "External" dependencies
-anyhow = "1.0"
-serde = { version = "1", features = ["derive"] }
+anyhow = { version = "1.0", default-features=false}
+
+serde = { version = "1", features = ["derive"], default-features = false }
 static_assertions = "1"
-num_enum = "0.6"
+num_enum = { version = "0.6", default-features = false }
 
 [dev-dependencies]
 hex = "0.4"

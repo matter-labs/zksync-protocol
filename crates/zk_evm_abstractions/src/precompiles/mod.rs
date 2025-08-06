@@ -11,8 +11,14 @@ pub mod modexp;
 pub mod secp256r1_verify;
 pub mod sha256;
 
+use alloc::string::ToString;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::convert::TryFrom;
+use core::mem;
+
 use num_enum::TryFromPrimitive;
-use std::convert::TryFrom;
+//use std::convert::TryFrom;
 use zkevm_opcode_defs::system_params::{
     ECRECOVER_INNER_FUNCTION_PRECOMPILE_ADDRESS, KECCAK256_ROUND_FUNCTION_PRECOMPILE_ADDRESS,
     SECP256R1_VERIFY_PRECOMPILE_ADDRESS, SHA256_ROUND_FUNCTION_PRECOMPILE_ADDRESS,

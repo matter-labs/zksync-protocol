@@ -38,3 +38,5 @@ zksync_pairing = "=0.32.1"
 
 [patch.crates-io]
 spin = { path = "../overrides/spin-rs", default-features = false, features = ["once", "portable-atomic"] }
+
+zksync_pairing = { path = "../overrides/zksync-crypto/crates/pairing"}

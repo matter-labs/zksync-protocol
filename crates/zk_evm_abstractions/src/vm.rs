@@ -3,6 +3,9 @@ use zkevm_opcode_defs::{
     FatPointer,
 };
 
+use alloc::vec::Vec;
+use core::fmt;
+
 use crate::precompiles::ecadd::ECAddPrecompile;
 use crate::precompiles::ecmul::ECMulPrecompile;
 use crate::precompiles::ecpairing::ECPairingPrecompile;
@@ -76,7 +79,7 @@ pub enum PrecompileCyclesWitness {
 // not to accept a transaction (or revert to the previous state) and actually perform "huge" rollbacks on
 // on all the corresponding implementors
 
-pub trait Storage: std::fmt::Debug {
+pub trait Storage: fmt::Debug {
     // We can evaluate a query cost (or more precisely - get expected refunds)
     // before actually executing query
     fn get_access_refund(
@@ -102,7 +105,7 @@ pub trait Storage: std::fmt::Debug {
     fn start_new_tx(&mut self, timestamp: Timestamp);
 }
 
-pub trait Memory: std::fmt::Debug {
+pub trait Memory: fmt::Debug {
     // Perform a memory access using a partially filled query and return the result
     fn execute_partial_query(
         &mut self,
@@ -159,7 +162,7 @@ impl Memory for () {
     }
 }
 
-pub trait EventSink: std::fmt::Debug {
+pub trait EventSink: fmt::Debug {
     // Largely the same as storage with exception that events are always "write"-like,
     // so we do not need to return anything
     fn add_partial_query(&mut self, monotonic_cycle_counter: u32, query: LogQuery);
@@ -167,7 +170,7 @@ pub trait EventSink: std::fmt::Debug {
     fn finish_frame(&mut self, panicked: bool, timestamp: Timestamp);
 }
 
-pub trait PrecompilesProcessor: std::fmt::Debug {
+pub trait PrecompilesProcessor: fmt::Debug {
     // Precompiles may be write-like (rollbackable, are more like markers),
     // and read-like (pure function calls like sha256, etc). Here we perform an execution
     // and optionally return memory queries performed by the executor that are useful for witness
@@ -182,7 +185,7 @@ pub trait PrecompilesProcessor: std::fmt::Debug {
     fn finish_frame(&mut self, panicked: bool);
 }
 
-pub trait DecommittmentProcessor: std::fmt::Debug {
+pub trait DecommittmentProcessor: fmt::Debug {
     // For calls to external contract we use storage read + request to decommit a particular hash into some memory page.
     // We also optimize in a way that since code and calldata locations ar read-only we can just give
     // already filled page if we decommit the same hash.
@@ -204,8 +207,8 @@ pub trait DecommittmentProcessor: std::fmt::Debug {
 
 /// Abstraction over precompile implementation. Precompile is usually a closure-forming FSM, so it must output
 /// some cycle-like witness
-pub trait Precompile: std::fmt::Debug {
-    type CycleWitness: Clone + std::fmt::Debug;
+pub trait Precompile: fmt::Debug {
+    type CycleWitness: Clone + fmt::Debug;
 
     /// Execute a precompile by using request and access to memory. Output number of cycles needed.
     /// May be output
