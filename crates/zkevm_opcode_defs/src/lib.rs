@@ -1,3 +1,8 @@
+#![no_std]
+#![feature(allocator_api)]
+
+extern crate alloc;
+
 pub const REGISTERS_COUNT: usize = 15;
 
 pub mod decoding;
@@ -7,9 +12,19 @@ pub mod opcode;
 pub mod system_params;
 pub mod utils;
 
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+
+use alloc::format;
+use alloc::vec;
+use core::default;
+use core::fmt;
+
 pub mod circuit_prices;
 
-use std::collections::HashMap;
+//use std::collections::HashMap;
+use hashbrown::HashMap;
 
 use circuit_prices::CODE_DECOMMITMENT_COST_PER_WORD_IN_ERGS;
 use circuit_prices::CODE_DECOMMITTER_SORTER_COST_IN_ERGS;
@@ -23,7 +38,7 @@ pub use k256;
 pub use p256;
 pub use sha2;
 pub use sha3;
-pub use zksync_pairing as bn254;
+//pub use zksync_pairing as bn254;
 
 pub use self::definitions::*;
 pub use self::imm_mem_modifiers::*;
@@ -170,7 +185,7 @@ lazy_static! {
     };
 
     pub static ref NOP_BITSPREAD_U64: u64 = {
-        let index = OPCODE_TO_CANONICAL_INDEX_LOOKUP_MAP[&NOP_OPCODE_VARIANT];
+        let index = OPCODE_TO_CANONICAL_INDEX_LOOKUP_MAP[&*NOP_OPCODE_VARIANT];
         let bitspread = OPCODES_PROPS_INTEGER_BITMASKS[index];
 
         bitspread
@@ -190,7 +205,7 @@ lazy_static! {
     };
 
     pub static ref PANIC_BITSPREAD_U64: u64 = {
-        let index = OPCODE_TO_CANONICAL_INDEX_LOOKUP_MAP[&PANIC_OPCODE_VARIANT];
+        let index = OPCODE_TO_CANONICAL_INDEX_LOOKUP_MAP[&*PANIC_OPCODE_VARIANT];
         let bitspread = OPCODES_PROPS_INTEGER_BITMASKS[index];
 
         bitspread

@@ -8,8 +8,8 @@ use super::*;
 // NOTE: registers are zero-enumerated
 pub const CALL_IMPLICIT_CALLDATA_FAT_PTR_REGISTER: u8 = 0;
 pub const CALL_IMPLICIT_CONSTRUCTOR_MARKER_REGISTER: u8 = 1;
-pub const CALL_SYSTEM_ABI_REGISTERS: std::ops::Range<u8> = 2..12;
-pub const CALL_RESERVED_RANGE: std::ops::Range<u8> = 12..14;
+pub const CALL_SYSTEM_ABI_REGISTERS: core::ops::Range<u8> = 2..12;
+pub const CALL_RESERVED_RANGE: core::ops::Range<u8> = 12..14;
 pub const CALL_IMPLICIT_PARAMETER_REG_IDX: u8 = 14;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

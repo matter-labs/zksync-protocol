@@ -1,7 +1,7 @@
 // We assume that all preimages are [u8; 32] and we just want to peek into them and get
 // few main points
 pub trait VersionedHashLen32:
-    Send + Sync + Sized + Clone + Copy + PartialEq + Eq + std::hash::Hash
+    Send + Sync + Sized + Clone + Copy + PartialEq + Eq + core::hash::Hash
 {
     const VERSION_BYTE: u8;
     fn is_valid(src: &[u8; VERSIONED_HASH_SIZE]) -> bool;
@@ -122,10 +122,10 @@ impl VersionedHashLen32 for BlobSha256Format {
 }
 
 pub trait VersionedHashDef:
-    Send + Sync + Sized + Clone + Copy + PartialEq + Eq + std::hash::Hash
+    Send + Sync + Sized + Clone + Copy + PartialEq + Eq + core::hash::Hash
 {
     const VERSION_BYTE: u8;
-    type StorageLayout: Send + Sync + Sized + Clone + Copy + PartialEq + Eq + std::hash::Hash;
+    type StorageLayout: Send + Sync + Sized + Clone + Copy + PartialEq + Eq + core::hash::Hash;
     fn serialize(storage: Self::StorageLayout) -> Option<[u8; 32]>;
     fn serialize_to_stored(storage: Self::StorageLayout) -> Option<[u8; 32]>;
     fn try_deserialize(input: [u8; 32]) -> Option<Self::StorageLayout>;

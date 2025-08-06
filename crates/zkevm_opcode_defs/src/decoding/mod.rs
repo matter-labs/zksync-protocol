@@ -23,7 +23,7 @@ impl VariantMonotonicNumber {
 }
 
 pub trait AllowedIntegerRepresentation<const N: usize>:
-    Clone + Copy + Send + Sync + PartialEq + Eq + Default + std::fmt::Debug + std::fmt::LowerHex
+    Clone + Copy + Send + Sync + PartialEq + Eq + Default + core::fmt::Debug + core::fmt::LowerHex
 {
     fn encode_as_bytes(self) -> [u8; N];
 }
@@ -41,7 +41,7 @@ impl AllowedIntegerRepresentation<8> for u64 {
 }
 
 pub trait AllowedPcOrImm:
-    Clone + Copy + Send + Sync + PartialEq + Eq + Default + std::fmt::Debug + std::fmt::LowerHex
+    Clone + Copy + Send + Sync + PartialEq + Eq + Default + core::fmt::Debug + core::fmt::LowerHex
 {
     fn from_u64_clipped(value: u64) -> Self;
     fn as_u64(self) -> u64;
@@ -98,7 +98,7 @@ impl AllowedPcOrImm for u32 {
 // Some abstraction over encoding mode
 // to be able to parse integer representation, as well as memory words
 pub trait VmEncodingMode<const N: usize>:
-    Clone + Copy + Send + Sync + PartialEq + Eq + std::fmt::Debug
+    Clone + Copy + Send + Sync + PartialEq + Eq + core::fmt::Debug
 {
     type PcOrImm: AllowedPcOrImm;
     type IntegerRepresentation: AllowedIntegerRepresentation<N>;

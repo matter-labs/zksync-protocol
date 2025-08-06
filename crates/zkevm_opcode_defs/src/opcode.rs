@@ -73,8 +73,8 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
     }
 }
 
-impl<const N: usize, E: VmEncodingMode<N>> std::fmt::Display for DecodedOpcode<N, E> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<const N: usize, E: VmEncodingMode<N>> fmt::Display for DecodedOpcode<N, E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // writeln!(f, "Decoded opcode")?;
         writeln!(f, "{}", self.variant)?;
         writeln!(f, "Condition: {:?}", self.condition)?;

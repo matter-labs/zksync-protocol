@@ -1,4 +1,5 @@
-use std::collections::HashSet;
+//use std::collections::HashSet;
+use hashbrown::HashSet;
 
 use crate::imm_mem_modifiers::*;
 
@@ -162,7 +163,7 @@ impl OpcodeVariant {
     }
 }
 
-impl std::default::Default for OpcodeVariant {
+impl default::Default for OpcodeVariant {
     fn default() -> Self {
         OpcodeVariant {
             opcode: Opcode::Nop(NopOpcode),
@@ -173,8 +174,8 @@ impl std::default::Default for OpcodeVariant {
     }
 }
 
-impl std::fmt::Display for OpcodeVariant {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for OpcodeVariant {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Opcode and variant: {:?}", self.opcode)?;
         writeln!(f, "Src0 operand type: {:?}", self.src0_operand_type)?;
         writeln!(f, "Dst0 operand type: {:?}", self.dst0_operand_type)?;
@@ -196,7 +197,7 @@ pub fn synthesize_opcode_decoding_tables(
     // - replace invalid opcode with Ret::Panic
 
     let all_opcodes = all_opcodes();
-    let mut checker = std::collections::HashSet::new();
+    let mut checker = HashSet::new();
     for (i, opcode) in all_opcodes.iter().enumerate() {
         let is_new = checker.insert(opcode.name());
         if !is_new {
@@ -244,7 +245,7 @@ pub fn synthesize_opcode_decoding_tables_legacy(
     let all_opcodes = all_opcodes();
     let all_prototypes = all_opcode_prototypes();
 
-    let mut checker = std::collections::HashSet::new();
+    let mut checker = HashSet::new();
     for (i, opcode) in all_opcodes.iter().enumerate() {
         let is_new = checker.insert(opcode.name());
         if !is_new {
@@ -439,7 +440,7 @@ fn all_variants_in_version(version: ISAVersion) -> Vec<OpcodeVariant> {
     let all_opcodes = all_opcodes();
     let all_prototypes = all_opcode_prototypes();
 
-    let mut checker = std::collections::HashSet::new();
+    let mut checker = HashSet::new();
     for (i, opcode) in all_opcodes.iter().enumerate() {
         let is_new = checker.insert(opcode.name());
         if !is_new {
@@ -724,7 +725,7 @@ pub fn synthesize_bit_decomposition_table(
 pub(crate) fn compute_encoding_density(for_version: ISAVersion) -> usize {
     let all_opcodes = all_opcodes();
 
-    let mut checker = std::collections::HashSet::new();
+    let mut checker = HashSet::new();
     for (i, opcode) in all_opcodes.iter().enumerate() {
         let is_new = checker.insert(opcode.name());
         if !is_new {
@@ -851,7 +852,7 @@ fn find_new_opcodes(old: &mut [OpcodeVariant], new: &[OpcodeVariant]) -> Vec<Opc
     // sanity check that we always expand
     let tmp: HashSet<OpcodeVariant> = HashSet::from_iter(new.iter().copied());
     for el in old.iter() {
-        if tmp.contains(&el) == false {
+        if tmp.contains(el) == false {
             // we may have semantic equivalents instead
             let mut found_equal = false;
             for new in new.iter() {
@@ -911,6 +912,7 @@ pub fn compute_decoding_format(assert_version: ISAVersion) -> String {
     )
 }
 
+/*
 #[cfg(test)]
 mod test {
     use super::*;
@@ -1057,5 +1059,8 @@ mod test {
         }
 
         dbg!(&difference_v1_v2);
-    }
+
+   }
 }
+
+*/

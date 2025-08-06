@@ -115,7 +115,7 @@ pub trait OpcodeVariantProps: Sized + 'static + Send + Sync {
     fn ergs_price(&self) -> u32;
 }
 
-use std::ops::RangeInclusive;
+use core::ops::RangeInclusive;
 
 pub(crate) fn full_variants_product(
     variants_range: RangeInclusive<usize>,
