@@ -11,7 +11,7 @@ use zk_evm::{
     },
     block_properties::BlockProperties,
     bytecode_to_code_hash, contract_bytecode_to_words,
-    ethereum_types::{Address, U256},
+    ethereum_types::{Address, H160, H256, U256},
     reference_impls::memory::SimpleMemory,
     testing::simple_tracer::NoopTracer,
     tracing::Tracer,
@@ -20,12 +20,16 @@ use zk_evm::{
 };
 
 use crate::{
-    default_tracer::DefaultTracer, toolset::create_tools, tracer::LocalTracer,
+    default_tracer::DefaultTracer,
+    storage_oracle::{StorageOracle, WitnessStorageOracle},
+    toolset::create_tools,
+    tracer::LocalTracer,
     utils::calldata_to_aligned_data,
 };
 
 mod default_tracer;
 mod entry_point;
+mod storage_oracle;
 mod toolset;
 mod tracer;
 mod utils;
@@ -230,9 +234,137 @@ pub fn run_vms<S: Storage>(
     //drop(out_of_circuit_vm);
 }
 
+#[derive(Debug, serde::Deserialize)]
+pub struct WitnessStorageState {
+    pub read_storage_key: Vec<(StorageKey, H256)>,
+    pub is_write_initial: Vec<(StorageKey, bool)>,
+}
+
+#[derive(Debug, serde::Deserialize, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct AccountTreeId {
+    pub address: Address,
+}
+
+#[derive(Debug, serde::Deserialize, Eq, PartialEq, PartialOrd, Ord, Hash)]
+pub struct StorageKey {
+    pub account: AccountTreeId,
+    pub key: H256,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub enum Helper {
+    Success(ProofGenerationData),
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct ProofGenerationData {
+    l1_batch_number: u64,
+    pub witness_input_data: WitnessInputData,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct WitnessInputData {
+    pub vm_run_data: VMRunWitnessInputData,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct VMRunWitnessInputData {
+    pub l1_batch_number: u32,
+    pub used_bytecodes: alloc::collections::BTreeMap<U256, Vec<[u8; 32]>>,
+    //pub used_bytecodes: std::collections::HashMap<U256, std::vec::Vec<[u8; 32]>>,
+    //pub used_bytecodes: std::collections::HashMap<u64, u64>,
+    pub initial_heap_content: Vec<(usize, U256)>,
+    //pub protocol_version: ProtocolVersionId,
+    pub bootloader_code: Vec<[u8; 32]>,
+    pub default_account_code_hash: U256,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evm_emulator_code_hash: Option<U256>,
+    pub storage_refunds: Vec<u32>,
+    pub pubdata_costs: Vec<i32>,
+    pub witness_block_state: WitnessStorageState,
+}
+
+pub const BOOTLOADER_ADDRESS: Address = H160([
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x80, 0x01,
+]);
+
+pub fn expand_bootloader_contents(packed: &[(usize, U256)]) -> Vec<u8> {
+    let full_length = 63_800_000;
+
+    let mut result = vec![0u8; full_length];
+
+    for (offset, value) in packed {
+        value.to_big_endian(&mut result[(offset * 32)..(offset + 1) * 32]);
+    }
+
+    result
+}
+
+pub fn run_vms_from_json_string(buf: String) -> Result<VmLocalState, String> {
+    let helper: Helper = serde_json::from_str(&buf).expect("Failed to parse JSON");
+
+    let helper = match helper {
+        Helper::Success(data) => data,
+        _ => panic!("Expected success variant of Helper"),
+    };
+
+    let input = helper.witness_input_data;
+
+    // stuff copied from zksync-era/provers/ witness_generator_service/src/rounds/basic_circuits/utils.rs
+
+    let bootloader_contents = expand_bootloader_contents(&input.vm_run_data.initial_heap_content);
+    let evm_emulator_code_hash = input.vm_run_data.evm_emulator_code_hash.unwrap();
+
+    //println!("Helper read from file: {:?}", helper);
+
+    // this is a 'local' (zksync-era) wrapper over the hashmap.
+
+    // this part is VERY era specific... I need a simpler implementation here.
+    /*let witness_storage = WitnessStorage::new(input.vm_run_data.witness_block_state);
+
+    let storage_view = StorageView::new(witness_storage).to_rc_ptr();
+
+    let vm_storage_oracle: VmStorageOracle<StorageView<WitnessStorage>, HistoryDisabled> =
+        VmStorageOracle::new(storage_view.clone());*/
+
+    let vm_storage_oracle = WitnessStorageOracle::new(input.vm_run_data.witness_block_state);
+
+    let storage_oracle = StorageOracle::new(
+        vm_storage_oracle,
+        input.vm_run_data.storage_refunds,
+        input.vm_run_data.pubdata_costs,
+    );
+
+    let mut tracer = LocalTracer;
+
+    let mut new_used_bytecodes = hashbrown::HashMap::new();
+    for entry in input.vm_run_data.used_bytecodes {
+        new_used_bytecodes.insert(entry.0, entry.1);
+    }
+
+    run_vms(
+        Address::zero(),
+        BOOTLOADER_ADDRESS,
+        input.vm_run_data.bootloader_code,
+        bootloader_contents,
+        input.vm_run_data.default_account_code_hash,
+        evm_emulator_code_hash,
+        new_used_bytecodes, //input.vm_run_data.used_bytecodes,
+        800_000_000 as usize,
+        storage_oracle,
+        &mut tracer,
+    )
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::storage_oracle::{StorageOracle, WitnessStorageOracle};
+
     use super::*;
+    use std::io::BufReader;
+    use std::{fs::File, io::Read};
+    use zk_evm::ethereum_types::{H160, H256};
     use zk_evm::{
         abstractions::Storage,
         ethereum_types::{Address, U256},
@@ -301,5 +433,14 @@ mod tests {
             storage,
             &mut tracer,
         );
+    }
+
+    #[test]
+    fn test_load_from_json_and_run() {
+        let mut file = File::open("generation_response.json").expect("Failed to open helper.json");
+        let mut buf = String::new();
+        file.read_to_string(&mut buf).unwrap();
+
+        run_vms_from_json_string(buf);
     }
 }

@@ -2448,6 +2448,8 @@ name = "zk_evm_api"
 version = "0.152.3"
 dependencies = [
  "hashbrown 0.15.2",
+ "serde",
+ "serde_json",
  "zk_evm",
 ]
 

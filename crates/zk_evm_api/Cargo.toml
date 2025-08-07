@@ -16,3 +16,6 @@ description = "ZKsync EraVM API"
 zk_evm.workspace = true
 
 hashbrown = { version = "0.15", default-features = false, features = ["alloc", "inline-more", "default-hasher"] }
+
+serde = { version = "1", features = ["derive"], default-features = false }
+serde_json = { version = "1.0", default-features = false, features = ["alloc"]}
