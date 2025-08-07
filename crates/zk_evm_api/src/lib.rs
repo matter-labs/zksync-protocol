@@ -1,4 +1,4 @@
-#![no_std]
+#![cfg_attr(not(test), no_std)]
 #![feature(allocator_api)]
 
 extern crate alloc;
@@ -12,13 +12,19 @@ use zk_evm::{
     block_properties::BlockProperties,
     bytecode_to_code_hash, contract_bytecode_to_words,
     ethereum_types::{Address, U256},
+    reference_impls::memory::SimpleMemory,
     testing::simple_tracer::NoopTracer,
+    tracing::Tracer,
     vm_state::VmLocalState,
     witness_trace::DummyTracer,
 };
 
-use crate::{toolset::create_tools, tracer::LocalTracer, utils::calldata_to_aligned_data};
+use crate::{
+    default_tracer::DefaultTracer, toolset::create_tools, tracer::LocalTracer,
+    utils::calldata_to_aligned_data,
+};
 
+mod default_tracer;
 mod entry_point;
 mod toolset;
 mod tracer;
@@ -50,7 +56,7 @@ pub fn run_vms<S: Storage>(
     /*tree: impl BinarySparseStorageTree<256, 32, 32, 8, 32, Blake2s256, ZkSyncStorageLeaf>
     + 'static
     + std::marker::Send,*/
-    //out_of_circuit_tracer: &mut impl Tracer<SupportedMemory = SimpleMemory>,
+    out_of_circuit_tracer: &mut impl Tracer<SupportedMemory = SimpleMemory>,
 ) -> Result<VmLocalState, String> {
     // TODO: do something with the roots.
     //let initial_rollup_root = tree.root();
@@ -142,7 +148,7 @@ pub fn run_vms<S: Storage>(
         out_of_circuit_vm.memory.execute_partial_query(0, query);
     }
 
-    let mut default_tracer = LocalTracer; //DefaultTracer::new(out_of_circuit_tracer);
+    let mut default_tracer = DefaultTracer::new(out_of_circuit_tracer);
 
     // tracing::debug!("Running out of circuit for {} cycles", cycle_limit);
     //println!("Running out of circuit for {} cycles", cycle_limit);
@@ -281,6 +287,8 @@ mod tests {
         let default_aa_code_hash = empty_code_hash;
         let evm_emulator_code_hash = empty_code_hash;
 
+        let mut tracer = LocalTracer;
+
         run_vms(
             caller,
             entry_point_address,
@@ -291,6 +299,7 @@ mod tests {
             Default::default(),
             1_000_000,
             storage,
+            &mut tracer,
         );
     }
 }
