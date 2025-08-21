@@ -126,7 +126,7 @@ where
 
     fn add_tables<CS: ConstraintSystem<F>>(cs: &mut CS) {
         let table = create_range_check_16_bits_table();
-        cs.add_lookup_table::<RangeCheck16BitsTable, 1>(table);
+        cs.add_lookup_table::<RangeCheck16BitsTable<1>, 1>(table);
     }
 
     fn synthesize_into_cs_inner<CS: ConstraintSystem<F>>(
