@@ -25,6 +25,8 @@ It is recommended that each PR has a component mentioned, e.g. `feat(component):
 
 Once release PR is merged, it will be published to `crates.io`, and a notification will be sent to Slack.
 
+If you did just chore changes, create empty PR (with this doc change for example) with feat in PR.
+
 ## Manual releases
 
 > [!WARNING]  
