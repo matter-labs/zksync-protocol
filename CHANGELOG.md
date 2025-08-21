@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.152.5](https://github.com/matter-labs/zksync-protocol/compare/v0.152.4...v0.152.5) (2025-08-21)
+
+
+### Features
+
+* empty PR to trigger release ([#172](https://github.com/matter-labs/zksync-protocol/issues/172)) ([bd431f1](https://github.com/matter-labs/zksync-protocol/commit/bd431f12b4828b965ca19b0dcdb2c85726e82888))
+
 ## [0.152.4](https://github.com/matter-labs/zksync-protocol/compare/v0.152.3...v0.152.4) (2025-07-30)
 
 
