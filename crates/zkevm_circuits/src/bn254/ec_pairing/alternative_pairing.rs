@@ -1689,7 +1689,7 @@ mod tests {
 
         // add tables
         let table = create_range_check_16_bits_table();
-        owned_cs.add_lookup_table::<RangeCheck16BitsTable, 1>(table);
+        owned_cs.add_lookup_table::<RangeCheck16BitsTable<1>, 1>(table);
         owned_cs
     }
 

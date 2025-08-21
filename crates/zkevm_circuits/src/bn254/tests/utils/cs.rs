@@ -145,7 +145,7 @@ pub fn create_test_cs(
     use boojum::gadgets::tables::RangeCheck16BitsTable;
 
     let table = create_range_check_16_bits_table();
-    owned_cs.add_lookup_table::<RangeCheck16BitsTable, 1>(table);
+    owned_cs.add_lookup_table::<RangeCheck16BitsTable<1>, 1>(table);
 
     // let table = create_byte_split_table::<F, 1>();
     // owned_cs.add_lookup_table::<ByteSplitTable<1>, 3>(table);
