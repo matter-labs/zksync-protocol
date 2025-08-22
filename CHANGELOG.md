@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.152.6](https://github.com/matter-labs/zksync-protocol/compare/v0.152.5...v0.152.6) (2025-08-22)
+
+
+### Features
+
+* bumping deps for zksync-crypto ([#174](https://github.com/matter-labs/zksync-protocol/issues/174)) ([2e29de3](https://github.com/matter-labs/zksync-protocol/commit/2e29de32254def62315ea6bf6a1eba88178492f0))
+
 ## [0.152.5](https://github.com/matter-labs/zksync-protocol/compare/v0.152.4...v0.152.5) (2025-08-21)
 
 
