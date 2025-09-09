@@ -27,7 +27,7 @@ zkevm_opcode_defs = { version = "=0.152.6", path = "crates/zkevm_opcode_defs" }
 zkevm_test_harness = { version = "=0.152.6", path = "crates/zkevm_test_harness" }
 zkevm-assembly = { version = "=0.152.6", path = "crates/zkEVM-assembly" }
 
-# `zksync-crypto` repository
+# `zksync-crypto` workspace dependencies
 snark_wrapper = "=0.32.3"
 bellman = { package = "zksync_bellman", version = "=0.32.3" }
 boojum = "=0.32.3"
