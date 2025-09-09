@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.152.7](https://github.com/matter-labs/zksync-protocol/compare/v0.152.6...v0.152.7) (2025-09-09)
+
+
+### Bug Fixes
+
+* Change to bump version ([#177](https://github.com/matter-labs/zksync-protocol/issues/177)) ([6ccb640](https://github.com/matter-labs/zksync-protocol/commit/6ccb640c96f053f64a51abbe124dae40ba094196))
+
 ## [0.152.6](https://github.com/matter-labs/zksync-protocol/compare/v0.152.5...v0.152.6) (2025-08-22)
 
 
