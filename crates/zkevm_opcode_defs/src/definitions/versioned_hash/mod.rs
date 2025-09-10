@@ -121,6 +121,57 @@ impl VersionedHashLen32 for BlobSha256Format {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Eip7702DelegationFormat;
+
+impl Eip7702DelegationFormat {
+    pub const DELEGATION_MARKER: u8 = 2;
+
+    pub fn preimage_length_in_bytes(src: &[u8; 32]) -> u16 {
+        u16::from_be_bytes([src[2], src[3]])
+    }
+
+    pub fn get_len_in_bytes32_words(src: &[u8; 32]) -> u16 {
+        let preimage_length_in_bytes = Self::preimage_length_in_bytes(src);
+
+        let (mut len_in_words, rem) =
+            (preimage_length_in_bytes / 32, preimage_length_in_bytes % 32);
+        if rem != 0 {
+            len_in_words += 1;
+        }
+        if len_in_words & 1 != 1 {
+            len_in_words += 1;
+        }
+
+        len_in_words
+    }
+
+    pub fn normalize_and_get_len_in_bytes32_words(
+        src: &[u8; 32],
+    ) -> (VersionedHashNormalizedPreimage, u16) {
+        let preimage_length_in_bytes = Self::preimage_length_in_bytes(src);
+
+        let (mut len_in_words, rem) =
+            (preimage_length_in_bytes / 32, preimage_length_in_bytes % 32);
+        if rem != 0 {
+            len_in_words += 1;
+        }
+        if len_in_words & 1 != 1 {
+            len_in_words += 1;
+        }
+
+        (Self::normalize_for_decommitment(src).1, len_in_words)
+    }
+}
+
+impl VersionedHashLen32 for Eip7702DelegationFormat {
+    const VERSION_BYTE: u8 = 0x03;
+
+    fn is_valid(src: &[u8; 32]) -> bool {
+        src[0] == Self::VERSION_BYTE && src[1] == Self::DELEGATION_MARKER
+    }
+}
+
 pub trait VersionedHashDef:
     Send + Sync + Sized + Clone + Copy + PartialEq + Eq + std::hash::Hash
 {
