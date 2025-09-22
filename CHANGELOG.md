@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.153.1](https://github.com/matter-labs/zksync-protocol/compare/v0.153.0...v0.153.1) (2025-09-22)
+
+
+### Features
+
+* Unpin sha2 ([#181](https://github.com/matter-labs/zksync-protocol/issues/181)) ([17988ab](https://github.com/matter-labs/zksync-protocol/commit/17988abe2bfc438c46fd24a879aceb3ec9c44be8))
+
 ## [0.153.0](https://github.com/matter-labs/zksync-protocol/compare/v0.152.7...v0.153.0) (2025-09-22)
 
 
