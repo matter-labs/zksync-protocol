@@ -266,6 +266,14 @@ where
             &state.pairing_inner_state,
         );
 
+        // If we're starting with a new precompile call, we should reset the accumulator.
+        state.pairing_success_flag_state = Boolean::conditionally_select(
+            cs,
+            state.read_precompile_call,
+            &boolean_true,
+            &state.pairing_success_flag_state,
+        );
+
         state.read_precompile_call = boolean_false;
 
         let zero_pairs_left = state.precompile_call_params.num_pairs.is_zero(cs);
@@ -324,6 +332,15 @@ where
         let (success, mut result) = pair(cs, &p_x, &p_y, &q_x_c0, &q_x_c1, &q_y_c0, &q_y_c1);
         NonNativeField::normalize(&mut result, cs);
 
+        let success_accumulated =
+            Boolean::multi_and(cs, &[state.pairing_success_flag_state, success]);
+        state.pairing_success_flag_state = Boolean::conditionally_select(
+            cs,
+            state.read_words_for_round,
+            &success_accumulated,
+            &state.pairing_success_flag_state,
+        );
+
         let mut acc = result.mul(cs, &mut previous_acc);
         NonNativeField::normalize(&mut acc, cs);
         state.pairing_inner_state = <Fq12<
@@ -341,9 +358,11 @@ where
         let no_pairs_left = state.precompile_call_params.num_pairs.is_zero(cs);
         let write_result = Boolean::multi_and(cs, &[state.read_words_for_round, no_pairs_left]);
 
-        let success_as_u32 = unsafe { UInt32::from_variable_unchecked(success.get_variable()) };
+        let success_agg_as_u32 = unsafe {
+            UInt32::from_variable_unchecked(state.pairing_success_flag_state.get_variable())
+        };
         let mut success = zero_u256;
-        success.inner[0] = success_as_u32;
+        success.inner[0] = success_agg_as_u32;
 
         let success_query = MemoryQuery {
             timestamp: timestamp_to_use_for_write,

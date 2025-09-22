@@ -886,11 +886,10 @@ impl<F: SmallField> Oracle<F> {
                 assert_eq!(masking_line_functions.len(), BN254_NUM_ELL_COEFFS);
 
                 for _ in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
-                    let (g1, g1_is_on_curve) = parser.parse_g1_affine();
+                    let (_, _) = parser.parse_g1_affine();
                     let (g2, g2_is_on_curve) = parser.parse_g2_affine();
 
-                    let should_skip =
-                        g1.is_zero() || g2.is_zero() || !g1_is_on_curve || !g2_is_on_curve;
+                    let should_skip = g2.is_zero() || !g2_is_on_curve;
 
                     if should_skip == false {
                         // normal flow
@@ -1409,7 +1408,6 @@ pub(crate) fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
 ) -> (Fp12<F>, Fp12<F>, Boolean<F>) {
     assert_eq!(inputs.len(), NUM_PAIRINGS_IN_MULTIPAIRING);
     let params = Arc::new(RnsParams::create());
-    let mut skip_pairings = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING);
     let mut validity_checks = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING * 3);
     let mut if_infinity = Vec::with_capacity(NUM_PAIRINGS_IN_MULTIPAIRING * 2);
 
@@ -1421,19 +1419,23 @@ pub(crate) fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
         let p_check_flags = p.validate_point_naive(cs, &params);
         let q_check_flags = q.validate_point_naive(cs, &params);
 
-        let should_skip = Boolean::multi_or(
+        let should_skip_for_p = Boolean::multi_or(
             cs,
             &[
                 p_check_flags.is_point_at_infty,
                 p_check_flags.is_invalid_point,
+            ],
+        );
+        let should_skip_for_q = Boolean::multi_or(
+            cs,
+            &[
                 q_check_flags.is_point_at_infty,
                 q_check_flags.is_invalid_point,
             ],
         );
 
-        p.mask(cs, should_skip, &params);
-        q.mask(cs, should_skip, &params);
-        skip_pairings.push(should_skip);
+        p.mask(cs, should_skip_for_p, &params);
+        q.mask(cs, should_skip_for_q, &params);
 
         validity_checks.push(p_check_flags.is_valid_point);
         validity_checks.push(q_check_flags.is_valid_point);
@@ -1570,6 +1572,7 @@ pub(crate) fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
     let candidate = chain.final_exp_hard_part(cs, &wrapped_f, true, &params);
     let final_res = candidate.decompress(cs);
     let fp12_one = Fp12::<F>::one(cs, &params);
+    let fp12_zero = Fp12::<F>::zero(cs, &params);
 
     let no_exception = is_trivial.negated(cs);
     validity_checks.push(no_exception);
@@ -1577,13 +1580,19 @@ pub(crate) fn multipairing_naive<F: SmallField, CS: ConstraintSystem<F>>(
     let success = Boolean::multi_and(cs, &validity_checks);
 
     let infinity_flag = Boolean::multi_or(cs, &if_infinity);
-    let result = <BN256Fq12NNField<F> as NonNativeField<F, _>>::conditionally_select(
+    let if_inf_result = <BN256Fq12NNField<F> as NonNativeField<F, _>>::conditionally_select(
         cs,
         infinity_flag,
         &fp12_one,
         &final_res,
     );
-    (result, miller_loop_res, success)
+    let pairing_output = <BN256Fq12NNField<F> as NonNativeField<F, _>>::conditionally_select(
+        cs,
+        success,
+        &if_inf_result,
+        &fp12_zero,
+    );
+    (pairing_output, miller_loop_res, success)
 }
 
 #[cfg(test)]
