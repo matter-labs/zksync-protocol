@@ -35,6 +35,7 @@ pub struct EcPairingFunctionFSM<F: SmallField> {
     pub completed: Boolean<F>,
     // Accumulated result of all the previous pairings:
     pub pairing_inner_state: BN256Fq12NNField<F>,
+    pub pairing_success_flag_state: Boolean<F>,
 
     pub timestamp_to_use_for_read: UInt32<F>,
     pub timestamp_to_use_for_write: UInt32<F>,
@@ -44,6 +45,7 @@ pub struct EcPairingFunctionFSM<F: SmallField> {
 impl<F: SmallField> CSPlaceholder<F> for EcPairingFunctionFSM<F> {
     fn placeholder<CS: ConstraintSystem<F>>(cs: &mut CS) -> Self {
         let boolean_false = Boolean::allocated_constant(cs, false);
+        let boolean_true = Boolean::allocated_constant(cs, true);
         let zero_u32 = UInt32::zero(cs);
         let params = &Arc::new(bn254_base_field_params());
 
@@ -52,6 +54,7 @@ impl<F: SmallField> CSPlaceholder<F> for EcPairingFunctionFSM<F> {
             read_words_for_round: boolean_false,
             completed: boolean_false,
             pairing_inner_state: BN256Fq12NNField::one(cs, params),
+            pairing_success_flag_state: boolean_true,
             timestamp_to_use_for_read: zero_u32,
             timestamp_to_use_for_write: zero_u32,
             precompile_call_params: EcPairingPrecompileCallParams::<F>::placeholder(cs),

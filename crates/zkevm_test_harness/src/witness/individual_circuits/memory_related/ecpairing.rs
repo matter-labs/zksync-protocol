@@ -124,6 +124,7 @@ pub(crate) fn ecpairing_decompose_into_per_circuit_witness<
         take_queue_state_from_simulator(&demuxed_ecpairing_queue.simulator);
     let mut hidden_fsm_input_state = EcPairingFunctionFSM::<F>::placeholder_witness();
     hidden_fsm_input_state.read_precompile_call = true;
+    hidden_fsm_input_state.pairing_success_flag_state = true;
 
     let mut memory_queries_it = ecpairing_memory_queries.into_iter();
 
@@ -172,6 +173,7 @@ pub(crate) fn ecpairing_decompose_into_per_circuit_witness<
         let zero_fq12 = Fq12::zero();
 
         let mut internal_state = one_fq12;
+        let mut success_accumulated = true;
 
         for (round_idx, round) in round_witness.into_iter().enumerate() {
             if round_idx == 0 {
@@ -190,8 +192,12 @@ pub(crate) fn ecpairing_decompose_into_per_circuit_witness<
                 precompile_request.input_memory_offset += 1;
             }
 
-            // FIXME: Have a better solution here (probably a separate field).
-            let pairing = pair(&input_pair).or::<F>(Ok(zero_fq12)).unwrap();
+            let pairing_res = pair(&input_pair);
+            let ok = pairing_res.is_ok();
+            if !ok {
+                success_accumulated = false;
+            }
+            let pairing = pairing_res.unwrap_or(zero_fq12);
             internal_state.mul_assign(&pairing);
 
             num_rounds_left -= 1;
@@ -255,6 +261,7 @@ pub(crate) fn ecpairing_decompose_into_per_circuit_witness<
                     read_words_for_round,
                     pairing_inner_state: convert_to_witness_fq12::<F>(internal_state),
                     read_precompile_call,
+                    pairing_success_flag_state: success_accumulated,
                     timestamp_to_use_for_read: request.timestamp.0,
                     timestamp_to_use_for_write: request.timestamp.0 + 1,
                     precompile_call_params: EcPairingPrecompileCallParamsWitness::<F> {
