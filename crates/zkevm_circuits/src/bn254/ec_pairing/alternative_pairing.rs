@@ -886,6 +886,7 @@ impl<F: SmallField> Oracle<F> {
                 assert_eq!(masking_line_functions.len(), BN254_NUM_ELL_COEFFS);
 
                 for _ in 0..NUM_PAIRINGS_IN_MULTIPAIRING {
+                    let (_, _) = parser.parse_g1_affine();
                     let (g2, g2_is_on_curve) = parser.parse_g2_affine();
 
                     let should_skip = g2.is_zero() || !g2_is_on_curve;
