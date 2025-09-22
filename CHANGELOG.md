@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.153.0](https://github.com/matter-labs/zksync-protocol/compare/v0.152.7...v0.153.0) (2025-09-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* optimize gas for ecpairing ([#179](https://github.com/matter-labs/zksync-protocol/issues/179))
+
+### Features
+
+* optimize gas for ecpairing ([#179](https://github.com/matter-labs/zksync-protocol/issues/179)) ([52f2f7c](https://github.com/matter-labs/zksync-protocol/commit/52f2f7c3038a95e5a6268daff2999203ee8c90e8))
+
 ## [0.152.7](https://github.com/matter-labs/zksync-protocol/compare/v0.152.6...v0.152.7) (2025-09-09)
 
 
