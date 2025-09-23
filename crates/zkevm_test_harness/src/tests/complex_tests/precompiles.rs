@@ -876,6 +876,293 @@ pub mod tests {
         assert_eq!(x, expected_x);
         assert_eq!(y, expected_y);
     }
+    #[test]
+    fn ec_pairing_first_invalid_then_valid_returns_false() {
+        // First pair: G1 = (1,1) which is not on curve, G2 = valid
+        // Second pair: G1 = random valid, G2 = random valid 
+        let raw_input = concat!(
+            
+            "0000000000000000000000000000000000000000000000000000000000000001",
+            "0000000000000000000000000000000000000000000000000000000000000001",
+            "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2",
+            "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed",
+            "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+            "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
+    
+            "2bd3e6d0f3b142924f5ca7b49ce5b9d54c4703d7ae5648e61d02268b1a0a9fb7",
+            "21611ce0a6af85915e2f1d70300909ce2e49dfad4a4619c8390cae66cefdb204",
+            "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2",
+            "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed",
+            "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+            "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
+        );
+    
+        let (success, result) = test_ecpairing_from_hex(raw_input);
+        assert_eq!(success, U256::zero());
+        assert_eq!(result, U256::zero());
+    }
+    #[test]
+    fn ec_pairing_single_nontrivial_false() {
+        // G1 = valid , G2 = generator
+        let raw_input = concat!(
+            "2bd3e6d0f3b142924f5ca7b49ce5b9d54c4703d7ae5648e61d02268b1a0a9fb7",
+            "21611ce0a6af85915e2f1d70300909ce2e49dfad4a4619c8390cae66cefdb204",
+
+            "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2",
+            "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed",
+            "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+            "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
+        );
+
+        let (success, result) = test_ecpairing_from_hex(raw_input);
+        assert_eq!(success, U256::one());
+        assert_eq!(result, U256::zero());
+    }
+    #[test]
+    fn ec_pairing_zero_then_valid_false() {
+        let raw_input = concat!(
+            // First pair: G1 = (0,0), G2 = generator
+            // Second pair: G1 = random valid, G2 = generator
+            "0000000000000000000000000000000000000000000000000000000000000000",
+            "0000000000000000000000000000000000000000000000000000000000000000",
+            "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2",
+            "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed",
+            "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+            "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
+
+            "2bd3e6d0f3b142924f5ca7b49ce5b9d54c4703d7ae5648e61d02268b1a0a9fb7",
+            "21611ce0a6af85915e2f1d70300909ce2e49dfad4a4619c8390cae66cefdb204",
+            "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2",
+            "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed",
+            "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+            "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
+        );
+
+        let (success, result) = test_ecpairing_from_hex(raw_input);
+        assert_eq!(success, U256::one());
+        assert_eq!(result, U256::zero());
+    }
+
+    #[test]
+    fn ec_pairing_g1_not_in_field() {
+        let raw_input = concat!(
+            // G1: (x=p, y=1) (not a canonical field element)  
+            // G2: generator
+            "30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47",
+            "0000000000000000000000000000000000000000000000000000000000000001",
+
+            "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2",
+            "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed",
+            "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+            "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
+        );
+
+        let (success, result) = test_ecpairing_from_hex(raw_input);
+        assert_eq!(success, U256::zero());
+        assert_eq!(result, U256::zero());
+    }
+
+    #[test]
+    fn ec_pairing_g2_not_in_field() {
+        let raw_input = concat!(
+            // G1: valid non-zero point
+            // G2: x.c1 = p (invalid)
+            "2bd3e6d0f3b142924f5ca7b49ce5b9d54c4703d7ae5648e61d02268b1a0a9fb7",
+            "21611ce0a6af85915e2f1d70300909ce2e49dfad4a4619c8390cae66cefdb204",
+
+            "30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47",
+            "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed",
+            "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+            "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
+        );
+
+        let (success, result) = test_ecpairing_from_hex(raw_input);
+        assert_eq!(success, U256::zero());
+        assert_eq!(result, U256::zero());
+    }
+
+    #[test]
+    fn ec_pairing_invalid_g2_then_valid() {
+        let invalid_g2_pair = "0412aa5b0805215b55a5e2dbf0662031aad0f5ef13f28b25df20b8670d1c59a616fb4b64ccff216fa5272e1e987c0616d60d8883d5834229c685949047e9411d2d81dbc969f72bc0454ff8b04735b717b725fee98a2fcbcdcf6c5b51b1dff33f075239888fc8448ab781e2a8bb85eb556469474cd707d4b913bee28679920eb61ef1c268b7c4c78959f099a043ecd5e537fe3069ac9197235f16162372848cba209cfadc22f7e80d399d1886f1c53898521a34c62918ed802305f32b4070a3c4";
+        let valid_pair = "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c21800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa";
+        let raw_input = [invalid_g2_pair, valid_pair].concat();
+
+        let (success, result) = test_ecpairing_from_hex(&raw_input);
+        assert_eq!(success, U256::zero());
+        assert_eq!(result, U256::zero());
+    }
+
+    #[test]
+    fn ec_pairing_two_invalid_g2_pairs() {
+        // Two pairs with G2 not in the correct subgroup
+        let invalid_g2_pair = "0412aa5b0805215b55a5e2dbf0662031aad0f5ef13f28b25df20b8670d1c59a616fb4b64ccff216fa5272e1e987c0616d60d8883d5834229c685949047e9411d2d81dbc969f72bc0454ff8b04735b717b725fee98a2fcbcdcf6c5b51b1dff33f075239888fc8448ab781e2a8bb85eb556469474cd707d4b913bee28679920eb61ef1c268b7c4c78959f099a043ecd5e537fe3069ac9197235f16162372848cba209cfadc22f7e80d399d1886f1c53898521a34c62918ed802305f32b4070a3c4";
+        let raw_input = [invalid_g2_pair, invalid_g2_pair].concat();
+
+        let (success, result) = test_ecpairing_from_hex(&raw_input);
+        assert_eq!(success, U256::zero());
+        assert_eq!(result, U256::zero());
+    }
+
+    #[test]
+    fn ec_pairing_invalid_g2_then_zero_pair() {
+        let invalid_g2_pair = "0412aa5b0805215b55a5e2dbf0662031aad0f5ef13f28b25df20b8670d1c59a616fb4b64ccff216fa5272e1e987c0616d60d8883d5834229c685949047e9411d2d81dbc969f72bc0454ff8b04735b717b725fee98a2fcbcdcf6c5b51b1dff33f075239888fc8448ab781e2a8bb85eb556469474cd707d4b913bee28679920eb61ef1c268b7c4c78959f099a043ecd5e537fe3069ac9197235f16162372848cba209cfadc22f7e80d399d1886f1c53898521a34c62918ed802305f32b4070a3c4";
+        let zero_pair = concat!(
+            "0000000000000000000000000000000000000000000000000000000000000000",
+            "0000000000000000000000000000000000000000000000000000000000000000",
+            "0000000000000000000000000000000000000000000000000000000000000000",
+            "0000000000000000000000000000000000000000000000000000000000000000",
+            "0000000000000000000000000000000000000000000000000000000000000000",
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        );
+        let raw_input = [invalid_g2_pair, zero_pair].concat();
+
+        let (success, result) = test_ecpairing_from_hex(&raw_input);
+        assert_eq!(success, U256::zero());
+        assert_eq!(result, U256::zero());
+    }
+
+    #[test]
+    fn ec_pairing_inverse_pairs_true() {
+        // Two nontrivial pairs cancel: (P,Q) and (-P,Q) with P=(1,2)
+        let pair1 = concat!(
+
+            "0000000000000000000000000000000000000000000000000000000000000001",
+            "0000000000000000000000000000000000000000000000000000000000000002",
+
+            "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2",
+            "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed",
+            "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+            "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
+        );
+        let pair2 = concat!(
+
+            "0000000000000000000000000000000000000000000000000000000000000001",
+            "30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd45",
+
+            "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2",
+            "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed",
+            "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+            "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
+        );
+
+        let raw_input = [pair1, pair2].concat();
+        let (success, result) = test_ecpairing_from_hex(&raw_input);
+        assert_eq!(success, U256::one());
+        assert_eq!(result, U256::one());
+    }
+
+    #[test]
+    fn ec_pairing_five_pairs_various_exceptions() {
+        // 1) G2 not in correct subgroup 
+        let invalid_g2_pair = "0412aa5b0805215b55a5e2dbf0662031aad0f5ef13f28b25df20b8670d1c59a616fb4b64ccff216fa5272e1e987c0616d60d8883d5834229c685949047e9411d2d81dbc969f72bc0454ff8b04735b717b725fee98a2fcbcdcf6c5b51b1dff33f075239888fc8448ab781e2a8bb85eb556469474cd707d4b913bee28679920eb61ef1c268b7c4c78959f099a043ecd5e537fe3069ac9197235f16162372848cba209cfadc22f7e80d399d1886f1c53898521a34c62918ed802305f32b4070a3c4";
+
+        // 2) G1 not on curve: (1,3) 
+        let g1_not_on_curve_pair = concat!(
+
+            "0000000000000000000000000000000000000000000000000000000000000001",
+            "0000000000000000000000000000000000000000000000000000000000000003",
+
+            "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2",
+            "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed",
+            "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+            "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
+        );
+
+        // 3) G1 coordinate not in field: x = p, y = 1
+        let g1_not_in_field_pair = concat!(
+            "30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47",
+            "0000000000000000000000000000000000000000000000000000000000000001",
+
+            "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2",
+            "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed",
+            "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+            "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
+        );
+
+        // 4) G2 coordinate not in field: x.c1 = p
+        let g2_not_in_field_pair = concat!(
+
+            "2bd3e6d0f3b142924f5ca7b49ce5b9d54c4703d7ae5648e61d02268b1a0a9fb7",
+            "21611ce0a6af85915e2f1d70300909ce2e49dfad4a4619c8390cae66cefdb204",
+
+            "30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47",
+            "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed",
+            "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+            "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
+        );
+
+        // 5) All coordinates set to modulus p 
+        let p = "30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47";
+        let all_modulus_pair = [p, p, p, p, p, p].concat();
+
+        let raw_input = [
+            invalid_g2_pair,
+            g1_not_on_curve_pair,
+            g1_not_in_field_pair,
+            g2_not_in_field_pair,
+            all_modulus_pair.as_str(),
+        ]
+        .concat();
+
+        let (success, result) = test_ecpairing_from_hex(&raw_input);
+        assert_eq!(success, U256::zero());
+        assert_eq!(result, U256::zero());
+    }
+    #[test]
+    fn ec_pairing_two_zero_pairs_true() {
+        let raw_input = concat!(
+
+            "0000000000000000000000000000000000000000000000000000000000000000",
+            "0000000000000000000000000000000000000000000000000000000000000000",
+            "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2",
+            "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed",
+            "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+            "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
+
+            "0000000000000000000000000000000000000000000000000000000000000000",
+            "0000000000000000000000000000000000000000000000000000000000000000",
+            "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2",
+            "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed",
+            "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+            "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
+        );
+
+        let (success, result) = test_ecpairing_from_hex(raw_input);
+        assert_eq!(success, U256::one());
+        assert_eq!(result, U256::one());
+    }
+
+    #[test]
+
+    fn ec_pairing_three_valid_pairs_false() {
+        let raw_input = concat!(
+
+            "2bd3e6d0f3b142924f5ca7b49ce5b9d54c4703d7ae5648e61d02268b1a0a9fb7",
+            "21611ce0a6af85915e2f1d70300909ce2e49dfad4a4619c8390cae66cefdb204",
+            "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2",
+            "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed",
+            "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+            "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
+
+            "030644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd3",
+            "15ed738c0e0a7c92e7845f96b2ae9c0a68a6a449e3538fc7ff3ebf7a5a18a2c4",
+            "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2",
+            "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed",
+            "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+            "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
+
+            "25beba7ab903d641d77e5801ca4d69a7a581359959c5d2621301dddafb145044",
+            "19ee7a5ce8338bbcf4f74c3d3ec79d3635e837cb723ee6a0fa99269e3c6d7e23",
+            "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2",
+            "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed",
+            "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+            "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
+        );
+
+        let (success, result) = test_ecpairing_from_hex(raw_input);
+        assert_eq!(success, U256::one());
+        assert_eq!(result, U256::zero());
+    }
 
     #[test]
     fn ec_add_chfast1_test() {
