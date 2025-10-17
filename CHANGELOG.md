@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.153.3](https://github.com/matter-labs/zksync-protocol/compare/v0.153.2...v0.153.3) (2025-10-17)
+
+
+### Features
+
+* Update to latest crypto dependencies ([#185](https://github.com/matter-labs/zksync-protocol/issues/185)) ([4278042](https://github.com/matter-labs/zksync-protocol/commit/4278042f08ff244771e8df91262e2f6c22e4a481))
+
 ## [0.153.2](https://github.com/matter-labs/zksync-protocol/compare/v0.153.1...v0.153.2) (2025-10-15)
 
 
