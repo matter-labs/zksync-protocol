@@ -275,9 +275,9 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 
 [[package]]
 name = "boojum"
-version = "0.32.4"
+version = "0.32.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77696e8d1a99dc6d22c114dc4b91f58227b50380b0b50f5c500dc3678baf8d1a"
+checksum = "66592f38eac1d4fb8b2717b7d89a013cafe91198cbdcac3e55808656efbe94e9"
 dependencies = [
  "arrayvec 0.7.6",
  "bincode",
@@ -793,9 +793,9 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "franklin-crypto"
-version = "0.32.4"
+version = "0.32.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9097462490ddb7c2e17b04272671da53ce86cd96c7bc41502b3069dc92e041f0"
+checksum = "f63df5b04eca0d3d57493c9f0221bdfb9f8ba97d6de5b57bd3fb6079251f9023"
 dependencies = [
  "arr_macro",
  "bit-vec",
@@ -1676,9 +1676,9 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 
 [[package]]
 name = "rescue_poseidon"
-version = "0.32.4"
+version = "0.32.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30eba5b2ed9c17177b80995f3291dba5fca8c3e937a7f0a51ba41041c43a0850"
+checksum = "a656b27f6f30d4cafcf567e2b692b582df9b8bd755ba3f93275227584233f06f"
 dependencies = [
  "addchain",
  "arrayvec 0.7.6",
@@ -1907,9 +1907,9 @@ dependencies = [
 
 [[package]]
 name = "snark_wrapper"
-version = "0.32.4"
+version = "0.32.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4945ded20a7d77d0ae2c523642012d519babaadffc357cf615d411adfaf85104"
+checksum = "9bba21b07252e7db1631b8540a04a1b9455de414893aabbb25b3b0c5840f42ee"
 dependencies = [
  "derivative",
  "rand 0.4.6",
@@ -2557,9 +2557,9 @@ dependencies = [
 
 [[package]]
 name = "zksync_bellman"
-version = "0.32.4"
+version = "0.32.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5fbd508b393cd6454b76743ae4eed05b6bf67906443ec38a646258fa8ee8e8e"
+checksum = "acbe26b8554a6d237f5b80849f02aa907afa5e5cbd968769f4447a6705664c94"
 dependencies = [
  "arrayvec 0.7.6",
  "bit-vec",
@@ -2580,9 +2580,9 @@ dependencies = [
 
 [[package]]
 name = "zksync_cs_derive"
-version = "0.32.4"
+version = "0.32.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1549ac2e66e99e61fe63e183c3a1f9c214bbef9d7ad2f7ec30e8793a69d16a5"
+checksum = "0c5084f440210f86247ff0c75806606eee9effc00382407f78c8b0cdcc742248"
 dependencies = [
  "proc-macro-error",
  "proc-macro2 1.0.94",
@@ -2592,9 +2592,9 @@ dependencies = [
 
 [[package]]
 name = "zksync_ff"
-version = "0.32.4"
+version = "0.32.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97bbd2d61ba5f4f500d8ef3a744405d5c69339f9251a015d49c4931c44b87e01"
+checksum = "b3f2aba6f5ee6c4f138eb49d419d2447bb369e7d7a6f256b31ad478795641d0a"
 dependencies = [
  "byteorder",
  "hex",
@@ -2605,9 +2605,9 @@ dependencies = [
 
 [[package]]
 name = "zksync_ff_derive"
-version = "0.32.4"
+version = "0.32.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54ce1011457d88b029532dc7523be7382fa04c15203dcc1ea6e11a71c12ef0f6"
+checksum = "4e62c7d995701bfd053958ce2050fced2013ff136bb53d350ffcac6d149a1fd3"
 dependencies = [
  "num-bigint 0.4.6",
  "num-integer",
@@ -2636,9 +2636,9 @@ dependencies = [
 
 [[package]]
 name = "zksync_pairing"
-version = "0.32.4"
+version = "0.32.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fec5322eb609764927382fdf7786a3aff4319c6f0b6aa067a1a85b4cdcb69e97"
+checksum = "e8348a287108fbb8a1b761ae66f9b344d74df444cb365f8a8259c091be708c5a"
 dependencies = [
  "byteorder",
  "cfg-if",
