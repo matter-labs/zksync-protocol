@@ -43,7 +43,7 @@ jobs:
           rustup set profile minimal
           rustup toolchain install nightly-2024-11-19
           rustup default nightly-2024-11-19
-          cargo install cargo-nextest
+          cargo install cargo-nextest --locked
       - name: zkevm_test_harness - Main test
         run: cargo nextest run --release --manifest-path crates/zkevm_test_harness/Cargo.toml --test-threads 2
       - name: Encodings test
