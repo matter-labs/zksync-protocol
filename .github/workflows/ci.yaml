@@ -21,7 +21,7 @@ jobs:
           rustup toolchain install 1.81.0
           rustup toolchain install nightly-2024-11-19
           rustup default nightly-2024-11-19
-          cargo install cargo-nextest
+          cargo install cargo-nextest --locked
       - name: Compile
         run: cargo build
 
