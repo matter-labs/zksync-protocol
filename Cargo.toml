@@ -14,16 +14,16 @@ keywords = ["blockchain", "zksync"]
 categories = ["cryptography"]
 
 [workspace.dependencies]
-circuit_definitions = { version = "=0.153.3", path = "crates/circuit_definitions" }
-circuit_encodings = { version = "=0.153.3", path = "crates/circuit_encodings" }
-circuit_sequencer_api = { version = "=0.153.3", path = "crates/circuit_sequencer_api" }
-kzg = { version = "=0.153.3", path = "crates/kzg", package = "zksync_kzg" }
-zk_evm = { version = "=0.153.3", path = "crates/zk_evm" }
-zk_evm_abstractions = { version = "=0.153.3", path = "crates/zk_evm_abstractions" }
-zkevm_circuits = { version = "=0.153.3", path = "crates/zkevm_circuits" }
-zkevm_opcode_defs = { version = "=0.153.3", path = "crates/zkevm_opcode_defs" }
-zkevm_test_harness = { version = "=0.153.3", path = "crates/zkevm_test_harness" }
-zkevm-assembly = { version = "=0.153.3", path = "crates/zkEVM-assembly" }
+circuit_definitions = { version = "=0.153.4", path = "crates/circuit_definitions" }
+circuit_encodings = { version = "=0.153.4", path = "crates/circuit_encodings" }
+circuit_sequencer_api = { version = "=0.153.4", path = "crates/circuit_sequencer_api" }
+kzg = { version = "=0.153.4", path = "crates/kzg", package = "zksync_kzg" }
+zk_evm = { version = "=0.153.4", path = "crates/zk_evm" }
+zk_evm_abstractions = { version = "=0.153.4", path = "crates/zk_evm_abstractions" }
+zkevm_circuits = { version = "=0.153.4", path = "crates/zkevm_circuits" }
+zkevm_opcode_defs = { version = "=0.153.4", path = "crates/zkevm_opcode_defs" }
+zkevm_test_harness = { version = "=0.153.4", path = "crates/zkevm_test_harness" }
+zkevm-assembly = { version = "=0.153.4", path = "crates/zkEVM-assembly" }
 
 # `zksync-crypto` workspace dependencies
 snark_wrapper = "=0.32.6"
