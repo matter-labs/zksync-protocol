@@ -5,6 +5,7 @@ use crate::zkevm_opcode_defs::definitions::far_call::*;
 use crate::zkevm_opcode_defs::INITIAL_SP_ON_FAR_CALL;
 use zk_evm_abstractions::aux::*;
 use zk_evm_abstractions::queries::LogQuery;
+use zk_evm_abstractions::zkevm_opcode_defs::{BlobSha256Format, VersionedHashLen32};
 
 use crate::zkevm_opcode_defs::bitflags::bitflags;
 
@@ -123,6 +124,7 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
         let new_base_memory_page = vm_state.new_base_memory_page_on_call();
 
         let call_to_evm_emulator;
+        let code_version_byte;
 
         // NOTE: our far-call MUST take ergs to cover storage read, but we also have a contribution
         // that depends on the actual code length, so we work with it here
@@ -174,6 +176,8 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
 
             let mut buffer = [0u8; 32];
             code_hash.to_big_endian(&mut buffer);
+
+            code_version_byte = buffer[0];
 
             let is_valid_as_bytecode_hash = ContractCodeSha256Format::is_valid(&buffer);
             let is_valid_as_blob_hash = BlobSha256Format::is_valid(&buffer);
@@ -652,14 +656,16 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
 
         // NOTE: this one decides based on what next frame will be, and not just on the formal
         // call target
+
+        let memory_stipend_userspace = if code_version_byte == BlobSha256Format::VERSION_BYTE {
+            zkevm_opcode_defs::system_params::NEW_EVM_FRAME_MEMORY_STIPEND
+        } else {
+            zkevm_opcode_defs::system_params::NEW_FRAME_MEMORY_STIPEND
+        };
         let memory_stipend = if address_is_kernel(&address_for_next) {
             zkevm_opcode_defs::system_params::NEW_KERNEL_FRAME_MEMORY_STIPEND
         } else {
-            if call_to_evm_emulator {
-                zkevm_opcode_defs::system_params::NEW_EVM_FRAME_MEMORY_STIPEND
-            } else {
-                zkevm_opcode_defs::system_params::NEW_FRAME_MEMORY_STIPEND
-            }
+            memory_stipend_userspace
         };
 
         let new_stack = CallStackEntry {
