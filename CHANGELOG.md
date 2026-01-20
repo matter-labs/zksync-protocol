@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.153.6](https://github.com/matter-labs/zksync-protocol/compare/v0.153.5...v0.153.6) (2026-01-20)
+
+
+### Features
+
+* Added additional test coverage ([#192](https://github.com/matter-labs/zksync-protocol/issues/192)) ([63087b2](https://github.com/matter-labs/zksync-protocol/commit/63087b218b164ab427442033a9f6db1ea2601ab3))
+
 ## [0.153.5](https://github.com/matter-labs/zksync-protocol/compare/v0.153.4...v0.153.5) (2025-12-16)
 
 
