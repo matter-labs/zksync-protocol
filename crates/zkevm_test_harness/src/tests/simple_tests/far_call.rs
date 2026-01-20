@@ -7,7 +7,30 @@ use crate::tests::simple_tests::asm_tests::{run_asm_based_test, run_asm_based_te
 // 64 bytes of 'extra data' - [forwarding_byte, shard_id, constructor_call, system_byte, 32 bytes ergs]
 // 64 bytes empty.
 // 128 bytes of 'fat pointer' - [length, start] [memory_page, offset]
-
+#[test_log::test]
+fn test_far_call_return_invalid_pointer() {
+    run_asm_based_test(
+        "src/tests/simple_tests/testdata/far_call/return_invalid_pointer",
+        &[65536],
+        Default::default(),
+    );
+}
+#[test_log::test]
+fn test_far_call_return_invalid_pointer_offset_gt_length() {
+    run_asm_based_test(
+        "src/tests/simple_tests/testdata/far_call/return_invalid_pointer_offset_gt_length",
+        &[65535],
+        Default::default(),
+    );
+}
+#[test_log::test]
+fn test_far_call_return_invalid_pointer_start_plus_length_overflow() {
+    run_asm_based_test(
+        "src/tests/simple_tests/testdata/far_call/return_invalid_pointer_start_plus_length_overflow",
+        &[65535],
+        Default::default(),
+    );
+}
 #[test_log::test]
 fn test_far_call_read_fat_pointer() {
     run_asm_based_test(
