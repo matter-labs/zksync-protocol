@@ -180,7 +180,7 @@ where
     // resolve some exceptions over fat pointer use and memory growth
 
     // exceptions that are specific only to return from non-local frame
-    let mut non_local_frame_exceptions = ArrayVec::<Boolean<F>, 5>::new();
+    let mut non_local_frame_exceptions = ArrayVec::<Boolean<F>, 7>::new();
 
     let forward_fat_pointer = forwarding_data.forward_fat_pointer;
     let do_not_forward_ptr = forward_fat_pointer.negated(cs);
@@ -195,6 +195,9 @@ where
     let non_pointer_expected_exception =
         Boolean::multi_and(cs, &[do_not_forward_ptr, src0.is_pointer, is_far_return]);
     non_local_frame_exceptions.push(non_pointer_expected_exception);
+
+    non_local_frame_exceptions.push(common_abi_parts.ptr_validation_data.generally_invalid);
+    non_local_frame_exceptions.push(common_abi_parts.ptr_validation_data.is_non_addressable);
 
     // we also want unidirectional movement of returndata
     // check if fat_ptr.memory_page < ctx.base_page and throw if it's the case
