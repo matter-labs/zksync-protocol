@@ -10,7 +10,10 @@ pub mod testing_wrapper;
 mod wrapper_negative_tests;
 
 #[cfg(test)]
-mod precompiles;
+pub mod precompiles;
+
+#[cfg(not(test))]
+pub mod precompiles;
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::mpsc::sync_channel;
