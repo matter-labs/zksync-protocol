@@ -10,7 +10,7 @@ CPI0_0:
 __entry:
 .main:
 
-    ; Return a fat pointer where start + length overflows, but expect no panic.
+    ; Return a fat pointer where start + length overflows.
 
     sstore r1, r1
 
