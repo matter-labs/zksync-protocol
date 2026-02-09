@@ -333,7 +333,10 @@ where
         );
 
         // decide if we should add the PREVIOUS into the queue
-        let add_to_the_queue = Boolean::multi_and(cs, &[previous_is_non_trivial, different_hash]);
+        // If current one is trivial (no-pop), we still flush the previous one.
+        let maybe_add_to_queue = different_hash.or(cs, is_trivial);
+        let add_to_the_queue =
+            Boolean::multi_and(cs, &[previous_is_non_trivial, maybe_add_to_queue]);
 
         let mut record_to_add = *previous_record;
         record_to_add.is_first = Boolean::allocated_constant(cs, true); // we use convension to be easier consistent with out of circuit part

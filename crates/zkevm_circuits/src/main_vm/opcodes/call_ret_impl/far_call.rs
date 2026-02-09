@@ -1104,7 +1104,8 @@ where
         &[is_static_call, current_callstack_entry.is_static_execution],
     );
     // if we call EVM emulator we actually reset static flag
-    let next_is_static_masked = next_is_static.mask_negated(cs, versioned_byte_is_evm_bytecode);
+    let next_is_static_masked =
+        next_is_static.mask_negated(cs, can_call_evm_emulator_without_masking);
 
     // actually parts to the new one
     new_callstack_entry.ergs_remaining = passed_ergs_if_pass;
@@ -1227,7 +1228,7 @@ where
     // - system call
     // - if EVM emulator - if original code was static
 
-    let original_call_was_static = next_is_static.mask(cs, versioned_byte_is_evm_bytecode);
+    let original_call_was_static = next_is_static.mask(cs, can_call_evm_emulator_without_masking);
     let r2_low = Num::linear_combination(
         cs,
         &[

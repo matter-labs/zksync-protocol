@@ -229,7 +229,6 @@ fn secp256r1_verify_function_inner<F: SmallField, CS: ConstraintSystem<F>>(
 
     let ((mut q_x, _q_y), is_infinity) =
         q_acc.convert_to_affine_or_default(cs, Secp256Affine::one());
-    exception_flags.push(is_infinity);
     let any_exception = Boolean::multi_or(cs, &exception_flags[..]);
 
     q_x.normalize(cs);
@@ -247,7 +246,8 @@ fn secp256r1_verify_function_inner<F: SmallField, CS: ConstraintSystem<F>>(
     q_x_mod_n.normalize(cs);
 
     let signature_equality = NonNativeFieldOverU16::equals(cs, &mut q_x_mod_n, &mut r_fe);
-    let written_value_bool = signature_equality.mask_negated(cs, any_exception);
+    let any_exception_or_infinity = Boolean::multi_or(cs, &[any_exception, is_infinity]);
+    let written_value_bool = signature_equality.mask_negated(cs, any_exception_or_infinity);
     let all_ok = any_exception.negated(cs);
 
     let mut written_value = UInt256::zero(cs);

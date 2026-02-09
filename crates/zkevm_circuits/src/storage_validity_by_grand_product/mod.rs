@@ -698,10 +698,13 @@ where
 
             // if we did only writes and rollbacks then we don't need to update
             let should_update = issue_protective_read.or(cs, should_write);
-            let not_keys_are_equal_and_should_update = not_keys_are_equal.and(cs, should_update);
-            let should_push = previous_item_is_trivial
+            // decide if we should add the PREVIOUS into the queue
+            // If current one is trivial (no-pop), we still flush the previous one.
+            let maybe_push_previous = not_keys_are_equal.or(cs, item_is_trivial);
+            let should_push_previous = previous_item_is_trivial
                 .negated(cs)
-                .and(cs, not_keys_are_equal_and_should_update);
+                .and(cs, maybe_push_previous);
+            let should_push = should_push_previous.and(cs, should_update);
 
             sorted_queue.push(cs, query, should_push);
 

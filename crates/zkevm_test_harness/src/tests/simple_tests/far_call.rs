@@ -1,7 +1,9 @@
 use asm_tests::TemplateDictionary;
 
 use super::*;
-use crate::tests::simple_tests::asm_tests::{run_asm_based_test, run_asm_based_test_template};
+use crate::tests::simple_tests::asm_tests::{
+    run_asm_based_test, run_asm_based_test_template, run_asm_based_test_with_default_aa,
+};
 
 // For far_call, the first register is holding the 'FarCallABI', which consists of:
 // 64 bytes of 'extra data' - [forwarding_byte, shard_id, constructor_call, system_byte, 32 bytes ergs]
@@ -103,5 +105,14 @@ fn test_far_call_with_decommit() {
         &contracts,
         Default::default(),
         Some(&dictionary),
+    );
+}
+
+#[test_log::test]
+fn test_far_call_blob_marker_mismatch_static_overconstraint() {
+    run_asm_based_test_with_default_aa(
+        "src/tests/simple_tests/testdata/far_call/blob_marker_mismatch_static_overconstraint",
+        &[65536, 32770],
+        Default::default(),
     );
 }
