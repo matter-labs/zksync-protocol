@@ -26,8 +26,8 @@ zkevm_test_harness = { version = "=0.153.6", path = "crates/zkevm_test_harness" 
 zkevm-assembly = { version = "=0.153.6", path = "crates/zkEVM-assembly" }
 
 # `zksync-crypto` workspace dependencies
-snark_wrapper = "=0.32.7"
+snark_wrapper = "0.32.8"
 bellman = { package = "zksync_bellman", version = "=0.32.7" }
-boojum = "=0.32.7"
+boojum = "0.32.8"
 cs_derive = { package = "zksync_cs_derive", version = "=0.32.7" }
-zksync_pairing = "=0.32.7"
+zksync_pairing = "0.32.8"
