@@ -24,10 +24,30 @@ pub fn run_asm_based_test(
     run_asm_based_test_template(test_dir, &additional_contracts, options, None);
 }
 
+pub fn run_asm_based_test_with_default_aa(
+    test_dir: &str,
+    additional_contracts_addresses: &[i32],
+    mut options: Options,
+) {
+    let default_aa =
+        compile_additional_contracts(test_dir, &vec![("default_aa".to_owned(), 0)], None)[0]
+            .clone()
+            .1;
+    options.default_aa = Some(default_aa);
+
+    let additional_contracts = additional_contracts_addresses
+        .iter()
+        .map(|address| (address.to_string(), *address))
+        .collect();
+
+    run_asm_based_test_template(test_dir, &additional_contracts, options, None);
+}
+
 pub fn run_asm_based_test_with_evm_contracts(
     test_dir: &str,
     additional_contracts_addresses: &[i32],
     additional_evm_contracts_addresses: &[i32],
+    use_custom_default_aa: bool,
     mut options: Options,
 ) {
     let evm_emulator =
@@ -35,12 +55,23 @@ pub fn run_asm_based_test_with_evm_contracts(
             .clone()
             .1;
 
+    let default_aa = if use_custom_default_aa {
+        Some(
+            compile_additional_contracts(test_dir, &vec![("default_aa".to_owned(), 0)], None)[0]
+                .clone()
+                .1,
+        )
+    } else {
+        None
+    };
+
     let other_evm_contracts = additional_evm_contracts_addresses
         .iter()
         .map(|x| Address::from_low_u64_be(*x as u64))
         .collect();
 
     options.evm_emulator = Some(evm_emulator);
+    options.default_aa = default_aa;
     options.other_evm_contracts = other_evm_contracts;
 
     let additional_contracts = additional_contracts_addresses

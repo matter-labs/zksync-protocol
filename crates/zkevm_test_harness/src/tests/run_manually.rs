@@ -197,6 +197,8 @@ pub struct Options {
     pub evm_emulator: Option<Vec<[u8; 32]>>,
     // Additional EVM "contracts" that should be deployed
     pub other_evm_contracts: Vec<H160>,
+    // Bytecode to be used as a default AA (if needed)
+    pub default_aa: Option<Vec<[u8; 32]>>,
 }
 
 impl Default for Options {
@@ -207,6 +209,7 @@ impl Default for Options {
             cycles_per_vm_snapshot: DEFAULT_CYCLES_PER_VM_SNAPSHOT,
             evm_emulator: None,
             other_evm_contracts: Default::default(),
+            default_aa: None,
         }
     }
 }
@@ -268,12 +271,23 @@ pub(crate) fn run_with_options(entry_point_bytecode: Vec<[u8; 32]>, options: Opt
         empty_code_hash
     };
 
+    let default_aa_bytecode = options.default_aa.clone();
+    let default_aa_hash = if let Some(ref default_aa_bytecode) = default_aa_bytecode {
+        let code_hash = bytecode_to_code_hash(default_aa_bytecode).unwrap();
+        U256::from_big_endian(&code_hash)
+    } else {
+        empty_code_hash
+    };
+
     let mut used_bytecodes_and_hashes = HashMap::new();
     used_bytecodes_and_hashes.extend(options.other_contracts.iter().cloned().map(|(_, code)| {
         let code_hash = bytecode_to_code_hash(&code).unwrap();
 
         (U256::from_big_endian(&code_hash), code)
     }));
+    if let Some(default_aa_bytecode) = default_aa_bytecode {
+        used_bytecodes_and_hashes.insert(default_aa_hash, default_aa_bytecode);
+    }
 
     let mut storage_impl = InMemoryCustomRefundStorage::new();
 
@@ -335,7 +349,7 @@ pub(crate) fn run_with_options(entry_point_bytecode: Vec<[u8; 32]>, options: Opt
         entry_point_bytecode,
         vec![],
         false,
-        empty_code_hash,
+        default_aa_hash,
         evm_emulator_hash,
         used_bytecodes_and_hashes,
         vec![],

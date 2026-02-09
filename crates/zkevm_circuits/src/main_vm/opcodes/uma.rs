@@ -968,10 +968,13 @@ pub(crate) fn apply_uma<
     let apply_any = Boolean::multi_and(cs, &[should_apply, no_panic]);
     let should_update_dst0 = Boolean::multi_and(cs, &[apply_any, update_dst0]);
 
+    let mut incremented_src0_register_for_write = incremented_src0_register;
+    incremented_src0_register_for_write.is_pointer = boolean_false;
+
     let dst0_value = VMRegister::conditionally_select(
         cs,
         is_write_access_and_increment,
-        &incremented_src0_register,
+        &incremented_src0_register_for_write,
         &read_value_as_register,
     );
 

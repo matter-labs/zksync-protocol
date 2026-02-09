@@ -5,7 +5,7 @@ use circuit_definitions::{
     circuit_definitions::base_layer::{
         ECAddFunctionInstanceSynthesisFunction, ECMulFunctionInstanceSynthesisFunction,
         ECPairingFunctionInstanceSynthesisFunction, ModexpFunctionInstanceSynthesisFunction,
-        ZkSyncBaseLayerCircuit,
+        Secp256r1VerifyFunctionInstanceSynthesisFunction, ZkSyncBaseLayerCircuit,
     },
     ZkSyncDefaultRoundFunction, BASE_LAYER_CAP_SIZE, BASE_LAYER_FRI_LDE_FACTOR,
 };
@@ -30,6 +30,7 @@ use circuit_encodings::{
 use zkevm_assembly::zkevm_opcode_defs::{
     PrecompileCallABI, ECADD_PRECOMPILE_ADDRESS, ECMUL_PRECOMPILE_ADDRESS,
     ECPAIRING_PRECOMPILE_ADDRESS, MODEXP_PRECOMPILE_ADDRESS, PRECOMPILE_AUX_BYTE,
+    SECP256R1_VERIFY_PRECOMPILE_ADDRESS,
 };
 use zkevm_circuits::base_structures::{
     memory_query::MEMORY_QUERY_PACKED_WIDTH, vm_state::FULL_SPONGE_QUEUE_STATE_WIDTH,
@@ -47,6 +48,9 @@ use crate::{
             ecmul::{ecmul_decompose_into_per_circuit_witness, ecmul_memory_queries},
             ecpairing::{ecpairing_decompose_into_per_circuit_witness, ecpairing_memory_queries},
             modexp::{modexp_decompose_into_per_circuit_witness, modexp_memory_queries},
+            secp256r1_verify::{
+                secp256r1_memory_queries, secp256r1_verify_decompose_into_per_circuit_witness,
+            },
             SimulatorSnapshot,
         },
         postprocessing::CircuitMaker,
@@ -689,6 +693,152 @@ fn test_modexp_using_tuple(tuple: Vec<[[u8; 32]; 3]>) -> U256 {
     writes[0].value
 }
 
+fn test_secp256r1_verify_using_tuple(tuple: Vec<[[u8; 32]; 5]>) -> (U256, U256) {
+    let mut memory = SimpleMemory::new();
+    let mut precompiles_processor = DefaultPrecompilesProcessor::<true>;
+
+    let page_number = 4u32;
+
+    memory.populate_page(vec![
+        (page_number, vec![U256::zero(); 1 << 10]),
+        (page_number + 1, vec![]),
+    ]);
+
+    let num_words_used = fill_memory(tuple, page_number, &mut memory);
+
+    let precompile_call_params = PrecompileCallABI {
+        input_memory_offset: 0,
+        input_memory_length: num_words_used as u32,
+        output_memory_offset: num_words_used as u32,
+        output_memory_length: 2,
+        memory_page_to_read: page_number,
+        memory_page_to_write: page_number,
+        precompile_interpreted_data: 0,
+    };
+    let precompile_call_params_encoded = precompile_call_params.to_u256();
+
+    let address = Address::from_low_u64_be(SECP256R1_VERIFY_PRECOMPILE_ADDRESS as u64);
+
+    let precompile_query = LogQuery {
+        timestamp: Timestamp(1u32),
+        tx_number_in_block: 0,
+        shard_id: 0,
+        aux_byte: PRECOMPILE_AUX_BYTE,
+        address,
+        key: precompile_call_params_encoded,
+        read_value: U256::zero(),
+        written_value: U256::zero(),
+        rw_flag: false,
+        rollback: false,
+        is_service: false,
+    };
+
+    let result: Option<(
+        Vec<MemoryQuery>,
+        Vec<MemoryQuery>,
+        circuit_encodings::zk_evm::abstractions::PrecompileCyclesWitness,
+    )> = precompiles_processor.execute_precompile(4, precompile_query, &mut memory);
+    let (_reads, writes, witness) = result.unwrap();
+    assert_eq!(2, writes.len());
+
+    let mut witness = match witness {
+        PrecompileCyclesWitness::Secp256r1Verify(witness) => witness,
+        _ => panic!(),
+    };
+
+    let secp256r1_witnesses = vec![(4u32, precompile_query, witness.pop().unwrap())];
+
+    let secp256r1_memory_queries = secp256r1_memory_queries(&secp256r1_witnesses);
+
+    let mut secp256r1_memory_states = vec![];
+    let mut states_accumulator2 = LastPerCircuitAccumulator::new(1);
+    let (secp256r1_simulator_snapshots, _simulator) = simulate_subqueue(
+        &secp256r1_memory_queries,
+        &mut secp256r1_memory_states,
+        &mut states_accumulator2,
+    );
+
+    let secp256r1_queries = vec![precompile_query];
+
+    let num_rounds_per_circuit = 1;
+    let round_function = ZkSyncDefaultRoundFunction::default();
+
+    let mut states_accumulator = LastPerCircuitAccumulator::new(1);
+    let mut simulator = LogQueueSimulator::empty();
+
+    let (_old_tail, state_witness) =
+        simulator.push_and_output_intermediate_data(precompile_query, &round_function);
+    states_accumulator.push(state_witness);
+
+    let demuxed_secp256r1_queue = LogQueueStates::<GoldilocksField> {
+        states_accumulator,
+        simulator,
+    };
+
+    let secp256r1_circuits_data = secp256r1_verify_decompose_into_per_circuit_witness(
+        secp256r1_memory_queries,
+        secp256r1_simulator_snapshots,
+        secp256r1_memory_states,
+        secp256r1_witnesses,
+        secp256r1_queries,
+        demuxed_secp256r1_queue,
+        num_rounds_per_circuit,
+        &round_function,
+    );
+
+    let worker = Worker::new_with_num_threads(8);
+
+    let (setup_base, setup, vk, setup_tree, vars_hint, wits_hint, finalization_hint) = {
+        let circuit = secp256r1_circuits_data[0].clone();
+
+        let mut maker = CircuitMaker::new(1, round_function.clone());
+        let basic_circuit = maker.process::<Secp256r1VerifyFunctionInstanceSynthesisFunction>(
+            circuit,
+            circuit_encodings::zkevm_circuits::scheduler::aux::BaseLayerCircuitType::Secp256r1Verify,
+        );
+        let basic_circuit = ZkSyncBaseLayerCircuit::Secp256r1Verify(basic_circuit);
+        create_base_layer_setup_data(
+            basic_circuit.clone(),
+            &worker,
+            BASE_LAYER_FRI_LDE_FACTOR,
+            BASE_LAYER_CAP_SIZE,
+        )
+    };
+    let circuits = secp256r1_circuits_data.len();
+
+    for (i, circuit) in secp256r1_circuits_data.into_iter().enumerate() {
+        let mut maker = CircuitMaker::new(1, round_function.clone());
+        let basic_circuit = maker.process::<Secp256r1VerifyFunctionInstanceSynthesisFunction>(
+            circuit,
+            circuit_encodings::zkevm_circuits::scheduler::aux::BaseLayerCircuitType::Secp256r1Verify,
+        );
+        let basic_circuit = ZkSyncBaseLayerCircuit::Secp256r1Verify(basic_circuit);
+
+        println!("Proving! {} / {}   ", i + 1, circuits);
+        let now = std::time::Instant::now();
+
+        let proof = prove_base_layer_circuit::<NoPow>(
+            basic_circuit.clone(),
+            &worker,
+            base_layer_proof_config(),
+            &setup_base,
+            &setup,
+            &setup_tree,
+            &vk,
+            &vars_hint,
+            &wits_hint,
+            &finalization_hint,
+        );
+
+        println!("Proving is DONE, taken {:?}", now.elapsed());
+
+        let is_valid = verify_base_layer_proof::<NoPow>(&basic_circuit, &proof, &vk);
+        assert!(is_valid);
+    }
+
+    (writes[0].value, writes[1].value)
+}
+
 fn test_ecpairing_from_hex(raw_input: &str) -> (U256, U256) {
     let mut input_bytes = hex::decode(raw_input).unwrap();
 
@@ -756,6 +906,21 @@ fn test_modexp_from_hex(raw_input: &str) -> U256 {
     let tuple = vec![[a, b, c]];
 
     test_modexp_using_tuple(tuple)
+}
+
+fn test_secp256r1_verify_from_hex(raw_input: &str) -> (U256, U256) {
+    let input_bytes = hex::decode(raw_input).unwrap();
+    assert_eq!(input_bytes.len(), 32 * 5, "secp256r1 input must be 5 words");
+
+    let digest: [u8; 32] = input_bytes[0..32].try_into().unwrap();
+    let r: [u8; 32] = input_bytes[32..64].try_into().unwrap();
+    let s: [u8; 32] = input_bytes[64..96].try_into().unwrap();
+    let pk_x: [u8; 32] = input_bytes[96..128].try_into().unwrap();
+    let pk_y: [u8; 32] = input_bytes[128..160].try_into().unwrap();
+
+    let tuple = vec![[digest, r, s, pk_x, pk_y]];
+
+    test_secp256r1_verify_using_tuple(tuple)
 }
 #[cfg(test)]
 pub mod tests {
@@ -1398,6 +1563,101 @@ pub mod tests {
         let raw_input = "30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd4730644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd4730644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd4730644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd4730644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd4730644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
 
         let (success, result) = test_ecpairing_from_hex(raw_input);
+        assert_eq!(success, U256::zero());
+        assert_eq!(result, U256::zero());
+    }
+
+    #[test]
+    fn secp256r1_verify_valid_signature() {
+        let raw_input = "3fec5769b5cf4e310a7d150508e82fb8e3eda1c2c94c61492d3bd8aea99e06c9\
+                         e22466e928fdccef0de49e3503d2657d00494a00e764fd437bdafa05f5922b1f\
+                         bbb77c6817ccf50748419477e843d5bac67e6a70e97dde5a57e0c983b777e1ad\
+                         31a80482dadf89de6302b1988c82c29544c9c07bb910596158f6062517eb089a\
+                         2f54c9a0f348752950094d3228d3b940258c75fe2a413cb70baa21dc2e352fc5";
+
+        let (success, result) = test_secp256r1_verify_from_hex(raw_input);
+        assert_eq!(success, U256::one());
+        assert_eq!(result, U256::one());
+    }
+
+    #[test]
+    fn secp256r1_verify_r_at_infinity() {
+        // R = O should be treated as an invalid signature (ok=0, verified=0).
+        let raw_input = "0000000000000000000000000000000000000000000000000000000000000001\
+                         0000000000000000000000000000000000000000000000000000000000000001\
+                         0000000000000000000000000000000000000000000000000000000000000001\
+                         6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296\
+                         b01cbd1c01e58065711814b583f061e9d431cca994cea1313449bf97c840ae0a";
+
+        let (success, result) = test_secp256r1_verify_from_hex(raw_input);
+        assert_eq!(success, U256::one());
+        assert_eq!(result, U256::zero());
+    }
+
+    #[test]
+    fn secp256r1_verify_rejects_zero_r() {
+        let raw_input = "0000000000000000000000000000000000000000000000000000000000000001\
+                         0000000000000000000000000000000000000000000000000000000000000000\
+                         0000000000000000000000000000000000000000000000000000000000000001\
+                         31a80482dadf89de6302b1988c82c29544c9c07bb910596158f6062517eb089a\
+                         2f54c9a0f348752950094d3228d3b940258c75fe2a413cb70baa21dc2e352fc5";
+
+        let (success, result) = test_secp256r1_verify_from_hex(raw_input);
+        assert_eq!(success, U256::zero());
+        assert_eq!(result, U256::zero());
+    }
+
+    #[test]
+    fn secp256r1_verify_rejects_zero_s() {
+        let raw_input = "0000000000000000000000000000000000000000000000000000000000000001\
+                         0000000000000000000000000000000000000000000000000000000000000001\
+                         0000000000000000000000000000000000000000000000000000000000000000\
+                         31a80482dadf89de6302b1988c82c29544c9c07bb910596158f6062517eb089a\
+                         2f54c9a0f348752950094d3228d3b940258c75fe2a413cb70baa21dc2e352fc5";
+
+        let (success, result) = test_secp256r1_verify_from_hex(raw_input);
+        assert_eq!(success, U256::zero());
+        assert_eq!(result, U256::zero());
+    }
+
+    #[test]
+    fn secp256r1_verify_rejects_r_out_of_range() {
+        // r = n order is out of range.
+        let raw_input = "0000000000000000000000000000000000000000000000000000000000000001\
+                         ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551\
+                         0000000000000000000000000000000000000000000000000000000000000001\
+                         31a80482dadf89de6302b1988c82c29544c9c07bb910596158f6062517eb089a\
+                         2f54c9a0f348752950094d3228d3b940258c75fe2a413cb70baa21dc2e352fc5";
+
+        let (success, result) = test_secp256r1_verify_from_hex(raw_input);
+        assert_eq!(success, U256::zero());
+        assert_eq!(result, U256::zero());
+    }
+
+    #[test]
+    fn secp256r1_verify_rejects_pubkey_x_out_of_range() {
+        // x = p modulus is out of range.
+        let raw_input = "0000000000000000000000000000000000000000000000000000000000000001\
+                         0000000000000000000000000000000000000000000000000000000000000001\
+                         0000000000000000000000000000000000000000000000000000000000000001\
+                         ffffffff00000001000000000000000000000000ffffffffffffffffffffffff\
+                         2f54c9a0f348752950094d3228d3b940258c75fe2a413cb70baa21dc2e352fc5";
+
+        let (success, result) = test_secp256r1_verify_from_hex(raw_input);
+        assert_eq!(success, U256::zero());
+        assert_eq!(result, U256::zero());
+    }
+
+    #[test]
+    fn secp256r1_verify_rejects_pubkey_y_out_of_range() {
+        // y = p modulus is out of range.
+        let raw_input = "0000000000000000000000000000000000000000000000000000000000000001\
+                         0000000000000000000000000000000000000000000000000000000000000001\
+                         0000000000000000000000000000000000000000000000000000000000000001\
+                         31a80482dadf89de6302b1988c82c29544c9c07bb910596158f6062517eb089a\
+                         ffffffff00000001000000000000000000000000ffffffffffffffffffffffff";
+
+        let (success, result) = test_secp256r1_verify_from_hex(raw_input);
         assert_eq!(success, U256::zero());
         assert_eq!(result, U256::zero());
     }

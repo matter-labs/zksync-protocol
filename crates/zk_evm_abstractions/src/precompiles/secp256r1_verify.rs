@@ -306,3 +306,28 @@ pub fn secp256r1_verify_function<M: Memory, const B: bool>(
     let mut processor = Secp256r1VerifyPrecompile::<B>;
     processor.execute_precompile(monotonic_cycle_counter, precompile_call_params, memory)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::secp256r1_verify_inner;
+
+    fn hex_to_32(hex_str: &str) -> [u8; 32] {
+        let bytes = hex::decode(hex_str).expect("hex decode should succeed");
+        bytes
+            .as_slice()
+            .try_into()
+            .expect("hex string must be 32 bytes")
+    }
+
+    #[test]
+    fn secp256r1_r_at_infinity_vector() {
+        let digest = hex_to_32("0000000000000000000000000000000000000000000000000000000000000001");
+        let r = hex_to_32("0000000000000000000000000000000000000000000000000000000000000001");
+        let s = hex_to_32("0000000000000000000000000000000000000000000000000000000000000001");
+        let pk_x = hex_to_32("6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296");
+        let pk_y = hex_to_32("b01cbd1c01e58065711814b583f061e9d431cca994cea1313449bf97c840ae0a");
+
+        let result = secp256r1_verify_inner(&digest, &r, &s, &pk_x, &pk_y);
+        assert_eq!(result.unwrap(), false);
+    }
+}
