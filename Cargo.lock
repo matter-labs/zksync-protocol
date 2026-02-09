@@ -275,9 +275,9 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 
 [[package]]
 name = "boojum"
-version = "0.32.7"
+version = "0.32.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a9451ef4e943f896bb130a87c465991f04240126704844f17151d3b55bb723e"
+checksum = "5a4ba4aa5b1f31d3a81e1ae18fedb1769a7eb633d15dcc312a77bac34207a94d"
 dependencies = [
  "arrayvec 0.7.6",
  "bincode",
@@ -793,9 +793,9 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "franklin-crypto"
-version = "0.32.7"
+version = "0.32.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e0084610047f6d1a5d253195fcc8840f84f67c10ae636929d92571499b48704"
+checksum = "65bdc3f3283c48615ecdf7f38413d84713015d8497f2842429ca5ed8f65c9cc7"
 dependencies = [
  "arr_macro",
  "bit-vec",
@@ -814,7 +814,9 @@ dependencies = [
  "num-derive",
  "num-integer",
  "num-traits",
- "rand 0.4.6",
+ "rand 0.8.5",
+ "rand_chacha",
+ "rand_xorshift",
  "serde",
  "sha2 0.9.9",
  "sha3 0.9.1",
@@ -1602,6 +1604,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rand_xorshift"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d25bf25ec5ae4a3f1b92f929810509a2f53d7dca2f50b794ff57e3face536c8f"
+dependencies = [
+ "rand_core 0.6.4",
+]
+
+[[package]]
 name = "rayon"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1676,9 +1687,9 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 
 [[package]]
 name = "rescue_poseidon"
-version = "0.32.7"
+version = "0.32.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0dce4793a38d6121e4369034380ba73b85d5d97ee222e4a4b89f6974ca9d63ac"
+checksum = "3cef3422842719b583bcdcd4b158b330ba25639215627b6d7fdde4035580e78c"
 dependencies = [
  "addchain",
  "arrayvec 0.7.6",
@@ -1692,7 +1703,9 @@ dependencies = [
  "num-integer",
  "num-iter",
  "num-traits",
- "rand 0.4.6",
+ "rand 0.8.5",
+ "rand_chacha",
+ "rand_xorshift",
  "serde",
  "sha3 0.9.1",
  "smallvec",
@@ -1907,12 +1920,12 @@ dependencies = [
 
 [[package]]
 name = "snark_wrapper"
-version = "0.32.7"
+version = "0.32.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e830a05f5030acbfe920f3bd7a22536c69d7bc209a00aa2044152888aad90f4"
+checksum = "d4be50579fd3675b0b1941728178c2be36de7a5a9feda8a74f0f4c8e451dda2e"
 dependencies = [
  "derivative",
- "rand 0.4.6",
+ "rand 0.8.5",
  "rescue_poseidon",
  "serde",
 ]
@@ -2557,9 +2570,9 @@ dependencies = [
 
 [[package]]
 name = "zksync_bellman"
-version = "0.32.7"
+version = "0.32.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88971e7c13651691d9490514c679662f4f854ff927edc73f8175d46f15a21bc4"
+checksum = "cfae85e0c96c5749f4f0e7f4c57176de75fa8c39a202cbfd5b6a1f84b38cb544"
 dependencies = [
  "arrayvec 0.7.6",
  "bit-vec",
@@ -2571,7 +2584,9 @@ dependencies = [
  "hex",
  "lazy_static",
  "num_cpus",
- "rand 0.4.6",
+ "rand 0.8.5",
+ "rand_chacha",
+ "rand_xorshift",
  "serde",
  "smallvec",
  "tiny-keccak 1.5.0",
@@ -2580,9 +2595,9 @@ dependencies = [
 
 [[package]]
 name = "zksync_cs_derive"
-version = "0.32.7"
+version = "0.32.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "614d642be94041843e7eec6065a7750e9000d2dfd0846fc676a6fa6720e3c99a"
+checksum = "cb6e6bb19b4a45d334c98c87a36fc8f611bd45c65c10d32171b368eb43fa7299"
 dependencies = [
  "proc-macro-error",
  "proc-macro2 1.0.94",
@@ -2592,22 +2607,23 @@ dependencies = [
 
 [[package]]
 name = "zksync_ff"
-version = "0.32.7"
+version = "0.32.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8eb215ae18e72c3863d1d0ed5b91f343514bcc157f57bd4e9745d3010ba821a"
+checksum = "5343dc379d3d77f69a45d6f53bd2d9e9f055c1672dbebc71009e5821e16b2c13"
 dependencies = [
  "byteorder",
  "hex",
- "rand 0.4.6",
+ "rand 0.8.5",
+ "rand_xorshift",
  "serde",
  "zksync_ff_derive",
 ]
 
 [[package]]
 name = "zksync_ff_derive"
-version = "0.32.7"
+version = "0.32.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e857f7979f5d1907be72d1eb8436a321afbea3560d2c146596c28712e906e025"
+checksum = "809bd7ea50f788bc9748c999e09a03f98dfd8bf9ffe2563298a22baaa6d22521"
 dependencies = [
  "num-bigint 0.4.6",
  "num-integer",
@@ -2636,13 +2652,14 @@ dependencies = [
 
 [[package]]
 name = "zksync_pairing"
-version = "0.32.7"
+version = "0.32.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebfc9799afad1eb1fbed1ee5434dd448a604ed7c6dc00c0032059dd47d4bb0a9"
+checksum = "b48d90b5bc243ea4678f9779de111abfef7362a3192597f6daa85bb07c9b36e7"
 dependencies = [
  "byteorder",
  "cfg-if",
- "rand 0.4.6",
+ "rand 0.8.5",
+ "rand_xorshift",
  "serde",
  "zksync_ff",
 ]
