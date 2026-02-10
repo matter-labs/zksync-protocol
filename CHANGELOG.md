@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.153.7](https://github.com/matter-labs/zksync-protocol/compare/v0.153.6...v0.153.7) (2026-02-10)
+
+
+### Performance Improvements
+
+* A code change that improves performance ([#194](https://github.com/matter-labs/zksync-protocol/issues/194)) ([5b12c9f](https://github.com/matter-labs/zksync-protocol/commit/5b12c9fe684ad677962c5c28570b45008c09823f))
+* Update crypto deps ([#197](https://github.com/matter-labs/zksync-protocol/issues/197)) ([76db1c2](https://github.com/matter-labs/zksync-protocol/commit/76db1c2e5d2598eef4a50c9725cab6e69c73a5c9))
+
 ## [0.153.6](https://github.com/matter-labs/zksync-protocol/compare/v0.153.5...v0.153.6) (2026-01-20)
 
 
