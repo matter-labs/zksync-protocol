@@ -4,6 +4,7 @@ use boojum::config::CSConfig;
 use boojum::config::CSWitnessEvaluationConfig;
 use boojum::cs::traits::cs::DstBuffer;
 use boojum::pairing::CurveAffine;
+use boojum::pairing::Rand;
 use boojum::{
     cs::Place,
     gadgets::{non_native_field::traits::NonNativeField, traits::witnessable::CSWitnessable},
@@ -15,10 +16,8 @@ use boojum::{
     },
 };
 use itertools::izip;
-use rand::Rand;
 use rand::Rng;
 use rand::SeedableRng;
-use rand::XorShiftRng;
 use std::iter;
 
 pub const NUM_PAIRINGS_IN_MULTIPAIRING: usize = 1;
@@ -1107,7 +1106,7 @@ impl Bn256HardPartMethod {
     }
 
     fn get_hard_part_generator() -> Fq12 {
-        let mut rng = XorShiftRng::from_seed([42, 0, 0, 0]);
+        let mut rng = rand::rngs::StdRng::seed_from_u64(42);
 
         let chains = [
             Bn256HardPartMethod::devegili_method(),
@@ -1710,7 +1709,7 @@ mod tests {
         let params = RnsParams::create();
         let params = std::sync::Arc::new(params);
 
-        let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
+        let mut rng = rand::rngs::StdRng::seed_from_u64(0x5dbe62598d313d76);
         // let mut rng = rand::thread_rng();
         let mut pairs = Vec::new();
         let mut q1_s_for_wit = Vec::new();
@@ -1824,7 +1823,7 @@ mod tests {
         let params = RnsParams::create();
         let params = std::sync::Arc::new(params);
 
-        let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
+        let mut rng = rand::rngs::StdRng::seed_from_u64(0x5dbe62598d313d76);
         let p = G1::rand(&mut rng);
         let q = G2::rand(&mut rng);
         let p_affine = p.into_affine();
@@ -1873,7 +1872,7 @@ mod tests {
 
         let params = std::sync::Arc::new(RnsParams::create());
 
-        let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
+        let mut rng = rand::rngs::StdRng::seed_from_u64(0x5dbe62598d313d76);
         let p = G1::rand(&mut rng);
         let q = G2::rand(&mut rng);
 
