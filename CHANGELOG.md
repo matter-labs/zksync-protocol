@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.153.8](https://github.com/matter-labs/zksync-protocol/compare/v0.153.7...v0.153.8) (2026-02-11)
+
+
+### Features
+
+* Revert Update crypto deps ([#200](https://github.com/matter-labs/zksync-protocol/issues/200)) ([1f426ab](https://github.com/matter-labs/zksync-protocol/commit/1f426ababbe8479c5db10f4f2e41b9674f7a6def))
+
+
+### Bug Fixes
+
+* **crypto:** Update dependencies ([#202](https://github.com/matter-labs/zksync-protocol/issues/202)) ([4ef4835](https://github.com/matter-labs/zksync-protocol/commit/4ef48353929556a009ff56551f709f91f52c7612))
+
 ## [0.153.7](https://github.com/matter-labs/zksync-protocol/compare/v0.153.6...v0.153.7) (2026-02-10)
 
 
