@@ -23,7 +23,7 @@ kzg.workspace = true
 zkevm-assembly.workspace = true
 
 # "External" dependencies
-rand = "0.8"
+rand = "0.4"
 rayon = "1.10"
 derivative = "2.2"
 hex = "0.4"
@@ -41,7 +41,7 @@ regex = "1.11.1"
 ethabi = "18.0.0"
 
 [dev-dependencies]
-rand = "0.8"
+rand = "0.4"
 indicatif = "0.16"
 
 [features]
