@@ -431,7 +431,7 @@ fn reduce(repr: [u64; 4], modulus: [u64; 4]) -> [u64; 4] {
 #[cfg(test)]
 mod local_tests {
     use super::*;
-    use boojum::pairing::ff::Rand;
+    use rand::Rand;
 
     const SETUP_JSON: &str = "src/trusted_setup.json";
 

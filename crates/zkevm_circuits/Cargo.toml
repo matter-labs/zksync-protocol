@@ -19,7 +19,7 @@ boojum.workspace = true
 # "External" dependencies
 derivative = "2"
 serde = { version = "1", features = ["derive"] }
-rand = "0.8"
+rand = "0.4"
 smallvec = { version = "1.13", features = [
     "const_generics",
     "const_new",
@@ -27,6 +27,7 @@ smallvec = { version = "1.13", features = [
 ] }
 arrayvec = "0.7"
 itertools = "0.10"
+rand_new = { package = "rand", version = "0.8" }
 hex = "0.4"
 seq-macro = "0.3"
 lazy_static = "1.5.0"
