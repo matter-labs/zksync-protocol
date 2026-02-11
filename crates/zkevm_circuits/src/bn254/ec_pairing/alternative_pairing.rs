@@ -1106,7 +1106,7 @@ impl Bn256HardPartMethod {
     }
 
     fn get_hard_part_generator() -> Fq12 {
-        let mut rng = rand::rngs::StdRng::seed_from_u64(42);
+        let mut rng = boojum::pairing::ff::rand::XorShiftRng::from_seed([42, 0, 0, 0]);
 
         let chains = [
             Bn256HardPartMethod::devegili_method(),
