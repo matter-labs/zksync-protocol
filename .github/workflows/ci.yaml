@@ -36,7 +36,7 @@ jobs:
   test:
     name: cargo test
     if: ${{ !contains(github.head_ref, 'release-please--branches') }}
-    runs-on: matterlabs-ci-runner-highmem
+    runs-on: matterlabs-ci-runner-high-performance
 #    needs: build
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -49,10 +49,8 @@ jobs:
           rustup toolchain install nightly-2024-11-19
           rustup default nightly-2024-11-19
           cargo install cargo-nextest@0.9.108 --locked
-      - name: Run tests
-        run: cargo nextest run --workspace --release
       - name: zkevm_test_harness - Main test
-        run: cargo nextest run --release --manifest-path crates/zkevm_test_harness/Cargo.toml
+        run: cargo nextest run --release --manifest-path crates/zkevm_test_harness/Cargo.toml --test-threads 2
       - name: Encodings test
         run: cargo nextest run --release --manifest-path crates/circuit_encodings/Cargo.toml
       - name: Api tests
