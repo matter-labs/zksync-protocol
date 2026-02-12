@@ -1,4 +1,5 @@
 name: "Rust CI"
+
 on:
   pull_request:
 
@@ -9,9 +10,9 @@ concurrency:
 jobs:
   build:
     name: cargo build
-    runs-on: [ubuntu-24.04-github-hosted-32core]
+    runs-on: matterlabs-ci-runner-high-performance
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           rustflags: ""
@@ -31,9 +32,9 @@ jobs:
 
   test:
     name: cargo test
-    runs-on: [ubuntu-24.04-github-hosted-32core]
+    if: ${{ !contains(github.head_ref, 'release-please--branches') }}
+    runs-on: matterlabs-ci-runner-high-performance
     needs: build
-    if: !contains(github.head_ref, 'release-please--branches')
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -70,9 +71,31 @@ jobs:
     name: cargo fmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           components: rustfmt
       - name: Rustfmt Check
         uses: actions-rust-lang/rustfmt@v1
+
+
+  # Mandatory CI status check
+  ci-success:
+    name: Github Status Check
+    runs-on: ubuntu-latest
+    if: always() && !cancelled()
+    needs:
+      [
+        build,
+        test,
+        formatting,
+      ]
+    steps:
+      - name: Status
+        run: |
+          # This will check all jobs status in the `needs` list, and fail job if one is failed.
+          # Since we split prover and core to different flows, this job will be only as Required Status Check in the Pull Request.
+          if [[ ${{ contains(join(needs.*.result, ','), 'failure') }} == "true" ]]; then
+            echo "Intentionally failing to block PR from merging"
+            exit 1
+          fi
