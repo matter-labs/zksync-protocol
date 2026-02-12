@@ -4,7 +4,7 @@ use std::path::Path;
 use anyhow::{bail, Context, Result};
 use tracing::{error, info};
 
-use crate::artifacts::{planned_base_and_recursive_artifacts, FileKind};
+use crate::artifacts::{planned_key_artifacts, FileKind};
 use crate::file_io::read_json;
 use crate::generation::{generate_data_source, validate_jobs, write_era_compatible_layout};
 
@@ -17,7 +17,7 @@ pub struct ComparisonSummary {
 pub fn run_compare(reference_keys_dir: &Path, generated_dir: &Path, jobs: usize) -> Result<()> {
     validate_jobs(jobs)?;
 
-    info!("Generating base and recursive keys for comparison");
+    info!("Generating keys for comparison");
     info!("jobs={jobs}");
     info!("reference={}", reference_keys_dir.display());
     info!("generated={}", generated_dir.display());
@@ -45,7 +45,7 @@ pub fn compare_key_folders(
 ) -> Result<ComparisonSummary> {
     let mut summary = ComparisonSummary::default();
 
-    for artifact in planned_base_and_recursive_artifacts() {
+    for artifact in planned_key_artifacts() {
         summary.checked += 1;
 
         let reference_path = reference_keys_dir.join(&artifact.file_name);

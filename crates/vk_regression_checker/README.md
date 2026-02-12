@@ -7,7 +7,7 @@ in this repository (or `zksync-crypto`) has caused VKs to change, which always s
 intentional action.
 
 It can:
-- generate a fresh set of base-layer and recursive-layer verification keys and finalization hints;
+- generate a fresh set of base-layer, recursive-layer, compression-layer, and compression-wrapper verification keys and finalization hints;
 - compare freshly generated artifacts against a reference key directory;
 - write generated artifacts to disk so you can inspect mismatches manually.
 

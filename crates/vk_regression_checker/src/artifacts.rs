@@ -1,6 +1,9 @@
 use circuit_definitions::circuit_definitions::recursion_layer::ZkSyncRecursionLayerStorageType;
 use circuit_definitions::zkevm_circuits::scheduler::aux::BaseLayerCircuitType;
 
+pub const COMPRESSION_CIRCUIT_TYPES: [u8; 4] = [1, 2, 3, 4];
+pub const COMPRESSION_FOR_WRAPPER_CIRCUIT_TYPES: [u8; 2] = [1, 5];
+
 #[derive(Debug, Clone, Copy)]
 pub enum FileKind {
     Json,
@@ -13,7 +16,7 @@ pub struct KeyArtifact {
     pub kind: FileKind,
 }
 
-pub fn planned_base_and_recursive_artifacts() -> Vec<KeyArtifact> {
+pub fn planned_key_artifacts() -> Vec<KeyArtifact> {
     let mut artifacts = Vec::new();
 
     for basic_circuit_type in BaseLayerCircuitType::as_iter_u8() {
@@ -65,6 +68,31 @@ pub fn planned_base_and_recursive_artifacts() -> Vec<KeyArtifact> {
         },
     ]);
 
-    // TODO: Extend this list with compression/wrapper/snark artifacts.
+    for circuit_type in COMPRESSION_CIRCUIT_TYPES {
+        artifacts.push(KeyArtifact {
+            file_name: format!("verification_compression_{}_key.json", circuit_type),
+            kind: FileKind::Json,
+        });
+        artifacts.push(KeyArtifact {
+            file_name: format!("finalization_hints_compression_{}.bin", circuit_type),
+            kind: FileKind::Binary,
+        });
+    }
+
+    for circuit_type in COMPRESSION_FOR_WRAPPER_CIRCUIT_TYPES {
+        artifacts.push(KeyArtifact {
+            file_name: format!("verification_compression_wrapper_{}_key.json", circuit_type),
+            kind: FileKind::Json,
+        });
+        artifacts.push(KeyArtifact {
+            file_name: format!(
+                "finalization_hints_compression_wrapper_{}.bin",
+                circuit_type
+            ),
+            kind: FileKind::Binary,
+        });
+    }
+
+    // TODO: Extend this list with snark and commitment artifacts.
     artifacts
 }
