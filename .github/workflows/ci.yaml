@@ -49,26 +49,28 @@ jobs:
           rustup toolchain install nightly-2024-11-19
           rustup default nightly-2024-11-19
           cargo install cargo-nextest@0.9.108 --locked
-      - name: zkevm_test_harness - Main test
-        run: cargo nextest run --release --manifest-path crates/zkevm_test_harness/Cargo.toml --test-threads 2
-      - name: Encodings test
-        run: cargo nextest run --release --manifest-path crates/circuit_encodings/Cargo.toml
-      - name: Api tests
-        run: cargo nextest run --release --manifest-path crates/circuit_sequencer_api/Cargo.toml
-      - name: Definitions test
-        run: cargo nextest run --release --no-tests=pass --manifest-path crates/circuit_definitions/Cargo.toml
-      - name: Kzg tests
-        run: cargo nextest run --release --manifest-path crates/kzg/Cargo.toml
-      - name: Circuit tests
-        run: cargo nextest run --release --manifest-path crates/zkevm_circuits/Cargo.toml --test-threads 2
-      - name: ZKEVM tests
-        run: cargo nextest run --release --manifest-path crates/zk_evm/Cargo.toml
-      - name: ZKEVM abstractions tests
-        run: cargo nextest run --release --manifest-path crates/zk_evm_abstractions/Cargo.toml
-      - name: ZKEVM assembly tests
-        run: cargo nextest run --release --manifest-path crates/zkEVM-assembly/Cargo.toml
-      - name: ZKEVM opcode
-        run: cargo nextest run --release --manifest-path crates/zkevm_opcode_defs/Cargo.toml
+      - name: Run tests
+        run: cargo nextest run --workspace --release
+#      - name: zkevm_test_harness - Main test
+#        run: cargo nextest run --release --manifest-path crates/zkevm_test_harness/Cargo.toml --test-threads 2
+#      - name: Encodings test
+#        run: cargo nextest run --release --manifest-path crates/circuit_encodings/Cargo.toml
+#      - name: Api tests
+#        run: cargo nextest run --release --manifest-path crates/circuit_sequencer_api/Cargo.toml
+#      - name: Definitions test
+#        run: cargo nextest run --release --no-tests=pass --manifest-path crates/circuit_definitions/Cargo.toml
+#      - name: Kzg tests
+#        run: cargo nextest run --release --manifest-path crates/kzg/Cargo.toml
+#      - name: Circuit tests
+#        run: cargo nextest run --release --manifest-path crates/zkevm_circuits/Cargo.toml --test-threads 2
+#      - name: ZKEVM tests
+#        run: cargo nextest run --release --manifest-path crates/zk_evm/Cargo.toml
+#      - name: ZKEVM abstractions tests
+#        run: cargo nextest run --release --manifest-path crates/zk_evm_abstractions/Cargo.toml
+#      - name: ZKEVM assembly tests
+#        run: cargo nextest run --release --manifest-path crates/zkEVM-assembly/Cargo.toml
+#      - name: ZKEVM opcode
+#        run: cargo nextest run --release --manifest-path crates/zkevm_opcode_defs/Cargo.toml
 
   formatting:
     name: cargo fmt
