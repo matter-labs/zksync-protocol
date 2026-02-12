@@ -75,7 +75,7 @@ pub fn planned_key_artifacts() -> Vec<KeyArtifact> {
         });
         artifacts.push(KeyArtifact {
             file_name: format!("finalization_hints_compression_{}.bin", circuit_type),
-            kind: FileKind::Binary,
+            kind: FileKind::Json,
         });
     }
 
@@ -89,7 +89,7 @@ pub fn planned_key_artifacts() -> Vec<KeyArtifact> {
                 "finalization_hints_compression_wrapper_{}.bin",
                 circuit_type
             ),
-            kind: FileKind::Binary,
+            kind: FileKind::Json,
         });
     }
 

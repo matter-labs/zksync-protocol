@@ -198,7 +198,8 @@ pub fn write_era_compatible_layout(source: &InMemoryDataSource, keys_dir: &Path)
             format!("while attempting to load compression finalization hints {circuit_type}")
         })?
         .into_inner();
-        write_bin(
+        // zksync-era stores compression finalization hints as JSON despite the .bin extension.
+        write_json(
             &keys_dir.join(format!(
                 "finalization_hints_compression_{}.bin",
                 circuit_type
@@ -234,7 +235,8 @@ pub fn write_era_compatible_layout(source: &InMemoryDataSource, keys_dir: &Path)
             },
         )?
         .into_inner();
-        write_bin(
+        // zksync-era stores compression-wrapper finalization hints as JSON despite the .bin extension.
+        write_json(
             &keys_dir.join(format!(
                 "finalization_hints_compression_wrapper_{}.bin",
                 circuit_type
