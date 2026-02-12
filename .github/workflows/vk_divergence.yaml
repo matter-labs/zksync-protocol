@@ -1,0 +1,64 @@
+name: VK divergence check
+
+on:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-vk-divergence:
+    name: check VK divergence
+    runs-on: [ubuntu-24.04-github-hosted-32core]
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          rustflags: ""
+
+      - name: Setup rust
+        run: |
+          rustup set profile minimal
+          rustup toolchain install nightly-2024-11-19
+          rustup default nightly-2024-11-19
+
+      - name: Build vk_regression_checker
+        run: cargo build -p vk_regression_checker --release
+
+      - name: Compare generated keys with reference
+        id: vk_check
+        continue-on-error: true
+        run: |
+          ./target/release/vk_regression_checker compare \
+            --keys-dir crates/vk_regression_checker/reference \
+            --generated-dir generated/vk_regression_checker \
+            --jobs 1
+
+      - name: Post sticky comment for VK mismatch
+        if: always() && (steps.vk_check.outcome == 'failure')
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: vk-divergence-error
+          message: |
+            VKs do not match expected values.
+
+            If this is expected, update the keys in `crates/vk_regression_checker/reference/`.
+            If this is not expected, please fix the issue.
+
+      - name: Clear sticky comment when keys match
+        if: always() && (steps.vk_check.outcome == 'success')
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: vk-divergence-error
+          delete: true
+
+      - name: Fail job on VK mismatch
+        if: always() && (steps.vk_check.outcome == 'failure')
+        run: |
+          echo "Verification keys diverged from reference set"
+          exit 1
