@@ -36,7 +36,7 @@ jobs:
   test:
     name: cargo test
     if: ${{ !contains(github.head_ref, 'release-please--branches') }}
-    runs-on: matterlabs-ci-runner-high-performance
+    runs-on: matterlabs-ci-runner-highmem
     needs: build
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
