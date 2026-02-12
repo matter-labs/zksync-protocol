@@ -11,33 +11,33 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    name: cargo build
-    runs-on: matterlabs-ci-runner-high-performance
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
-        with:
-          rustflags: ""
-      - name: Setup rust
-        run: |
-          rustup set profile minimal
-          rustup toolchain install 1.81.0
-          rustup toolchain install nightly-2024-11-19
-          rustup default nightly-2024-11-19
-          cargo install cargo-nextest@0.9.108 --locked
-      - name: Compile
-        run: cargo build
-
-      # `circuit_sequencer_api` *MUST* be compilable with stable.
-      - name: Compile circuit_sequencer_api on stable
-        run: cargo +1.81.0 build -p circuit_sequencer_api
+#  build:
+#    name: cargo build
+#    runs-on: matterlabs-ci-runner-high-performance
+#    steps:
+#      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+#      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
+#        with:
+#          rustflags: ""
+#      - name: Setup rust
+#        run: |
+#          rustup set profile minimal
+#          rustup toolchain install 1.81.0
+#          rustup toolchain install nightly-2024-11-19
+#          rustup default nightly-2024-11-19
+#          cargo install cargo-nextest@0.9.108 --locked
+#      - name: Compile
+#        run: cargo build
+#
+#      # `circuit_sequencer_api` *MUST* be compilable with stable.
+#      - name: Compile circuit_sequencer_api on stable
+#        run: cargo +1.81.0 build -p circuit_sequencer_api
 
   test:
     name: cargo test
     if: ${{ !contains(github.head_ref, 'release-please--branches') }}
     runs-on: matterlabs-ci-runner-highmem
-    needs: build
+#    needs: build
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
@@ -51,26 +51,26 @@ jobs:
           cargo install cargo-nextest@0.9.108 --locked
       - name: Run tests
         run: cargo nextest run --workspace --release
-#      - name: zkevm_test_harness - Main test
-#        run: cargo nextest run --release --manifest-path crates/zkevm_test_harness/Cargo.toml --test-threads 2
-#      - name: Encodings test
-#        run: cargo nextest run --release --manifest-path crates/circuit_encodings/Cargo.toml
-#      - name: Api tests
-#        run: cargo nextest run --release --manifest-path crates/circuit_sequencer_api/Cargo.toml
-#      - name: Definitions test
-#        run: cargo nextest run --release --no-tests=pass --manifest-path crates/circuit_definitions/Cargo.toml
-#      - name: Kzg tests
-#        run: cargo nextest run --release --manifest-path crates/kzg/Cargo.toml
-#      - name: Circuit tests
-#        run: cargo nextest run --release --manifest-path crates/zkevm_circuits/Cargo.toml --test-threads 2
-#      - name: ZKEVM tests
-#        run: cargo nextest run --release --manifest-path crates/zk_evm/Cargo.toml
-#      - name: ZKEVM abstractions tests
-#        run: cargo nextest run --release --manifest-path crates/zk_evm_abstractions/Cargo.toml
-#      - name: ZKEVM assembly tests
-#        run: cargo nextest run --release --manifest-path crates/zkEVM-assembly/Cargo.toml
-#      - name: ZKEVM opcode
-#        run: cargo nextest run --release --manifest-path crates/zkevm_opcode_defs/Cargo.toml
+      - name: zkevm_test_harness - Main test
+        run: cargo nextest run --release --manifest-path crates/zkevm_test_harness/Cargo.toml
+      - name: Encodings test
+        run: cargo nextest run --release --manifest-path crates/circuit_encodings/Cargo.toml
+      - name: Api tests
+        run: cargo nextest run --release --manifest-path crates/circuit_sequencer_api/Cargo.toml
+      - name: Definitions test
+        run: cargo nextest run --release --no-tests=pass --manifest-path crates/circuit_definitions/Cargo.toml
+      - name: Kzg tests
+        run: cargo nextest run --release --manifest-path crates/kzg/Cargo.toml
+      - name: Circuit tests
+        run: cargo nextest run --release --manifest-path crates/zkevm_circuits/Cargo.toml --test-threads 2
+      - name: ZKEVM tests
+        run: cargo nextest run --release --manifest-path crates/zk_evm/Cargo.toml
+      - name: ZKEVM abstractions tests
+        run: cargo nextest run --release --manifest-path crates/zk_evm_abstractions/Cargo.toml
+      - name: ZKEVM assembly tests
+        run: cargo nextest run --release --manifest-path crates/zkEVM-assembly/Cargo.toml
+      - name: ZKEVM opcode
+        run: cargo nextest run --release --manifest-path crates/zkevm_opcode_defs/Cargo.toml
 
   formatting:
     name: cargo fmt
@@ -91,7 +91,7 @@ jobs:
     if: always() && !cancelled()
     needs:
       [
-        build,
+#        build,
         test,
         formatting,
       ]
