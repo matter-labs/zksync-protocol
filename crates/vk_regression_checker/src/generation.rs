@@ -4,20 +4,21 @@ use std::path::Path;
 use anyhow::{anyhow, ensure, Context, Result};
 use circuit_definitions::circuit_definitions::aux_layer::{
     ZkSyncCompressionForWrapperCircuit, ZkSyncCompressionForWrapperFinalizationHint,
-    ZkSyncCompressionForWrapperVerificationKey, ZkSyncCompressionLayerFinalizationHint,
-    ZkSyncCompressionLayerStorage, ZkSyncCompressionLayerVerificationKey,
+    ZkSyncCompressionForWrapperVerificationKey, ZkSyncCompressionLayerCircuit,
+    ZkSyncCompressionLayerFinalizationHint, ZkSyncCompressionLayerStorage,
+    ZkSyncCompressionLayerVerificationKey,
 };
 use circuit_definitions::circuit_definitions::recursion_layer::ZkSyncRecursionLayerStorageType;
 use circuit_definitions::zkevm_circuits::scheduler::aux::BaseLayerCircuitType;
 use tracing::info;
 use zkevm_test_harness::boojum::worker::Worker;
-use zkevm_test_harness::compute_setups::{
-    generate_base_layer_vks, generate_circuit_setup_data, generate_recursive_layer_vks,
-};
+use zkevm_test_harness::compute_setups::{generate_base_layer_vks, generate_recursive_layer_vks};
 use zkevm_test_harness::data_source::{
     in_memory_data_source::InMemoryDataSource, SetupDataSource, SourceResult,
 };
-use zkevm_test_harness::prover_utils::create_compression_for_wrapper_setup_data;
+use zkevm_test_harness::prover_utils::{
+    create_compression_for_wrapper_setup_data, create_compression_layer_setup_data,
+};
 
 use crate::artifacts::{COMPRESSION_CIRCUIT_TYPES, COMPRESSION_FOR_WRAPPER_CIRCUIT_TYPES};
 use crate::file_io::{write_bin, write_json};
@@ -251,16 +252,44 @@ pub fn write_era_compatible_layout(source: &InMemoryDataSource, keys_dir: &Path)
 }
 
 fn generate_compression_layer_artifacts(source: &mut InMemoryDataSource) -> Result<()> {
-    for circuit_type in COMPRESSION_CIRCUIT_TYPES {
-        let setup_data = from_source(generate_circuit_setup_data(5, circuit_type, source), || {
-            format!("while attempting to generate compression setup data {circuit_type}")
-        })?;
+    let worker = Worker::new();
 
-        let zkevm_test_harness::compute_setups::CircuitSetupData {
-            vk,
-            finalization_hint,
-            ..
-        } = setup_data;
+    for circuit_type in COMPRESSION_CIRCUIT_TYPES {
+        // Compression setup generation is a dependency chain where each mode consumes
+        // the previous mode VK. We generate it mode-by-mode to avoid relying on APIs
+        // that expect those VKs to already exist in the source.
+        let previous_vk = match circuit_type {
+            1 => from_source(
+                source.get_recursion_layer_vk(
+                    ZkSyncRecursionLayerStorageType::SchedulerCircuit as u8,
+                ),
+                || {
+                    "while attempting to load scheduler verification key for compression mode 1"
+                        .to_owned()
+                },
+            )?
+            .into_inner(),
+            2..=4 => from_source(source.get_compression_vk(circuit_type - 1), || {
+                format!(
+                    "while attempting to load compression verification key {} for mode {}",
+                    circuit_type - 1,
+                    circuit_type
+                )
+            })?
+            .into_inner(),
+            _ => unreachable!("unsupported compression mode: {circuit_type}"),
+        };
+
+        let circuit =
+            ZkSyncCompressionLayerCircuit::from_witness_and_vk(None, previous_vk, circuit_type);
+        let proof_config = circuit.proof_config_for_compression_step();
+        let (_setup_base, _setup, vk, _setup_tree, _vars_hint, _wits_hint, finalization_hint) =
+            create_compression_layer_setup_data(
+                circuit,
+                &worker,
+                proof_config.fri_lde_factor,
+                proof_config.merkle_tree_cap_size,
+            );
 
         let vk: ZkSyncCompressionLayerVerificationKey =
             ZkSyncCompressionLayerStorage::from_inner(circuit_type, vk);

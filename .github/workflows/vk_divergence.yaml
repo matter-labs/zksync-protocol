@@ -45,7 +45,9 @@ jobs:
         with:
           header: vk-divergence-error
           message: |
-            VKs do not match expected values.
+            VKs do not match expected values (or the job failed to run).
+
+            The details of the mismatch can be found in the workflow logs. Please check the "VK divergence check" job logs for more information.
 
             If this is expected, update the keys in `crates/vk_regression_checker/reference/`.
             If this is not expected, please fix the issue.
