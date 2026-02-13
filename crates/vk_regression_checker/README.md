@@ -11,7 +11,14 @@ It can:
 - compare freshly generated artifacts against a reference key directory;
 - write generated artifacts to disk so you can inspect mismatches manually.
 
-For the currently supported artifacts, the file naming/layout matches `zksync-era/prover/data/keys`.
+The `reference/` folder is intentionally structured to mirror
+`zksync-era/prover/data/keys`, so it follows the same naming/layout quirks.
+
+`zksync-era` also contains a few artifacts that are currently not checked by this tool:
+- `commitments.json`
+- `compression_wrapper_setup_data.bin`
+- `fflonk_verification_snark_key.json`
+- `verification_snark_key.json`
 
 ## Build
 
