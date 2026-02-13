@@ -4,6 +4,7 @@ use boojum::config::CSConfig;
 use boojum::config::CSWitnessEvaluationConfig;
 use boojum::cs::traits::cs::DstBuffer;
 use boojum::pairing::CurveAffine;
+use boojum::pairing::Rand;
 use boojum::{
     cs::Place,
     gadgets::{non_native_field::traits::NonNativeField, traits::witnessable::CSWitnessable},
@@ -15,10 +16,8 @@ use boojum::{
     },
 };
 use itertools::izip;
-use rand::Rand;
 use rand::Rng;
 use rand::SeedableRng;
-use rand::XorShiftRng;
 use std::iter;
 
 pub const NUM_PAIRINGS_IN_MULTIPAIRING: usize = 1;
@@ -1107,68 +1106,105 @@ impl Bn256HardPartMethod {
     }
 
     fn get_hard_part_generator() -> Fq12 {
-        let mut rng = XorShiftRng::from_seed([42, 0, 0, 0]);
+        // Development note: previously this value was generated via XorShiftRng with a fixed seed.
+        // Now, the exact value was recalculated and put here directly. In order to see the previous
+        // logic for generating this value, you can check the git history for this file.
 
-        let chains = [
-            Bn256HardPartMethod::devegili_method(),
-            Bn256HardPartMethod::fuentes_castaneda_method(),
-            Bn256HardPartMethod::naive_method(),
-        ];
-
-        let x = 4965661367192848881;
-
-        loop {
-            let cand = Bn256HardPartMethod::random_fq12(&mut rng);
-
-            if cand == Fq12::one() {
-                continue;
-            }
-
-            for (ops_chain, num_of_variables) in chains.iter() {
-                let mut scratchpad = vec![Fq12::zero(); *num_of_variables];
-                scratchpad[0] = cand;
-
-                for op in ops_chain {
-                    let out_idx = match op {
-                        Ops::ExpByX(out_idx, in_idx) => {
-                            let mut tmp = scratchpad[*in_idx];
-                            tmp = tmp.pow([x]);
-                            scratchpad[*out_idx] = tmp;
-                            out_idx
-                        }
-                        Ops::Mul(out_idx, left_idx, right_idx) => {
-                            let mut tmp = scratchpad[*left_idx];
-                            tmp.mul_assign(&scratchpad[*right_idx]);
-                            scratchpad[*out_idx] = tmp;
-                            out_idx
-                        }
-                        Ops::Square(out_idx, in_idx) => {
-                            let mut tmp = scratchpad[*in_idx];
-                            tmp.square();
-                            scratchpad[*out_idx] = tmp;
-                            out_idx
-                        }
-                        Ops::Conj(out_idx, in_idx) => {
-                            let mut tmp = scratchpad[*in_idx];
-                            tmp.conjugate();
-                            scratchpad[*out_idx] = tmp;
-                            out_idx
-                        }
-                        Ops::Frob(out_idx, in_idx, power) => {
-                            let mut tmp = scratchpad[*in_idx];
-                            tmp.frobenius_map(*power);
-                            scratchpad[*out_idx] = tmp;
-                            out_idx
-                        }
-                    };
-
-                    if scratchpad[*out_idx] == Fq12::one() {
-                        continue;
-                    }
-                }
-            }
-
-            return cand;
+        fn fq(limbs: [u64; 4]) -> Fq {
+            <Fq as boojum::pairing::ff::PrimeField>::from_repr(boojum::pairing::bn256::FqRepr(
+                limbs,
+            ))
+            .expect("hard-part generator limbs are valid")
+        }
+        Fq12 {
+            c0: Fq6 {
+                c0: Fq2 {
+                    c0: fq([
+                        0x0cfd725cd0693098,
+                        0x07984bb8d22269ac,
+                        0x730b64cfb6cc7499,
+                        0x295ed2d12cf42d68,
+                    ]),
+                    c1: fq([
+                        0x22e89e856c383d68,
+                        0xf8060c35f0b51461,
+                        0x9c4b36998b2a2b6f,
+                        0x200ab657b049c028,
+                    ]),
+                },
+                c1: Fq2 {
+                    c0: fq([
+                        0xfcadd43c6cc5a96a,
+                        0x061b4cf7d30bbc2a,
+                        0x8992146342c0a3c7,
+                        0x124dc910b0a11b11,
+                    ]),
+                    c1: fq([
+                        0x028cf89f147c0e71,
+                        0xc225ebd8e2789449,
+                        0x58ffb1e0eb1ca88c,
+                        0x2a54bc84ec04640f,
+                    ]),
+                },
+                c2: Fq2 {
+                    c0: fq([
+                        0xf1576c256db4d3f5,
+                        0x0fe55783c86eda7e,
+                        0x7832494b95ee5323,
+                        0x0e2504453fba3408,
+                    ]),
+                    c1: fq([
+                        0x97fc7d235375df01,
+                        0x8aa8e024898c96c8,
+                        0x6a0e650698a59eee,
+                        0x0cc3f96dbddd07e3,
+                    ]),
+                },
+            },
+            c1: Fq6 {
+                c0: Fq2 {
+                    c0: fq([
+                        0x7146508c38c4c8da,
+                        0xf5a219c75fcd55f3,
+                        0x2a4cb8af17d0209b,
+                        0x19b3bfa7d8c6aa9c,
+                    ]),
+                    c1: fq([
+                        0xa94eeaf766e939c3,
+                        0x196075d2833251ad,
+                        0x31d1f09d5c4f36cf,
+                        0x24c3718f18854fd9,
+                    ]),
+                },
+                c1: Fq2 {
+                    c0: fq([
+                        0x63444b6b56fbd418,
+                        0x6f50b1444335471e,
+                        0xd11875b0b0dc35d4,
+                        0x255e098c28a81f5a,
+                    ]),
+                    c1: fq([
+                        0x80080e823f067626,
+                        0x36f38357c950ec13,
+                        0x170e594aa157a4d9,
+                        0x2cb0ceb7a85235a6,
+                    ]),
+                },
+                c2: Fq2 {
+                    c0: fq([
+                        0x8c5fe7da56ebdb81,
+                        0x9615b8f0c8f991a1,
+                        0xf2f8aa821137c715,
+                        0x1dd7a3d3c9480176,
+                    ]),
+                    c1: fq([
+                        0x44556b065556ea5f,
+                        0x6c7140ea9ed41bd0,
+                        0x244174433d39f086,
+                        0x0cb608d10606a4da,
+                    ]),
+                },
+            },
         }
     }
 
@@ -1710,7 +1746,7 @@ mod tests {
         let params = RnsParams::create();
         let params = std::sync::Arc::new(params);
 
-        let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
+        let mut rng = rand::rngs::StdRng::seed_from_u64(0x5dbe62598d313d76);
         // let mut rng = rand::thread_rng();
         let mut pairs = Vec::new();
         let mut q1_s_for_wit = Vec::new();
@@ -1824,7 +1860,7 @@ mod tests {
         let params = RnsParams::create();
         let params = std::sync::Arc::new(params);
 
-        let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
+        let mut rng = rand::rngs::StdRng::seed_from_u64(0x5dbe62598d313d76);
         let p = G1::rand(&mut rng);
         let q = G2::rand(&mut rng);
         let p_affine = p.into_affine();
@@ -1873,7 +1909,7 @@ mod tests {
 
         let params = std::sync::Arc::new(RnsParams::create());
 
-        let mut rng = XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
+        let mut rng = rand::rngs::StdRng::seed_from_u64(0x5dbe62598d313d76);
         let p = G1::rand(&mut rng);
         let q = G2::rand(&mut rng);
 

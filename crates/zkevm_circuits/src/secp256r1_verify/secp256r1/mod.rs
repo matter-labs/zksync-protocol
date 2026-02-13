@@ -537,8 +537,8 @@ impl From<PointProjective> for PointAffine {
     }
 }
 
-impl rand::Rand for PointProjective {
-    fn rand<R: rand::Rng>(rng: &mut R) -> Self {
+impl Rand for PointProjective {
+    fn rand<R: rand::Rng + ?Sized>(rng: &mut R) -> Self {
         loop {
             let x = rng.gen();
             let greatest = rng.gen();
@@ -554,8 +554,8 @@ impl rand::Rand for PointProjective {
     }
 }
 
-impl rand::Rand for PointAffine {
-    fn rand<R: rand::Rng>(rng: &mut R) -> Self {
+impl Rand for PointAffine {
+    fn rand<R: rand::Rng + ?Sized>(rng: &mut R) -> Self {
         loop {
             let x = rng.gen();
             let greatest = rng.gen();

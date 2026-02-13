@@ -458,8 +458,8 @@ mod tests {
     use boojum::pairing::bls12_381::G1;
     use boojum::pairing::ff::PrimeFieldRepr;
     use boojum::pairing::ff::{Field as PairingField, PrimeField};
+    use boojum::pairing::Rand;
     use boojum::worker::Worker;
-    use rand::Rand;
     use rand::SeedableRng;
 
     type F = GoldilocksField;
@@ -566,7 +566,7 @@ mod tests {
 
         // make some random chunks
         let mut data_chunks = vec![[0u8; BLOB_CHUNK_SIZE]; ELEMENTS_PER_4844_BLOCK];
-        let mut rng = rand::XorShiftRng::from_seed([0, 0, 0, 42]);
+        let mut rng = rand::rngs::StdRng::seed_from_u64(42);
         for dst in data_chunks.iter_mut() {
             let el = Bls12_381Fr::rand(&mut rng);
             let mut bytes = [0u8; 32];
@@ -704,7 +704,7 @@ mod tests {
 
     #[test]
     fn round_trip_fft() {
-        let mut rng = rand::XorShiftRng::new_unseeded();
+        let mut rng = rand::rngs::StdRng::seed_from_u64(43);
         for _ in 0..128 {
             let mut input: Vec<_> = (0..4096).map(|_| Bls12_381Fr::rand(&mut rng)).collect();
             let expected = input.clone();
@@ -721,7 +721,7 @@ mod tests {
     #[test]
     fn test_data_roundtrip() {
         use rand::Rng;
-        let mut rng = rand::XorShiftRng::new_unseeded();
+        let mut rng = rand::rngs::StdRng::seed_from_u64(44);
         let zksync_data: Vec<u8> = (0..(31 * 4096)).map(|_| rng.gen()).collect();
         let monomial_form = zksync_pubdata_into_monomial_form_poly(&zksync_data);
         let mut expected_lagrange_form = monomial_form.clone();
