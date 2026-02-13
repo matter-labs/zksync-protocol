@@ -27,7 +27,7 @@ once_cell = "1"
 serde_with = {version = "1", features = ["hex"]}
 
 [dev-dependencies]
-rand = "0.4"
+rand = "0.8"
 
 [features]
 default = []

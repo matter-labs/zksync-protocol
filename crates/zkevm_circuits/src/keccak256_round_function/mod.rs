@@ -1002,8 +1002,8 @@ mod test {
     }
 
     fn test_for_length_and_unalignment(length: usize, unalignement: usize) {
-        use rand_new::{Rng, SeedableRng};
-        let mut rng = rand_new::rngs::StdRng::from_seed([1u8; 32]);
+        use rand::{Rng, SeedableRng};
+        let mut rng = rand::rngs::StdRng::from_seed([1u8; 32]);
         let input: Vec<u8> = (0..length).map(|_| rng.gen()).collect();
         dbg!(hex::encode(&input));
         let input_witness = bytes_to_u256_words(input.clone(), unalignement);

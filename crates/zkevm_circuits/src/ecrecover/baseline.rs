@@ -685,18 +685,17 @@ mod test {
     use boojum::config::DevCSConfig;
 
     use boojum::pairing::ff::PrimeFieldRepr;
+    use boojum::pairing::ff::Rand;
     use boojum::pairing::{GenericCurveAffine, GenericCurveProjective};
-    use rand::Rng;
     use rand::SeedableRng;
-    use rand::XorShiftRng;
 
-    pub fn deterministic_rng() -> XorShiftRng {
-        XorShiftRng::from_seed([0x5dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654])
+    pub fn deterministic_rng() -> rand::rngs::StdRng {
+        rand::rngs::StdRng::seed_from_u64(0x5dbe62598d313d76)
     }
 
     fn simulate_signature() -> (Secp256Fr, Secp256Fr, Secp256Affine, Secp256Fr) {
         let mut rng = deterministic_rng();
-        let sk: Secp256Fr = rng.gen();
+        let sk: Secp256Fr = Secp256Fr::rand(&mut rng);
 
         simulate_signature_for_sk(sk)
     }
@@ -712,8 +711,8 @@ mod test {
     ) -> (Secp256Fr, Secp256Fr, Secp256Affine, Secp256Fr) {
         let mut rng = deterministic_rng();
         let pk = Secp256Affine::one().mul(sk.into_repr()).into_affine();
-        let digest: Secp256Fr = rng.gen();
-        let k: Secp256Fr = rng.gen();
+        let digest: Secp256Fr = Secp256Fr::rand(&mut rng);
+        let k: Secp256Fr = Secp256Fr::rand(&mut rng);
         let r_point = Secp256Affine::one().mul(k.into_repr()).into_affine();
 
         let r_x = r_point.into_xy_unchecked().0;
