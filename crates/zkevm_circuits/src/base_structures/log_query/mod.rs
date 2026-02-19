@@ -1,3 +1,4 @@
+use std::mem::MaybeUninit;
 use super::*;
 use boojum::cs::traits::cs::ConstraintSystem;
 use boojum::cs::traits::cs::DstBuffer;
@@ -526,6 +527,78 @@ impl<F: SmallField> CircuitEncodable<F, LOG_QUERY_PACKED_WIDTH> for LogQuery<F> 
 }
 
 pub(crate) fn log_query_witness_from_values<F: SmallField>(
+    values: [F; LogQuery::<F>::INTERNAL_STRUCT_LEN],
+) -> <LogQuery<F> as CSAllocatable<F>>::Witness {
+    let address: [u32; 5] = [
+        WitnessCastable::cast_from_source(values[0]),
+        WitnessCastable::cast_from_source(values[1]),
+        WitnessCastable::cast_from_source(values[2]),
+        WitnessCastable::cast_from_source(values[3]),
+        WitnessCastable::cast_from_source(values[4]),
+    ];
+    let address = recompose_address_from_u32x5(address);
+
+    let key: [u32; 8] = [
+        WitnessCastable::cast_from_source(values[5]),
+        WitnessCastable::cast_from_source(values[6]),
+        WitnessCastable::cast_from_source(values[7]),
+        WitnessCastable::cast_from_source(values[8]),
+        WitnessCastable::cast_from_source(values[9]),
+        WitnessCastable::cast_from_source(values[10]),
+        WitnessCastable::cast_from_source(values[11]),
+        WitnessCastable::cast_from_source(values[12]),
+    ];
+    let key = recompose_u256_as_u32x8(key);
+
+    let read_value: [u32; 8] = [
+        WitnessCastable::cast_from_source(values[13]),
+        WitnessCastable::cast_from_source(values[14]),
+        WitnessCastable::cast_from_source(values[15]),
+        WitnessCastable::cast_from_source(values[16]),
+        WitnessCastable::cast_from_source(values[17]),
+        WitnessCastable::cast_from_source(values[18]),
+        WitnessCastable::cast_from_source(values[19]),
+        WitnessCastable::cast_from_source(values[20]),
+    ];
+    let read_value = recompose_u256_as_u32x8(read_value);
+
+    let written_value: [u32; 8] = [
+        WitnessCastable::cast_from_source(values[21]),
+        WitnessCastable::cast_from_source(values[22]),
+        WitnessCastable::cast_from_source(values[23]),
+        WitnessCastable::cast_from_source(values[24]),
+        WitnessCastable::cast_from_source(values[25]),
+        WitnessCastable::cast_from_source(values[26]),
+        WitnessCastable::cast_from_source(values[27]),
+        WitnessCastable::cast_from_source(values[28]),
+    ];
+    let written_value = recompose_u256_as_u32x8(written_value);
+
+    let aux_byte: u8 = WitnessCastable::cast_from_source(values[29]);
+    let rw_flag: bool = WitnessCastable::cast_from_source(values[30]);
+    let rollback: bool = WitnessCastable::cast_from_source(values[31]);
+    let is_service: bool = WitnessCastable::cast_from_source(values[32]);
+    let shard_id: u8 = WitnessCastable::cast_from_source(values[33]);
+    let tx_number_in_block: u32 = WitnessCastable::cast_from_source(values[34]);
+    let timestamp: u32 = WitnessCastable::cast_from_source(values[35]);
+
+    <LogQuery<F> as CSAllocatable<F>>::Witness {
+        address,
+        key,
+        read_value,
+        written_value,
+        aux_byte,
+        rw_flag,
+        rollback,
+        is_service,
+        shard_id,
+        tx_number_in_block,
+        timestamp,
+    }
+}
+
+
+pub(crate) fn log_query_witness_from_values2<F: SmallField>(
     values: [F; FLATTENED_VARIABLE_LENGTH],
 ) -> <LogQuery<F> as CSAllocatable<F>>::Witness {
     let address: [u32; 5] = [
@@ -624,7 +697,11 @@ impl<F: SmallField> CSAllocatableExt<F> for LogQuery<F> {
     where
         [(); Self::INTERNAL_STRUCT_LEN]:,
     {
-        self.flatten_as_variables_impl()
+        let mut result: [MaybeUninit<Variable>; Self::INTERNAL_STRUCT_LEN] = [MaybeUninit::uninit(); Self::INTERNAL_STRUCT_LEN];
+        for (dst, src) in result.iter_mut().zip(self.flatten_as_variables_impl().into_iter()) {
+            dst.write(src);
+        }
+        unsafe { result.map(|el| el.assume_init()) }
     }
 
     fn set_internal_variables_values(witness: Self::Witness, dst: &mut DstBuffer<'_, '_, F>) {

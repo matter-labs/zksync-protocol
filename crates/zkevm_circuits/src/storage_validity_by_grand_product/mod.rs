@@ -4,7 +4,7 @@ pub mod input;
 #[cfg(test)]
 mod test_input;
 
-use crate::base_structures::log_query::log_query_witness_from_values;
+use crate::base_structures::log_query::log_query_witness_from_values2;
 use crate::fsm_input_output::ClosedFormInputCompactForm;
 
 use crate::base_structures::{
@@ -118,7 +118,7 @@ impl<F: SmallField> CSAllocatableExt<F> for TimestampedStorageLogRecord<F> {
         record_values.copy_from_slice(
             &values[..crate::base_structures::log_query::FLATTENED_VARIABLE_LENGTH],
         );
-        let record = log_query_witness_from_values(record_values);
+        let record = log_query_witness_from_values2(record_values);
         let other_timestamp: u32 = WitnessCastable::cast_from_source(values[36]);
 
         Self::Witness {
@@ -135,11 +135,11 @@ impl<F: SmallField> CSAllocatableExt<F> for TimestampedStorageLogRecord<F> {
         }
     }
 
-    fn flatten_as_variables(&self) -> [Variable; 37]
+    fn flatten_as_variables(&self) -> [Variable; Self::INTERNAL_STRUCT_LEN]
     where
         [(); Self::INTERNAL_STRUCT_LEN]:,
     {
-        let mut result = [Variable::placeholder(); 37];
+        let mut result = [Variable::placeholder(); Self::INTERNAL_STRUCT_LEN];
         let record_variables = self.record.flatten_as_variables_impl();
         result[..crate::base_structures::log_query::FLATTENED_VARIABLE_LENGTH]
             .copy_from_slice(&record_variables);

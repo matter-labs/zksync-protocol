@@ -1,3 +1,4 @@
+use std::mem::MaybeUninit;
 use boojum::cs::gates::assert_no_placeholder_variables;
 use boojum::cs::traits::cs::DstBuffer;
 use boojum::cs::Variable;
@@ -251,52 +252,54 @@ impl<F: SmallField> CSAllocatableExt<F> for ExecutionContextRecord<F> {
     }
 
     fn flatten_as_variables(&self) -> [Variable; Self::INTERNAL_STRUCT_LEN] {
-        [
-            self.this.inner[0].get_variable(),
-            self.this.inner[1].get_variable(),
-            self.this.inner[2].get_variable(),
-            self.this.inner[3].get_variable(),
-            self.this.inner[4].get_variable(),
-            self.caller.inner[0].get_variable(),
-            self.caller.inner[1].get_variable(),
-            self.caller.inner[2].get_variable(),
-            self.caller.inner[3].get_variable(),
-            self.caller.inner[4].get_variable(),
-            self.code_address.inner[0].get_variable(),
-            self.code_address.inner[1].get_variable(),
-            self.code_address.inner[2].get_variable(),
-            self.code_address.inner[3].get_variable(),
-            self.code_address.inner[4].get_variable(),
-            self.code_page.get_variable(),
-            self.base_page.get_variable(),
-            self.heap_upper_bound.get_variable(),
-            self.aux_heap_upper_bound.get_variable(),
-            self.reverted_queue_head[0].get_variable(),
-            self.reverted_queue_head[1].get_variable(),
-            self.reverted_queue_head[2].get_variable(),
-            self.reverted_queue_head[3].get_variable(),
-            self.reverted_queue_tail[0].get_variable(),
-            self.reverted_queue_tail[1].get_variable(),
-            self.reverted_queue_tail[2].get_variable(),
-            self.reverted_queue_tail[3].get_variable(),
-            self.reverted_queue_segment_len.get_variable(),
-            self.pc.get_variable(),
-            self.sp.get_variable(),
-            self.exception_handler_loc.get_variable(),
-            self.ergs_remaining.get_variable(),
-            self.is_static_execution.get_variable(),
-            self.is_kernel_mode.get_variable(),
-            self.this_shard_id.get_variable(),
-            self.caller_shard_id.get_variable(),
-            self.code_shard_id.get_variable(),
-            self.context_u128_value_composite[0].get_variable(),
-            self.context_u128_value_composite[1].get_variable(),
-            self.context_u128_value_composite[2].get_variable(),
-            self.context_u128_value_composite[3].get_variable(),
-            self.is_local_call.get_variable(),
-            self.total_pubdata_spent.get_variable(),
-            self.stipend.get_variable(),
-        ]
+        let mut result: [MaybeUninit<Variable>; Self::INTERNAL_STRUCT_LEN] = [MaybeUninit::uninit(); Self::INTERNAL_STRUCT_LEN];
+
+        result[0].write(self.this.inner[0].get_variable());
+        result[1].write(self.this.inner[1].get_variable());
+        result[2].write(self.this.inner[2].get_variable());
+        result[3].write(self.this.inner[3].get_variable());
+        result[4].write(self.this.inner[4].get_variable());
+        result[5].write(self.caller.inner[0].get_variable());
+        result[6].write(self.caller.inner[1].get_variable());
+        result[7].write(self.caller.inner[2].get_variable());
+        result[8].write(self.caller.inner[3].get_variable());
+        result[9].write(self.caller.inner[4].get_variable());
+        result[10].write(self.code_address.inner[0].get_variable());
+        result[11].write(self.code_address.inner[1].get_variable());
+        result[12].write(self.code_address.inner[2].get_variable());
+        result[13].write(self.code_address.inner[3].get_variable());
+        result[14].write(self.code_address.inner[4].get_variable());
+        result[15].write(self.code_page.get_variable());
+        result[16].write(self.base_page.get_variable());
+        result[17].write(self.heap_upper_bound.get_variable());
+        result[18].write(self.aux_heap_upper_bound.get_variable());
+        result[19].write(self.reverted_queue_head[0].get_variable());
+        result[20].write(self.reverted_queue_head[1].get_variable());
+        result[21].write(self.reverted_queue_head[2].get_variable());
+        result[22].write(self.reverted_queue_head[3].get_variable());
+        result[23].write(self.reverted_queue_tail[0].get_variable());
+        result[24].write(self.reverted_queue_tail[1].get_variable());
+        result[25].write(self.reverted_queue_tail[2].get_variable());
+        result[26].write(self.reverted_queue_tail[3].get_variable());
+        result[27].write(self.reverted_queue_segment_len.get_variable());
+        result[28].write(self.pc.get_variable());
+        result[29].write(self.sp.get_variable());
+        result[30].write(self.exception_handler_loc.get_variable());
+        result[31].write(self.ergs_remaining.get_variable());
+        result[32].write(self.is_static_execution.get_variable());
+        result[33].write(self.is_kernel_mode.get_variable());
+        result[34].write(self.this_shard_id.get_variable());
+        result[35].write(self.caller_shard_id.get_variable());
+        result[36].write(self.code_shard_id.get_variable());
+        result[37].write(self.context_u128_value_composite[0].get_variable());
+        result[38].write(self.context_u128_value_composite[1].get_variable());
+        result[39].write(self.context_u128_value_composite[2].get_variable());
+        result[40].write(self.context_u128_value_composite[3].get_variable());
+        result[41].write(self.is_local_call.get_variable());
+        result[42].write(self.total_pubdata_spent.get_variable());
+        result[43].write(self.stipend.get_variable());
+
+        unsafe { result.map(|el| el.assume_init()) }
     }
 
     fn from_variables_set(variables: [Variable; Self::INTERNAL_STRUCT_LEN]) -> Self {
