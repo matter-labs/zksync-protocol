@@ -1,5 +1,3 @@
-#![feature(array_chunks)]
-
 use crate::boojum::algebraic_props::round_function::{
     absorb_multiple_rounds, AbsorptionModeOverwrite, AlgebraicRoundFunction,
 };

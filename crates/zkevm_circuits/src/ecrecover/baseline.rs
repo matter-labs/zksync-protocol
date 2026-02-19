@@ -99,7 +99,7 @@ where
     let zero_var = cs.allocate_constant(F::ZERO);
     let mut limbs = [zero_var; N];
     assert!(N >= 16);
-    for (dst, src) in limbs.array_chunks_mut::<2>().zip(elem.inner.iter()) {
+    for (dst, src) in limbs.as_chunks_mut::<2>().0.iter_mut().zip(elem.inner.iter()) {
         let [b0, b1, b2, b3] = src.to_le_bytes(cs);
         let low = UInt16::from_le_bytes(cs, [b0, b1]);
         let high = UInt16::from_le_bytes(cs, [b2, b3]);
@@ -146,7 +146,7 @@ pub(crate) fn convert_uint256_to_field_element<
     let zero_var = cs.allocate_constant(F::ZERO);
     let mut limbs = [zero_var; N];
     assert!(N >= 16);
-    for (dst, src) in limbs.array_chunks_mut::<2>().zip(elem.inner.iter()) {
+    for (dst, src) in limbs.as_chunks_mut::<2>().0.iter_mut().zip(elem.inner.iter()) {
         let [b0, b1, b2, b3] = src.to_le_bytes(cs);
         let low = UInt16::from_le_bytes(cs, [b0, b1]);
         let high = UInt16::from_le_bytes(cs, [b2, b3]);
@@ -412,7 +412,7 @@ fn ecrecover_precompile_inner_routine<F: SmallField, CS: ConstraintSystem<F>>(
         .rev()
         .chain(q_y.limbs[..16].iter().rev());
 
-    for (dst, src) in bytes_to_hash.array_chunks_mut::<2>().zip(it) {
+    for (dst, src) in bytes_to_hash.as_chunks_mut::<2>().0.iter_mut().zip(it) {
         let limb = unsafe { UInt16::from_variable_unchecked(*src) };
         *dst = limb.to_be_bytes(cs);
     }

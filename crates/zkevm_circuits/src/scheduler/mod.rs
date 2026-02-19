@@ -1452,7 +1452,7 @@ pub fn scheduler_function<
 
     let mut bootloader_heap_initial_content = [zero_u8; 32];
     for (dst, src) in bootloader_heap_initial_content
-        .array_chunks_mut::<8>()
+        .as_chunks_mut::<8>().0.iter_mut()
         .zip(bootloader_heap_snapshot.iter())
     {
         let le_bytes = src.constraint_bit_length_as_bytes(cs, 64);
@@ -1462,7 +1462,7 @@ pub fn scheduler_function<
 
     let mut events_queue_state = [zero_u8; 32];
     for (dst, src) in events_queue_state
-        .array_chunks_mut::<8>()
+        .as_chunks_mut::<8>().0.iter_mut()
         .zip(events_snapshot.iter())
     {
         let le_bytes = src.constraint_bit_length_as_bytes(cs, 64);

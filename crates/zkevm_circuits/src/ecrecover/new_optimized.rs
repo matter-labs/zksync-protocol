@@ -125,7 +125,7 @@ where
     let zero_var = cs.allocate_constant(F::ZERO);
     let mut limbs = [zero_var; N];
     assert!(N >= 16);
-    for (dst, src) in limbs.array_chunks_mut::<2>().zip(elem.inner.iter()) {
+    for (dst, src) in limbs.as_chunks_mut::<2>().0.iter_mut().zip(elem.inner.iter()) {
         let [b0, b1, b2, b3] = src.to_le_bytes(cs);
         let low = UInt16::from_le_bytes(cs, [b0, b1]);
         let high = UInt16::from_le_bytes(cs, [b2, b3]);
@@ -173,7 +173,7 @@ fn convert_uint256_to_field_element<
     let zero_var = cs.allocate_constant(F::ZERO);
     let mut limbs = [zero_var; N];
     assert!(N >= 16);
-    for (dst, src) in limbs.array_chunks_mut::<2>().zip(elem.inner.iter()) {
+    for (dst, src) in limbs.as_chunks_mut::<2>().0.iter_mut().zip(elem.inner.iter()) {
         let [b0, b1, b2, b3] = src.to_le_bytes(cs);
         let low = UInt16::from_le_bytes(cs, [b0, b1]);
         let high = UInt16::from_le_bytes(cs, [b2, b3]);
@@ -219,7 +219,7 @@ fn convert_field_element_to_uint256<
 
     let mut limbs = [UInt32::<F>::zero(cs); 8];
     let two_pow_16 = Num::allocated_constant(cs, F::from_u64_unchecked(2u32.pow(16) as u64));
-    for (dst, src) in limbs.iter_mut().zip(elem.limbs.array_chunks_mut::<2>()) {
+    for (dst, src) in limbs.iter_mut().zip(elem.limbs.as_chunks_mut::<2>().0.iter_mut()) {
         let low = Num::from_variable(src[0]);
         let high = Num::from_variable(src[1]);
         *dst = unsafe {
@@ -843,7 +843,7 @@ fn ecrecover_precompile_inner_routine<
         .rev()
         .chain(q_y.limbs[..16].iter().rev());
 
-    for (dst, src) in bytes_to_hash.array_chunks_mut::<2>().zip(it) {
+    for (dst, src) in bytes_to_hash.as_chunks_mut::<2>().0.iter_mut().zip(it) {
         let limb = unsafe { UInt16::from_variable_unchecked(*src) };
         *dst = limb.to_be_bytes(cs);
     }

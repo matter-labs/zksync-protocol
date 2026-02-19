@@ -69,7 +69,7 @@ pub(crate) fn keccak256_conditionally_absorb_and_run_permutation<
                 < (keccak256::KECCAK_RATE_BYTES / keccak256::BYTES_PER_WORD)
             {
                 let tmp = block
-                    .array_chunks::<{ keccak256::BYTES_PER_WORD }>()
+                    .as_chunks::<{ keccak256::BYTES_PER_WORD }>().0.iter()
                     .skip(i + keccak256::LANE_WIDTH * j)
                     .next()
                     .unwrap();
@@ -445,7 +445,7 @@ where
         path_key = UInt8::parallel_select(cs, parse_next_queue_elem, &derived_key, &path_key);
         let mut path_selectors = [boolean_false; STORAGE_DEPTH];
         // get path bits
-        for (dst, src) in path_selectors.array_chunks_mut::<8>().zip(path_key.iter()) {
+        for (dst, src) in path_selectors.as_chunks_mut::<8>().0.iter_mut().zip(path_key.iter()) {
             let bits: [_; 8] = Num::from_variable(src.get_variable()).spread_into_bits(cs);
             *dst = bits;
         }
@@ -623,7 +623,7 @@ where
         // we do not write here anyway
         if is_first == false {
             for block in
-                extended_state_diff_encoding.array_chunks::<{ keccak256::KECCAK_RATE_BYTES }>()
+                extended_state_diff_encoding.as_chunks::<{ keccak256::KECCAK_RATE_BYTES }>().0.iter()
             {
                 keccak256_conditionally_absorb_and_run_permutation(
                     cs,
@@ -679,7 +679,7 @@ where
 
     // squeeze
     let mut result = [MaybeUninit::<UInt8<F>>::uninit(); keccak256::KECCAK256_DIGEST_SIZE];
-    for (i, dst) in result.array_chunks_mut::<8>().enumerate() {
+    for (i, dst) in result.as_chunks_mut::<8>().0.iter_mut().enumerate() {
         for (dst, src) in dst
             .iter_mut()
             .zip(diffs_keccak_accumulator_state[i][0].iter())

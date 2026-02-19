@@ -1,5 +1,4 @@
 //! Implementation based on https://github.com/ethereum/consensus-specs/blob/86fb82b221474cc89387fa6436806507b3849d88/specs/deneb/polynomial-commitments.md
-#![feature(array_chunks)]
 #![feature(bigint_helper_methods)]
 use boojum::{
     blake2::Digest,
@@ -393,7 +392,7 @@ fn compute_challenge(blob: &[Fr], commitment: &G1Affine) -> Fr {
 
 fn u8_repr_to_u64_repr_be(bytes: [u8; 32]) -> [u64; 4] {
     bytes
-        .array_chunks::<8>()
+        .as_chunks::<8>().0.iter()
         .map(|chunk| u64::from_be_bytes(*chunk))
         .rev()
         .collect::<Vec<u64>>()

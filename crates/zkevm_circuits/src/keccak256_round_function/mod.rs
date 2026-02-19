@@ -813,7 +813,7 @@ pub(crate) fn keccak256_absorb_and_run_permutation<F: SmallField, CS: Constraint
                 < (keccak256::KECCAK_RATE_BYTES / keccak256::BYTES_PER_WORD)
             {
                 let tmp = block
-                    .array_chunks::<{ keccak256::BYTES_PER_WORD }>()
+                    .as_chunks::<{ keccak256::BYTES_PER_WORD }>().0.iter()
                     .skip(i + keccak256::LANE_WIDTH * j)
                     .next()
                     .unwrap();
@@ -835,7 +835,7 @@ pub(crate) fn keccak256_absorb_and_run_permutation<F: SmallField, CS: Constraint
     // copy back
     let mut result =
         [std::mem::MaybeUninit::<UInt8<F>>::uninit(); keccak256::KECCAK256_DIGEST_SIZE];
-    for (i, dst) in result.array_chunks_mut::<8>().enumerate() {
+    for (i, dst) in result.as_chunks_mut::<8>().0.iter_mut().enumerate() {
         for (dst, src) in dst.iter_mut().zip(state[i][0].iter()) {
             dst.write(*src);
         }

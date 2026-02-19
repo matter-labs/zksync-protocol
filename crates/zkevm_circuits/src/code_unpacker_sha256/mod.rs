@@ -548,8 +548,8 @@ where
         let mut sha256_input = [zero_u32; 16];
         for (dst, src) in sha256_input.iter_mut().zip(
             code_word_0_be_bytes
-                .array_chunks::<4>()
-                .chain(code_word_1_be_bytes.array_chunks::<4>()),
+                .as_chunks::<4>().0.iter()
+                .chain(code_word_1_be_bytes.as_chunks::<4>().0.iter()),
         ) {
             *dst = UInt32::from_be_bytes(cs, *src);
         }

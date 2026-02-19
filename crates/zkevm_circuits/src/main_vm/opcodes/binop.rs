@@ -81,7 +81,7 @@ pub(crate) fn apply_binop<F: SmallField, CS: ConstraintSystem<F>>(
         .into_iter()
         .zip([and_result, or_result, xor_result].into_iter())
     {
-        for (dst, src) in dst.iter_mut().zip(src.array_chunks::<4>()) {
+        for (dst, src) in dst.iter_mut().zip(src.as_chunks::<4>().0.iter()) {
             *dst = UInt32::from_le_bytes(cs, *src);
         }
     }
@@ -150,7 +150,7 @@ fn get_binop_subresults<F: SmallField, CS: ConstraintSystem<F>>(
 
             const MASK: u64 = (1u64 << 8) - 1;
 
-            for (src, dst) in inputs.iter().zip(results.array_chunks_mut::<3>()) {
+            for (src, dst) in inputs.iter().zip(results.as_chunks_mut::<3>().0.iter_mut()) {
                 let mut src = src.as_u64_reduced();
                 let and_result = src & MASK;
                 src >>= 16;
@@ -174,7 +174,7 @@ fn get_binop_subresults<F: SmallField, CS: ConstraintSystem<F>>(
     }
 
     // lookup more, but this time using a table as a range check for all the and/or/xor chunks
-    for source_set in all_results.array_chunks::<2>() {
+    for source_set in all_results.as_chunks::<2>().0.iter() {
         // value is irrelevant, it's just a range check
         let _: [Variable; 1] = cs.perform_lookup::<2, 1>(table_id, &[source_set[0], source_set[1]]);
     }
@@ -185,7 +185,7 @@ fn get_binop_subresults<F: SmallField, CS: ConstraintSystem<F>>(
 
     if <CS::Config as CSConfig>::SetupConfig::KEEP_SETUP {
         // enforce. Note that there are no new variables here
-        for (src, decomposition) in composite_result.iter().zip(all_results.array_chunks::<3>()) {
+        for (src, decomposition) in composite_result.iter().zip(all_results.as_chunks::<3>().0.iter()) {
             if cs.gate_is_allowed::<ReductionGate<F, 4>>() {
                 let mut gate = ReductionGate::<F, 4>::empty();
                 gate.params = ReductionGateParams {
@@ -229,7 +229,7 @@ fn get_binop_subresults<F: SmallField, CS: ConstraintSystem<F>>(
         .iter_mut()
         .zip(or_results.iter_mut())
         .zip(xor_results.iter_mut())
-        .zip(all_results.array_chunks::<3>())
+        .zip(all_results.as_chunks::<3>().0.iter())
     {
         *and = src[0];
         *or = src[1];

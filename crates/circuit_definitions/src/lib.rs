@@ -1,6 +1,5 @@
 #![allow(clippy::drop_ref)]
 #![allow(incomplete_features)]
-#![feature(array_chunks)]
 #![feature(stmt_expr_attributes)]
 #![feature(generic_const_exprs)]
 #![feature(iter_array_chunks)]
