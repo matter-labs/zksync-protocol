@@ -1,3 +1,4 @@
+use std::mem::MaybeUninit;
 use cs_derive::*;
 
 use super::*;
@@ -142,19 +143,21 @@ impl<F: SmallField> CSAllocatableExt<F> for DecommitQuery<F> {
     where
         [(); Self::INTERNAL_STRUCT_LEN]:,
     {
-        [
-            self.code_hash.inner[0].get_variable(),
-            self.code_hash.inner[1].get_variable(),
-            self.code_hash.inner[2].get_variable(),
-            self.code_hash.inner[3].get_variable(),
-            self.code_hash.inner[4].get_variable(),
-            self.code_hash.inner[5].get_variable(),
-            self.code_hash.inner[6].get_variable(),
-            self.code_hash.inner[7].get_variable(),
-            self.page.get_variable(),
-            self.is_first.get_variable(),
-            self.timestamp.get_variable(),
-        ]
+        let mut result: [MaybeUninit<Variable>; Self::INTERNAL_STRUCT_LEN] = [MaybeUninit::uninit(); Self::INTERNAL_STRUCT_LEN];
+
+        result[0].write(self.code_hash.inner[0].get_variable());
+        result[1].write(self.code_hash.inner[1].get_variable());
+        result[2].write(self.code_hash.inner[2].get_variable());
+        result[3].write(self.code_hash.inner[3].get_variable());
+        result[4].write(self.code_hash.inner[4].get_variable());
+        result[5].write(self.code_hash.inner[5].get_variable());
+        result[6].write(self.code_hash.inner[6].get_variable());
+        result[7].write(self.code_hash.inner[7].get_variable());
+        result[8].write(self.page.get_variable());
+        result[9].write(self.is_first.get_variable());
+        result[10].write(self.timestamp.get_variable());
+
+        unsafe { result.map(|el| el.assume_init()) }
     }
     fn set_internal_variables_values(witness: Self::Witness, dst: &mut DstBuffer<'_, '_, F>) {
         // NOTE: must be same sequence as in `flatten_as_variables`

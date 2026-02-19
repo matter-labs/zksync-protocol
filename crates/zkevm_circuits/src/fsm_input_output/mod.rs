@@ -1,3 +1,4 @@
+use std::mem::MaybeUninit;
 use super::*;
 use boojum::gadgets::traits::allocatable::CSAllocatableExt;
 use boojum::gadgets::traits::auxiliary::PrettyComparison;
@@ -237,26 +238,28 @@ impl<F: SmallField> CSAllocatableExt<F> for ClosedFormInputCompactForm<F> {
     where
         [(); Self::INTERNAL_STRUCT_LEN]:,
     {
-        [
-            self.start_flag.get_variable(),
-            self.completion_flag.get_variable(),
-            self.observable_input_committment[0].get_variable(),
-            self.observable_input_committment[1].get_variable(),
-            self.observable_input_committment[2].get_variable(),
-            self.observable_input_committment[3].get_variable(),
-            self.observable_output_committment[0].get_variable(),
-            self.observable_output_committment[1].get_variable(),
-            self.observable_output_committment[2].get_variable(),
-            self.observable_output_committment[3].get_variable(),
-            self.hidden_fsm_input_committment[0].get_variable(),
-            self.hidden_fsm_input_committment[1].get_variable(),
-            self.hidden_fsm_input_committment[2].get_variable(),
-            self.hidden_fsm_input_committment[3].get_variable(),
-            self.hidden_fsm_output_committment[0].get_variable(),
-            self.hidden_fsm_output_committment[1].get_variable(),
-            self.hidden_fsm_output_committment[2].get_variable(),
-            self.hidden_fsm_output_committment[3].get_variable(),
-        ]
+        let mut result: [MaybeUninit<Variable>; Self::INTERNAL_STRUCT_LEN] = [MaybeUninit::uninit(); Self::INTERNAL_STRUCT_LEN];
+
+        result[0].write(self.start_flag.get_variable());
+        result[1].write(self.completion_flag.get_variable());
+        result[2].write(self.observable_input_committment[0].get_variable());
+        result[3].write(self.observable_input_committment[1].get_variable());
+        result[4].write(self.observable_input_committment[2].get_variable());
+        result[5].write(self.observable_input_committment[3].get_variable());
+        result[6].write(self.observable_output_committment[0].get_variable());
+        result[7].write(self.observable_output_committment[1].get_variable());
+        result[8].write(self.observable_output_committment[2].get_variable());
+        result[9].write(self.observable_output_committment[3].get_variable());
+        result[10].write(self.hidden_fsm_input_committment[0].get_variable());
+        result[11].write(self.hidden_fsm_input_committment[1].get_variable());
+        result[12].write(self.hidden_fsm_input_committment[2].get_variable());
+        result[13].write(self.hidden_fsm_input_committment[3].get_variable());
+        result[14].write(self.hidden_fsm_output_committment[0].get_variable());
+        result[15].write(self.hidden_fsm_output_committment[1].get_variable());
+        result[16].write(self.hidden_fsm_output_committment[2].get_variable());
+        result[17].write(self.hidden_fsm_output_committment[3].get_variable());
+
+        unsafe { result.map(|el| el.assume_init()) }
     }
     fn set_internal_variables_values(witness: Self::Witness, dst: &mut DstBuffer<'_, '_, F>) {
         // NOTE: must be same sequence as in `flatten_as_variables`

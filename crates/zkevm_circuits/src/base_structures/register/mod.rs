@@ -1,3 +1,4 @@
+use std::mem::MaybeUninit;
 use super::*;
 use boojum::field::SmallField;
 use boojum::gadgets::u256::UInt256;
@@ -90,18 +91,19 @@ impl<F: SmallField> CSAllocatableExt<F> for VMRegister<F> {
     fn flatten_as_variables(&self) -> [Variable; Self::INTERNAL_STRUCT_LEN] {
         // NOTE: CSAllocatable is done by the macro, so it allocates in the order of declaration,
         // and we should do the same here!
+        let mut result: [MaybeUninit<Variable>; Self::INTERNAL_STRUCT_LEN] = [MaybeUninit::uninit(); Self::INTERNAL_STRUCT_LEN];
 
-        [
-            self.is_pointer.get_variable(),
-            self.value.inner[0].get_variable(),
-            self.value.inner[1].get_variable(),
-            self.value.inner[2].get_variable(),
-            self.value.inner[3].get_variable(),
-            self.value.inner[4].get_variable(),
-            self.value.inner[5].get_variable(),
-            self.value.inner[6].get_variable(),
-            self.value.inner[7].get_variable(),
-        ]
+        result[0].write(self.is_pointer.get_variable());
+        result[1].write(self.value.inner[0].get_variable());
+        result[2].write(self.value.inner[1].get_variable());
+        result[3].write(self.value.inner[2].get_variable());
+        result[4].write(self.value.inner[3].get_variable());
+        result[5].write(self.value.inner[4].get_variable());
+        result[6].write(self.value.inner[5].get_variable());
+        result[7].write(self.value.inner[6].get_variable());
+        result[8].write(self.value.inner[7].get_variable());
+
+        unsafe { result.map(|el| el.assume_init()) }
     }
 
     fn set_internal_variables_values(_witness: Self::Witness, _dst: &mut DstBuffer<'_, '_, F>) {
