@@ -75,7 +75,7 @@ where
     let mut limbs = [zero_var; N];
     assert!(N >= 16);
 
-    for (dst, src) in limbs.array_chunks_mut::<2>().zip(value.inner.iter()) {
+    for (dst, src) in limbs.as_chunks_mut::<2>().0.iter_mut().zip(value.inner.iter()) {
         let [b0, b1, b2, b3] = src.to_le_bytes(cs);
         let low = UInt16::from_le_bytes(cs, [b0, b1]);
         let high = UInt16::from_le_bytes(cs, [b2, b3]);
@@ -122,7 +122,7 @@ where
 
     let mut limbs = [UInt32::<F>::zero(cs); 8];
     let two_pow_16 = Num::allocated_constant(cs, F::from_u64_unchecked(2u32.pow(16) as u64));
-    for (dst, src) in limbs.iter_mut().zip(value.limbs.array_chunks_mut::<2>()) {
+    for (dst, src) in limbs.iter_mut().zip(value.limbs.as_chunks_mut::<2>().0.iter_mut()) {
         let low = Num::from_variable(src[0]);
         let high = Num::from_variable(src[1]);
         *dst = unsafe {

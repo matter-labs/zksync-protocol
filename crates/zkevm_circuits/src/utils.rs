@@ -36,15 +36,14 @@ pub fn produce_fs_challenges<
 
     let mut state = state.map(|el| Num::from_variable(el));
 
-    let mut it = fs_input.array_chunks::<8>();
-    for chunk in &mut it {
+    let (chunks, remainder) = fs_input.as_chunks::<8>();
+    for chunk in &mut chunks.iter() {
         let mut state_to_keep = [zero_num; 4];
         state_to_keep.copy_from_slice(&state[8..]);
         state = R::absorb_with_replacement_over_nums(cs, *chunk, state_to_keep);
         state = R::compute_round_function_over_nums(cs, state);
     }
 
-    let remainder = it.remainder();
     if remainder.len() != 0 {
         let mut state_to_keep = [zero_num; 4];
         state_to_keep.copy_from_slice(&state[8..]);

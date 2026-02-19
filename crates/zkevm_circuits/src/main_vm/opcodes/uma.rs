@@ -578,8 +578,8 @@ pub(crate) fn apply_uma<
         debug_assert_eq!(src.len(), selected_word.len());
 
         for (dst, src) in selected_word
-            .array_chunks_mut::<4>()
-            .zip(src.array_chunks::<4>())
+            .as_chunks_mut::<4>().0.iter_mut()
+            .zip(src.as_chunks::<4>().0.iter())
         {
             *dst = UInt8::parallel_select(cs, *mask_bit, src, &*dst);
         }
@@ -666,8 +666,8 @@ pub(crate) fn apply_uma<
     for (idx, mask_bit) in unalignment_bit_mask.iter().enumerate() {
         let dst = &mut written_bytes_buffer[idx..(idx + 32)]; // destination
         for (dst, src) in dst
-            .array_chunks_mut::<4>()
-            .zip(written_value_bytes.array_chunks::<4>())
+            .as_chunks_mut::<4>().0.iter_mut()
+            .zip(written_value_bytes.as_chunks::<4>().0.iter())
         {
             *dst = UInt8::parallel_select(cs, *mask_bit, src, &*dst);
         }
@@ -705,7 +705,7 @@ pub(crate) fn apply_uma<
             .inner
             .iter_mut()
             .rev()
-            .zip(written_bytes_buffer[..32].array_chunks::<4>())
+            .zip(written_bytes_buffer[..32].as_chunks::<4>().0.iter())
         {
             let be_bytes = *src;
             let u32_word = UInt32::from_be_bytes(cs, be_bytes);
@@ -718,7 +718,7 @@ pub(crate) fn apply_uma<
             .inner
             .iter_mut()
             .rev()
-            .zip(written_bytes_buffer[32..].array_chunks::<4>())
+            .zip(written_bytes_buffer[32..].as_chunks::<4>().0.iter())
         {
             let be_bytes = *src;
             let u32_word = UInt32::from_be_bytes(cs, be_bytes);
@@ -943,7 +943,7 @@ pub(crate) fn apply_uma<
         .inner
         .iter_mut()
         .rev()
-        .zip(selected_word.array_chunks::<4>())
+        .zip(selected_word.as_chunks::<4>().0.iter())
     {
         let mut le_bytes = *src;
         le_bytes.reverse();

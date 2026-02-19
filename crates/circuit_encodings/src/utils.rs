@@ -60,7 +60,7 @@ pub fn finalized_queue_state_as_bytes<F: SmallField>(
     input: [F; QUEUE_FINAL_STATE_COMMITMENT_LENGTH],
 ) -> [u8; 32] {
     let mut result = [0u8; 32];
-    for (dst, src) in result.array_chunks_mut::<8>().zip(input.into_iter()) {
+    for (dst, src) in result.as_chunks_mut::<8>().0.iter_mut().zip(input.into_iter()) {
         *dst = src.as_u64_reduced().to_be_bytes();
     }
 

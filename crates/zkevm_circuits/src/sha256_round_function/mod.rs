@@ -223,7 +223,7 @@ where
         let mut memory_queries_as_u32_words = [zero_u32; 8 * MEMORY_READ_QUERIES_PER_CYCLE];
         let should_read = zero_rounds_left.negated(cs);
         let mut bias_variable = should_read.get_variable();
-        for dst in memory_queries_as_u32_words.array_chunks_mut::<8>() {
+        for dst in memory_queries_as_u32_words.as_chunks_mut::<8>().0.iter_mut() {
             let read_query_value =
                 memory_read_witness.conditionally_allocate_biased(cs, should_read, bias_variable);
             bias_variable = read_query_value.inner[0].get_variable();
@@ -255,7 +255,7 @@ where
 
             // we need to change endianess. Memory is BE, and each of 4 byte chunks should be interpreted as BE u32 for sha256
             let be_bytes = read_query_value.to_be_bytes(cs);
-            for (dst, src) in dst.iter_mut().zip(be_bytes.array_chunks::<4>()) {
+            for (dst, src) in dst.iter_mut().zip(be_bytes.as_chunks::<4>().0.iter()) {
                 let as_u32 = UInt32::from_be_bytes(cs, *src);
                 *dst = as_u32;
             }
@@ -300,7 +300,7 @@ where
             .inner
             .iter_mut()
             .rev()
-            .zip(sha256_output.array_chunks::<4>())
+            .zip(sha256_output.as_chunks::<4>().0.iter())
         {
             *dst = UInt32::from_le_bytes(cs, *src);
         }

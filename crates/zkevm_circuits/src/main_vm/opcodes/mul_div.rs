@@ -10,7 +10,7 @@ fn u256_from_limbs<F: SmallField>(limbs: &[F]) -> U256 {
     debug_assert_eq!(limbs.len(), 8);
 
     let mut byte_array = [0u8; 32];
-    for (dst, limb) in byte_array.array_chunks_mut::<4>().zip(limbs.iter()) {
+    for (dst, limb) in byte_array.as_chunks_mut::<4>().0.iter_mut().zip(limbs.iter()) {
         *dst = (limb.as_u64_reduced() as u32).to_le_bytes();
     }
 

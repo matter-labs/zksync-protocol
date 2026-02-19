@@ -45,7 +45,7 @@ fn convert_truncated_keccak_digest_to_field_element<F: SmallField, CS: Constrain
     let mut limbs = [zero_var; NUM_WORDS_FR];
     // since the value would be interpreted as big endian in the L1 we need to reverse our bytes to
     // get the correct value
-    for (dst, src) in limbs.iter_mut().zip(input.array_chunks::<2>().rev()) {
+    for (dst, src) in limbs.iter_mut().zip(input.as_chunks::<2>().0.iter().rev()) {
         let [c0, c1] = *src;
         // for some reason there is no "from_be_bytes"
         *dst = UInt16::from_le_bytes(cs, [c1, c0]).get_variable();
@@ -72,8 +72,7 @@ fn convert_blob_chunk_to_field_element<F: SmallField, CS: ConstraintSystem<F>>(
     // compose the bytes into u16 words for the nonnative wrapper
     let zero_var = cs.allocate_constant(F::ZERO);
     let mut limbs = [zero_var; NUM_WORDS_FR];
-    let input_chunks = input.array_chunks::<2>();
-    let remainder = input_chunks.remainder();
+    let (input_chunks, remainder) = input.as_chunks::<2>();
     for (dst, src) in limbs.iter_mut().zip(input_chunks) {
         *dst = UInt16::from_le_bytes(cs, *src).get_variable();
     }
@@ -211,7 +210,7 @@ where
     opening_value.normalize(cs);
 
     for (dst, src) in opening_value_be_bytes
-        .array_chunks_mut::<2>()
+        .as_chunks_mut::<2>().0.iter_mut()
         .zip(opening_value.limbs[..16].iter().rev())
     {
         // field element is normalized, so all limbs are 16 bits
@@ -371,7 +370,7 @@ pub fn zksync_pubdata_into_monomial_form_poly(input: &[u8]) -> Vec<Bls12_381Fr> 
     // we interpret it as coefficients starting from the top one
     let mut poly = Vec::with_capacity(ELEMENTS_PER_4844_BLOCK);
     use boojum::pairing::ff::PrimeFieldRepr;
-    for bytes in input.array_chunks::<BLOB_CHUNK_SIZE>().rev() {
+    for bytes in input.as_chunks::<BLOB_CHUNK_SIZE>().0.iter().rev() {
         let mut buffer = [0u8; 32];
         buffer[..BLOB_CHUNK_SIZE].copy_from_slice(bytes);
         let mut repr = <Bls12_381Fr as boojum::pairing::ff::PrimeField>::Repr::default();
@@ -392,7 +391,7 @@ pub fn ethereum_4844_pubdata_into_bitreversed_lagrange_form_poly(input: &[u8]) -
     let mut poly = Vec::with_capacity(ELEMENTS_PER_4844_BLOCK);
     use boojum::pairing::ff::PrimeFieldRepr;
     let modulus = <Bls12_381Fr as boojum::pairing::ff::PrimeField>::char();
-    for bytes in input.array_chunks::<32>() {
+    for bytes in input.as_chunks::<32>().0.iter() {
         let mut repr = <Bls12_381Fr as boojum::pairing::ff::PrimeField>::Repr::default();
         repr.read_be(&bytes[..]).unwrap();
         let mut as_field_element = None;

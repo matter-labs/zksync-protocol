@@ -167,7 +167,7 @@ pub(crate) fn sha256_decompose_into_per_circuit_witness<
             let mut block = [0u8; 64];
 
             // we have two reads
-            for (dst, read) in block.array_chunks_mut::<32>().zip(round.reads.into_iter()) {
+            for (dst, read) in block.as_chunks_mut::<32>().0.iter_mut().zip(round.reads.into_iter()) {
                 let data = read.value;
                 data.to_big_endian(dst);
                 let read_query = memory_queries_it.next().unwrap();

@@ -3,7 +3,6 @@
 #![allow(dropping_references)]
 #![allow(incomplete_features)]
 #![feature(generic_const_exprs)]
-#![feature(array_chunks)]
 #![feature(more_qualified_paths)]
 #![feature(allocator_api)]
 

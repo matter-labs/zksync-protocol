@@ -419,7 +419,7 @@ pub fn commit_encoding<
     let zero_var = cs.allocate_constant(F::ZERO);
     buffer.resize(buffer_length, zero_var);
 
-    for chunk in buffer.array_chunks::<AW>() {
+    for chunk in buffer.as_chunks::<AW>().0.iter() {
         let capacity_els = R::split_capacity_elements(&state);
 
         state = R::absorb_with_replacement(cs, *chunk, capacity_els);

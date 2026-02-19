@@ -553,13 +553,12 @@ pub fn produce_fs_challenges<
 
     let mut state = R::initial_state();
     R::specialize_for_len(fs_input.len() as u32, &mut state);
-    let mut it = fs_input.array_chunks::<8>();
-    for chunk in &mut it {
+    let (chunks, remainder) = fs_input.as_chunks::<8>();
+    for chunk in &mut chunks.iter() {
         R::absorb_into_state::<AbsorptionModeOverwrite>(&mut state, chunk);
         R::round_function(&mut state);
     }
 
-    let remainder = it.remainder();
     if remainder.len() != 0 {
         let mut padded_chunk = [F::ZERO; 8];
         padded_chunk[..remainder.len()].copy_from_slice(remainder);
@@ -778,7 +777,7 @@ pub fn commit_encoding_round_function<
 
     buffer.resize(buffer_length, F::ZERO);
 
-    for chunk in buffer.array_chunks::<AW>() {
+    for chunk in buffer.as_chunks::<AW>().0.iter() {
         R::absorb_into_state::<AbsorptionModeOverwrite>(&mut state, chunk);
         R::round_function(&mut state);
     }

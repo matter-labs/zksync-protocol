@@ -176,7 +176,7 @@ where
 
     // squeeze
     let mut keccak256_hash = [MaybeUninit::<UInt8<F>>::uninit(); keccak256::KECCAK256_DIGEST_SIZE];
-    for (i, dst) in keccak256_hash.array_chunks_mut::<8>().enumerate() {
+    for (i, dst) in keccak256_hash.as_chunks_mut::<8>().0.iter_mut().enumerate() {
         for (dst, src) in dst.iter_mut().zip(keccak_accumulator_state[i][0].iter()) {
             let tmp = unsafe { UInt8::from_variable_unchecked(*src) };
             dst.write(tmp);

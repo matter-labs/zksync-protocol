@@ -346,7 +346,7 @@ pub(crate) fn finalize_queue_state<
     }
     to_absorb.resize(multiple * 8, zero_num);
     let mut state = [zero_num; 12];
-    for chunk in to_absorb.array_chunks::<8>() {
+    for chunk in to_absorb.as_chunks::<8>().0.iter() {
         let els_to_keep = R::split_capacity_elements(&state.map(|el| el.get_variable()))
             .map(|el| Num::from_variable(el));
         state = R::absorb_with_replacement_over_nums(cs, *chunk, els_to_keep);
