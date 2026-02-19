@@ -276,6 +276,7 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 [[package]]
 name = "boojum"
 version = "0.32.9"
+source = "git+https://github.com/matter-labs/zksync-crypto?branch=popzxc-update-rand#3d6b408db4eab73f0a0e381b26a4818bce60f9d6"
 dependencies = [
  "arrayvec 0.7.6",
  "bincode",
@@ -832,6 +833,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 [[package]]
 name = "franklin-crypto"
 version = "0.32.9"
+source = "git+https://github.com/matter-labs/zksync-crypto?branch=popzxc-update-rand#3d6b408db4eab73f0a0e381b26a4818bce60f9d6"
 dependencies = [
  "arr_macro",
  "bit-vec",
@@ -1687,6 +1689,7 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 [[package]]
 name = "rescue_poseidon"
 version = "0.32.9"
+source = "git+https://github.com/matter-labs/zksync-crypto?branch=popzxc-update-rand#3d6b408db4eab73f0a0e381b26a4818bce60f9d6"
 dependencies = [
  "addchain",
  "arrayvec 0.7.6",
@@ -1918,6 +1921,7 @@ dependencies = [
 [[package]]
 name = "snark_wrapper"
 version = "0.32.9"
+source = "git+https://github.com/matter-labs/zksync-crypto?branch=popzxc-update-rand#3d6b408db4eab73f0a0e381b26a4818bce60f9d6"
 dependencies = [
  "derivative",
  "rand",
@@ -2587,6 +2591,7 @@ dependencies = [
 [[package]]
 name = "zksync_bellman"
 version = "0.32.9"
+source = "git+https://github.com/matter-labs/zksync-crypto?branch=popzxc-update-rand#3d6b408db4eab73f0a0e381b26a4818bce60f9d6"
 dependencies = [
  "arrayvec 0.7.6",
  "bit-vec",
@@ -2610,6 +2615,7 @@ dependencies = [
 [[package]]
 name = "zksync_cs_derive"
 version = "0.32.9"
+source = "git+https://github.com/matter-labs/zksync-crypto?branch=popzxc-update-rand#3d6b408db4eab73f0a0e381b26a4818bce60f9d6"
 dependencies = [
  "proc-macro-error",
  "proc-macro2 1.0.94",
@@ -2620,6 +2626,7 @@ dependencies = [
 [[package]]
 name = "zksync_ff"
 version = "0.32.9"
+source = "git+https://github.com/matter-labs/zksync-crypto?branch=popzxc-update-rand#3d6b408db4eab73f0a0e381b26a4818bce60f9d6"
 dependencies = [
  "byteorder",
  "hex",
@@ -2632,6 +2639,7 @@ dependencies = [
 [[package]]
 name = "zksync_ff_derive"
 version = "0.32.9"
+source = "git+https://github.com/matter-labs/zksync-crypto?branch=popzxc-update-rand#3d6b408db4eab73f0a0e381b26a4818bce60f9d6"
 dependencies = [
  "num-bigint 0.4.6",
  "num-integer",
@@ -2661,6 +2669,7 @@ dependencies = [
 [[package]]
 name = "zksync_pairing"
 version = "0.32.9"
+source = "git+https://github.com/matter-labs/zksync-crypto?branch=popzxc-update-rand#3d6b408db4eab73f0a0e381b26a4818bce60f9d6"
 dependencies = [
  "byteorder",
  "cfg-if",
