@@ -275,8 +275,9 @@ checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 
 [[package]]
 name = "boojum"
-version = "0.32.9"
-source = "git+https://github.com/matter-labs/zksync-crypto?branch=popzxc-update-rand#3d6b408db4eab73f0a0e381b26a4818bce60f9d6"
+version = "0.32.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "713b59f8de0937251ed0d4442d95ceb3b3cfb07c6fc6ecad79c6a96177da6bce"
 dependencies = [
  "arrayvec 0.7.6",
  "bincode",
@@ -832,8 +833,9 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 
 [[package]]
 name = "franklin-crypto"
-version = "0.32.9"
-source = "git+https://github.com/matter-labs/zksync-crypto?branch=popzxc-update-rand#3d6b408db4eab73f0a0e381b26a4818bce60f9d6"
+version = "0.32.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a085a6c594cc30de567dcd1f12b84a4faa21110d2c7a4a68e73142d4346c3b7d"
 dependencies = [
  "arr_macro",
  "bit-vec",
@@ -1666,8 +1668,9 @@ checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 
 [[package]]
 name = "rescue_poseidon"
-version = "0.32.9"
-source = "git+https://github.com/matter-labs/zksync-crypto?branch=popzxc-update-rand#3d6b408db4eab73f0a0e381b26a4818bce60f9d6"
+version = "0.32.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fd447fc81e7e953feca39116935a536828820b92b668048580c282792eeb2aa"
 dependencies = [
  "addchain",
  "arrayvec 0.7.6",
@@ -1898,8 +1901,9 @@ dependencies = [
 
 [[package]]
 name = "snark_wrapper"
-version = "0.32.9"
-source = "git+https://github.com/matter-labs/zksync-crypto?branch=popzxc-update-rand#3d6b408db4eab73f0a0e381b26a4818bce60f9d6"
+version = "0.32.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5427fd5cbe3021b7e92f438edf7675f97afbe1cf942701980b0c52f31718e5a2"
 dependencies = [
  "derivative",
  "rand",
@@ -2568,8 +2572,9 @@ dependencies = [
 
 [[package]]
 name = "zksync_bellman"
-version = "0.32.9"
-source = "git+https://github.com/matter-labs/zksync-crypto?branch=popzxc-update-rand#3d6b408db4eab73f0a0e381b26a4818bce60f9d6"
+version = "0.32.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77ec0c3197b8e290c8053251460a80a15ea8cf9e506c4394fba727c39b8e79b3"
 dependencies = [
  "arrayvec 0.7.6",
  "bit-vec",
@@ -2592,8 +2597,9 @@ dependencies = [
 
 [[package]]
 name = "zksync_cs_derive"
-version = "0.32.9"
-source = "git+https://github.com/matter-labs/zksync-crypto?branch=popzxc-update-rand#3d6b408db4eab73f0a0e381b26a4818bce60f9d6"
+version = "0.32.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e65c87c72b9e0dd5800e171556a515aabd87dcc248b814992b3c5f70050d80e2"
 dependencies = [
  "proc-macro-error",
  "proc-macro2 1.0.94",
@@ -2603,8 +2609,9 @@ dependencies = [
 
 [[package]]
 name = "zksync_ff"
-version = "0.32.9"
-source = "git+https://github.com/matter-labs/zksync-crypto?branch=popzxc-update-rand#3d6b408db4eab73f0a0e381b26a4818bce60f9d6"
+version = "0.32.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5bc485f5d7a16a83bebde0a083f8d27d94001c58485fbf3b12a21ed9ad3aacc0"
 dependencies = [
  "byteorder",
  "hex",
@@ -2616,8 +2623,9 @@ dependencies = [
 
 [[package]]
 name = "zksync_ff_derive"
-version = "0.32.9"
-source = "git+https://github.com/matter-labs/zksync-crypto?branch=popzxc-update-rand#3d6b408db4eab73f0a0e381b26a4818bce60f9d6"
+version = "0.32.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72ca7e4f9d2756e9b0e3df70a8d18a49412f0706a485eb0bcd903874247a6317"
 dependencies = [
  "num-bigint 0.4.6",
  "num-integer",
@@ -2646,8 +2654,9 @@ dependencies = [
 
 [[package]]
 name = "zksync_pairing"
-version = "0.32.9"
-source = "git+https://github.com/matter-labs/zksync-crypto?branch=popzxc-update-rand#3d6b408db4eab73f0a0e381b26a4818bce60f9d6"
+version = "0.32.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e1becfb74e11f67afb73366c2f57412feab53581da029e6107719424b332b8b"
 dependencies = [
  "byteorder",
  "cfg-if",
