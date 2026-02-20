@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.153.9](https://github.com/matter-labs/zksync-protocol/compare/v0.153.8...v0.153.9) (2026-02-20)
+
+
+### Features
+
+* (WIP) Update rand to 0.8 ([#206](https://github.com/matter-labs/zksync-protocol/issues/206)) ([9179ffa](https://github.com/matter-labs/zksync-protocol/commit/9179ffa6cdb22f87e54d94d885f30f9f25e3319a))
+
 ## [0.153.8](https://github.com/matter-labs/zksync-protocol/compare/v0.153.7...v0.153.8) (2026-02-11)
 
 
