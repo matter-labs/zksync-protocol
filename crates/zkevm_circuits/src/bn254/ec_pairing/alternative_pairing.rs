@@ -1964,4 +1964,74 @@ mod tests {
 
         owned_cs.print_gate_stats();
     }
+
+    #[test]
+    fn test_hard_part_generator_stays_non_trivial_across_all_chains() {
+        const X: u64 = 4965661367192848881;
+
+        let cand = Bn256HardPartMethod::get_hard_part_generator();
+        assert_ne!(cand, Fq12::one(), "hard-part generator must not be one");
+
+        let chains = [
+            (
+                Bn256HardPartMethod::Devegili,
+                Bn256HardPartMethod::devegili_method(),
+            ),
+            (
+                Bn256HardPartMethod::FuentesCastaneda,
+                Bn256HardPartMethod::fuentes_castaneda_method(),
+            ),
+            (
+                Bn256HardPartMethod::Naive,
+                Bn256HardPartMethod::naive_method(),
+            ),
+        ];
+
+        for (method, (ops_chain, num_of_variables)) in chains {
+            let mut scratchpad = vec![Fq12::zero(); num_of_variables];
+            scratchpad[0] = cand;
+
+            for (op_idx, op) in ops_chain.into_iter().enumerate() {
+                let out_idx = match op {
+                    Ops::ExpByX(out_idx, in_idx) => {
+                        let mut tmp = scratchpad[in_idx];
+                        tmp = tmp.pow([X]);
+                        scratchpad[out_idx] = tmp;
+                        out_idx
+                    }
+                    Ops::Mul(out_idx, left_idx, right_idx) => {
+                        let mut tmp = scratchpad[left_idx];
+                        tmp.mul_assign(&scratchpad[right_idx]);
+                        scratchpad[out_idx] = tmp;
+                        out_idx
+                    }
+                    Ops::Square(out_idx, in_idx) => {
+                        let mut tmp = scratchpad[in_idx];
+                        tmp.square();
+                        scratchpad[out_idx] = tmp;
+                        out_idx
+                    }
+                    Ops::Conj(out_idx, in_idx) => {
+                        let mut tmp = scratchpad[in_idx];
+                        tmp.conjugate();
+                        scratchpad[out_idx] = tmp;
+                        out_idx
+                    }
+                    Ops::Frob(out_idx, in_idx, power) => {
+                        let mut tmp = scratchpad[in_idx];
+                        tmp.frobenius_map(power);
+                        scratchpad[out_idx] = tmp;
+                        out_idx
+                    }
+                };
+
+                assert_ne!(
+                    scratchpad[out_idx],
+                    Fq12::one(),
+                    "{method:?} produced one at step {}",
+                    op_idx + 1
+                );
+            }
+        }
+    }
 }
