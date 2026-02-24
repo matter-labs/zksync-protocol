@@ -813,7 +813,9 @@ pub(crate) fn keccak256_absorb_and_run_permutation<F: SmallField, CS: Constraint
                 < (keccak256::KECCAK_RATE_BYTES / keccak256::BYTES_PER_WORD)
             {
                 let tmp = block
-                    .as_chunks::<{ keccak256::BYTES_PER_WORD }>().0.iter()
+                    .as_chunks::<{ keccak256::BYTES_PER_WORD }>()
+                    .0
+                    .iter()
                     .skip(i + keccak256::LANE_WIDTH * j)
                     .next()
                     .unwrap();

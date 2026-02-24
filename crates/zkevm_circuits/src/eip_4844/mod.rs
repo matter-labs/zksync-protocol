@@ -210,7 +210,9 @@ where
     opening_value.normalize(cs);
 
     for (dst, src) in opening_value_be_bytes
-        .as_chunks_mut::<2>().0.iter_mut()
+        .as_chunks_mut::<2>()
+        .0
+        .iter_mut()
         .zip(opening_value.limbs[..16].iter().rev())
     {
         // field element is normalized, so all limbs are 16 bits

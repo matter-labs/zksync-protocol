@@ -1,5 +1,5 @@
-use std::mem::MaybeUninit;
 use super::*;
+use std::mem::MaybeUninit;
 
 use boojum::field::SmallField;
 
@@ -51,7 +51,8 @@ impl<F: SmallField> CSAllocatableExt<F> for MemoryQuery<F> {
     const INTERNAL_STRUCT_LEN: usize = MEMORY_QUERY_UNROLLED_WIDTH;
 
     fn flatten_as_variables(&self) -> [Variable; Self::INTERNAL_STRUCT_LEN] {
-        let mut result: [MaybeUninit<Variable>; Self::INTERNAL_STRUCT_LEN] = [MaybeUninit::uninit(); Self::INTERNAL_STRUCT_LEN];
+        let mut result: [MaybeUninit<Variable>; Self::INTERNAL_STRUCT_LEN] =
+            [MaybeUninit::uninit(); Self::INTERNAL_STRUCT_LEN];
 
         result[0].write(self.timestamp.get_variable());
         result[1].write(self.memory_page.get_variable());

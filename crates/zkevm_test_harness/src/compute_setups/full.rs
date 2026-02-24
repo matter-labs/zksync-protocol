@@ -195,7 +195,10 @@ pub fn generate_base_layer_vks(
         geometry: &GeometryConfig,
         worker: &Worker,
         cb: Box<dyn Fn() + Send + Sync>,
-    ) -> Vec<(ZkSyncBaseLayerVerificationKey, ZkSyncBaseLayerFinalizationHint)> {
+    ) -> Vec<(
+        ZkSyncBaseLayerVerificationKey,
+        ZkSyncBaseLayerFinalizationHint,
+    )> {
         get_all_basic_circuits(geometry)
             .into_par_iter()
             .map(|circuit| {
@@ -206,9 +209,7 @@ pub fn generate_base_layer_vks(
             .collect()
     }
 
-    let r: Vec<_> = pool.install(|| {
-        op_fn(&geometry, &worker, cb)
-    });
+    let r: Vec<_> = pool.install(|| op_fn(&geometry, &worker, cb));
 
     for (vk, hint) in r.into_iter() {
         source.set_base_layer_finalization_hint(hint)?;
@@ -449,7 +450,8 @@ mod test {
             None,
             Box::new(move || {
                 pb2.lock().unwrap().inc(1);
-        }))
+            }),
+        )
         .expect("must compute setup");
         pb.lock().unwrap().finish_with_message("done");
     }

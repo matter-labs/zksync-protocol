@@ -1,4 +1,3 @@
-use std::mem::MaybeUninit;
 use super::*;
 use boojum::cs::traits::cs::ConstraintSystem;
 use boojum::cs::traits::cs::DstBuffer;
@@ -20,6 +19,7 @@ use boojum::gadgets::u256::{recompose_u256_as_u32x8, UInt256};
 use boojum::gadgets::u32::UInt32;
 use boojum::gadgets::u8::UInt8;
 use cs_derive::*;
+use std::mem::MaybeUninit;
 
 #[derive(
     Derivative,
@@ -597,7 +597,6 @@ pub(crate) fn log_query_witness_from_values<F: SmallField>(
     }
 }
 
-
 pub(crate) fn log_query_witness_from_values2<F: SmallField>(
     values: [F; FLATTENED_VARIABLE_LENGTH],
 ) -> <LogQuery<F> as CSAllocatable<F>>::Witness {
@@ -697,8 +696,12 @@ impl<F: SmallField> CSAllocatableExt<F> for LogQuery<F> {
     where
         [(); Self::INTERNAL_STRUCT_LEN]:,
     {
-        let mut result: [MaybeUninit<Variable>; Self::INTERNAL_STRUCT_LEN] = [MaybeUninit::uninit(); Self::INTERNAL_STRUCT_LEN];
-        for (dst, src) in result.iter_mut().zip(self.flatten_as_variables_impl().into_iter()) {
+        let mut result: [MaybeUninit<Variable>; Self::INTERNAL_STRUCT_LEN] =
+            [MaybeUninit::uninit(); Self::INTERNAL_STRUCT_LEN];
+        for (dst, src) in result
+            .iter_mut()
+            .zip(self.flatten_as_variables_impl().into_iter())
+        {
             dst.write(src);
         }
         unsafe { result.map(|el| el.assume_init()) }

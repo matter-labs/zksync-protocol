@@ -185,7 +185,10 @@ fn get_binop_subresults<F: SmallField, CS: ConstraintSystem<F>>(
 
     if <CS::Config as CSConfig>::SetupConfig::KEEP_SETUP {
         // enforce. Note that there are no new variables here
-        for (src, decomposition) in composite_result.iter().zip(all_results.as_chunks::<3>().0.iter()) {
+        for (src, decomposition) in composite_result
+            .iter()
+            .zip(all_results.as_chunks::<3>().0.iter())
+        {
             if cs.gate_is_allowed::<ReductionGate<F, 4>>() {
                 let mut gate = ReductionGate::<F, 4>::empty();
                 gate.params = ReductionGateParams {

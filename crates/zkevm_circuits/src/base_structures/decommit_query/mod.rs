@@ -1,5 +1,5 @@
-use std::mem::MaybeUninit;
 use cs_derive::*;
+use std::mem::MaybeUninit;
 
 use super::*;
 use crate::ethereum_types::U256;
@@ -143,7 +143,8 @@ impl<F: SmallField> CSAllocatableExt<F> for DecommitQuery<F> {
     where
         [(); Self::INTERNAL_STRUCT_LEN]:,
     {
-        let mut result: [MaybeUninit<Variable>; Self::INTERNAL_STRUCT_LEN] = [MaybeUninit::uninit(); Self::INTERNAL_STRUCT_LEN];
+        let mut result: [MaybeUninit<Variable>; Self::INTERNAL_STRUCT_LEN] =
+            [MaybeUninit::uninit(); Self::INTERNAL_STRUCT_LEN];
 
         result[0].write(self.code_hash.inner[0].get_variable());
         result[1].write(self.code_hash.inner[1].get_variable());

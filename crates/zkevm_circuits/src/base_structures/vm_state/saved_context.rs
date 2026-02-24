@@ -1,4 +1,3 @@
-use std::mem::MaybeUninit;
 use boojum::cs::gates::assert_no_placeholder_variables;
 use boojum::cs::traits::cs::DstBuffer;
 use boojum::cs::Variable;
@@ -9,6 +8,7 @@ use boojum::gadgets::traits::encodable::WitnessVarLengthEncodable;
 use boojum::gadgets::traits::selectable::parallel_select_variables;
 use cs_derive::*;
 use ethereum_types::Address;
+use std::mem::MaybeUninit;
 
 use super::*;
 
@@ -252,7 +252,8 @@ impl<F: SmallField> CSAllocatableExt<F> for ExecutionContextRecord<F> {
     }
 
     fn flatten_as_variables(&self) -> [Variable; Self::INTERNAL_STRUCT_LEN] {
-        let mut result: [MaybeUninit<Variable>; Self::INTERNAL_STRUCT_LEN] = [MaybeUninit::uninit(); Self::INTERNAL_STRUCT_LEN];
+        let mut result: [MaybeUninit<Variable>; Self::INTERNAL_STRUCT_LEN] =
+            [MaybeUninit::uninit(); Self::INTERNAL_STRUCT_LEN];
 
         result[0].write(self.this.inner[0].get_variable());
         result[1].write(self.this.inner[1].get_variable());

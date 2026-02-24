@@ -1,6 +1,6 @@
-use std::mem::MaybeUninit;
 use boojum::cs::gates::ConstantAllocatableCS;
 use cs_derive::*;
+use std::mem::MaybeUninit;
 
 use crate::fsm_input_output::circuit_inputs::INPUT_OUTPUT_COMMITMENT_LENGTH;
 
@@ -69,14 +69,14 @@ impl<F: SmallField> CSAllocatableExt<F> for RecursionQuery<F> {
     where
         [(); Self::INTERNAL_STRUCT_LEN]:,
     {
-        let mut result: [MaybeUninit<Variable>; Self::INTERNAL_STRUCT_LEN] = [MaybeUninit::uninit(); Self::INTERNAL_STRUCT_LEN];
+        let mut result: [MaybeUninit<Variable>; Self::INTERNAL_STRUCT_LEN] =
+            [MaybeUninit::uninit(); Self::INTERNAL_STRUCT_LEN];
 
         result[0].write(self.circuit_type.get_variable());
         result[1].write(self.input_commitment[0].get_variable());
         result[2].write(self.input_commitment[1].get_variable());
         result[3].write(self.input_commitment[2].get_variable());
         result[4].write(self.input_commitment[3].get_variable());
-
 
         unsafe { result.map(|el| el.assume_init()) }
     }

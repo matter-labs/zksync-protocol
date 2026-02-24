@@ -1,7 +1,7 @@
-use std::mem::MaybeUninit;
 use super::*;
 use boojum::field::SmallField;
 use boojum::gadgets::u256::UInt256;
+use std::mem::MaybeUninit;
 
 use boojum::gadgets::boolean::Boolean;
 use boojum::gadgets::u16::UInt16;
@@ -91,7 +91,8 @@ impl<F: SmallField> CSAllocatableExt<F> for VMRegister<F> {
     fn flatten_as_variables(&self) -> [Variable; Self::INTERNAL_STRUCT_LEN] {
         // NOTE: CSAllocatable is done by the macro, so it allocates in the order of declaration,
         // and we should do the same here!
-        let mut result: [MaybeUninit<Variable>; Self::INTERNAL_STRUCT_LEN] = [MaybeUninit::uninit(); Self::INTERNAL_STRUCT_LEN];
+        let mut result: [MaybeUninit<Variable>; Self::INTERNAL_STRUCT_LEN] =
+            [MaybeUninit::uninit(); Self::INTERNAL_STRUCT_LEN];
 
         result[0].write(self.is_pointer.get_variable());
         result[1].write(self.value.inner[0].get_variable());

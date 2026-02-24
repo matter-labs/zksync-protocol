@@ -1,8 +1,8 @@
-use std::mem::MaybeUninit;
 use super::*;
 use boojum::gadgets::traits::allocatable::CSAllocatableExt;
 use boojum::gadgets::traits::auxiliary::PrettyComparison;
 use cs_derive::*;
+use std::mem::MaybeUninit;
 
 use crate::boojum::cs::traits::cs::DstBuffer;
 use boojum::cs::gates::ConstantAllocatableCS;
@@ -238,7 +238,8 @@ impl<F: SmallField> CSAllocatableExt<F> for ClosedFormInputCompactForm<F> {
     where
         [(); Self::INTERNAL_STRUCT_LEN]:,
     {
-        let mut result: [MaybeUninit<Variable>; Self::INTERNAL_STRUCT_LEN] = [MaybeUninit::uninit(); Self::INTERNAL_STRUCT_LEN];
+        let mut result: [MaybeUninit<Variable>; Self::INTERNAL_STRUCT_LEN] =
+            [MaybeUninit::uninit(); Self::INTERNAL_STRUCT_LEN];
 
         result[0].write(self.start_flag.get_variable());
         result[1].write(self.completion_flag.get_variable());

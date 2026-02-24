@@ -325,7 +325,12 @@ pub(crate) fn compute_decommitter_circuit_snapshots<
                         let mut raw_state = transmute_state(internal_state.clone());
                         raw_state[0] = 0;
                         let mut buffer = [0u8; 32];
-                        for (dst, src) in buffer.as_chunks_mut::<4>().0.iter_mut().zip(raw_state.iter()) {
+                        for (dst, src) in buffer
+                            .as_chunks_mut::<4>()
+                            .0
+                            .iter_mut()
+                            .zip(raw_state.iter())
+                        {
                             *dst = src.to_be_bytes();
                         }
 

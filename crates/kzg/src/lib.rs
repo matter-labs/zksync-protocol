@@ -392,7 +392,9 @@ fn compute_challenge(blob: &[Fr], commitment: &G1Affine) -> Fr {
 
 fn u8_repr_to_u64_repr_be(bytes: [u8; 32]) -> [u64; 4] {
     bytes
-        .as_chunks::<8>().0.iter()
+        .as_chunks::<8>()
+        .0
+        .iter()
         .map(|chunk| u64::from_be_bytes(*chunk))
         .rev()
         .collect::<Vec<u64>>()

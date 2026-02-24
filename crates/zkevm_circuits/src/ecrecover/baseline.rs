@@ -99,7 +99,12 @@ where
     let zero_var = cs.allocate_constant(F::ZERO);
     let mut limbs = [zero_var; N];
     assert!(N >= 16);
-    for (dst, src) in limbs.as_chunks_mut::<2>().0.iter_mut().zip(elem.inner.iter()) {
+    for (dst, src) in limbs
+        .as_chunks_mut::<2>()
+        .0
+        .iter_mut()
+        .zip(elem.inner.iter())
+    {
         let [b0, b1, b2, b3] = src.to_le_bytes(cs);
         let low = UInt16::from_le_bytes(cs, [b0, b1]);
         let high = UInt16::from_le_bytes(cs, [b2, b3]);
@@ -146,7 +151,12 @@ pub(crate) fn convert_uint256_to_field_element<
     let zero_var = cs.allocate_constant(F::ZERO);
     let mut limbs = [zero_var; N];
     assert!(N >= 16);
-    for (dst, src) in limbs.as_chunks_mut::<2>().0.iter_mut().zip(elem.inner.iter()) {
+    for (dst, src) in limbs
+        .as_chunks_mut::<2>()
+        .0
+        .iter_mut()
+        .zip(elem.inner.iter())
+    {
         let [b0, b1, b2, b3] = src.to_le_bytes(cs);
         let low = UInt16::from_le_bytes(cs, [b0, b1]);
         let high = UInt16::from_le_bytes(cs, [b2, b3]);
