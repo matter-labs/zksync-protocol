@@ -168,6 +168,9 @@ impl<const B: bool> Precompile for Secp256r1VerifyPrecompile<B> {
         y_value.to_big_endian(&mut buffer[..]);
         let y_bytes = buffer;
 
+        #[cfg(feature = "airbender-precompile-delegations")]
+        let result = secp256r1_verify_airbender(&hash, &r_bytes, &s_bytes, &x_bytes, &y_bytes);
+        #[cfg(not(feature = "airbender-precompile-delegations"))]
         let result = secp256r1_verify_inner(&hash, &r_bytes, &s_bytes, &x_bytes, &y_bytes);
 
         if let Ok(is_valid) = result {
@@ -291,6 +294,17 @@ pub fn secp256r1_verify_inner(
     Ok(result.is_ok())
 }
 
+#[cfg(feature = "airbender-precompile-delegations")]
+fn secp256r1_verify_airbender(
+    digest: &[u8; 32],
+    r: &[u8; 32],
+    s: &[u8; 32],
+    x: &[u8; 32],
+    y: &[u8; 32],
+) -> Result<bool, ()> {
+    airbender_crypto::secp256r1::verify(digest, r, s, x, y).map_err(|_| ())
+}
+
 pub fn secp256r1_verify_function<M: Memory, const B: bool>(
     monotonic_cycle_counter: u32,
     precompile_call_params: LogQuery,
@@ -308,16 +322,18 @@ pub fn secp256r1_verify_function<M: Memory, const B: bool>(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::secp256r1_verify_inner;
+fn hex_to_32(hex_str: &str) -> [u8; 32] {
+    let bytes = hex::decode(hex_str).expect("hex decode should succeed");
+    bytes
+        .as_slice()
+        .try_into()
+        .expect("hex string must be 32 bytes")
+}
 
-    fn hex_to_32(hex_str: &str) -> [u8; 32] {
-        let bytes = hex::decode(hex_str).expect("hex decode should succeed");
-        bytes
-            .as_slice()
-            .try_into()
-            .expect("hex string must be 32 bytes")
-    }
+#[cfg(test)]
+mod tests {
+    use super::hex_to_32;
+    use super::secp256r1_verify_inner;
 
     #[test]
     fn secp256r1_r_at_infinity_vector() {
@@ -329,5 +345,112 @@ mod tests {
 
         let result = secp256r1_verify_inner(&digest, &r, &s, &pk_x, &pk_y);
         assert_eq!(result.unwrap(), false);
+    }
+}
+
+#[cfg(all(test, feature = "airbender-precompile-delegations"))]
+mod airbender_backend_tests {
+    use super::{hex_to_32, secp256r1_verify_airbender, secp256r1_verify_inner};
+    use p256::ecdsa::signature::hazmat::PrehashSigner;
+    use p256::ecdsa::{Signature, SigningKey};
+    use zkevm_opcode_defs::p256;
+
+    #[test]
+    fn secp256r1_differential_valid_and_invalid_cases() {
+        let private_keys = [
+            hex_to_32("8854b52e0d56cb713f1189b15fd3684670e8c89ce11b7bcff37204d894f2519a"),
+            hex_to_32("49a3f7e1d4c6b8a2908172635445362718190a0b0c0d0e0f1021324354657687"),
+        ];
+
+        let digests = [
+            hex_to_32("0000000000000000000000000000000000000000000000000000000000000001"),
+            hex_to_32("0101010101010101010101010101010101010101010101010101010101010101"),
+            hex_to_32("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
+        ];
+
+        for private_key in private_keys {
+            let signing_key =
+                SigningKey::from_bytes((&private_key).into()).expect("private key must be valid");
+            let verify_key = signing_key.verifying_key();
+            let encoded = verify_key.to_encoded_point(false);
+            let (x, y) = match encoded.coordinates() {
+                p256::elliptic_curve::sec1::Coordinates::Uncompressed { x, y } => (*x, *y),
+                _ => panic!("signing key must produce uncompressed coordinates"),
+            };
+            let x: [u8; 32] = x.into();
+            let y: [u8; 32] = y.into();
+
+            for digest in digests {
+                let signature: Signature = signing_key
+                    .sign_prehash(&digest)
+                    .expect("prehash signing should succeed");
+
+                let r: [u8; 32] = signature.r().to_bytes().into();
+                let s: [u8; 32] = signature.s().to_bytes().into();
+
+                let legacy = secp256r1_verify_inner(&digest, &r, &s, &x, &y);
+                let airbender = secp256r1_verify_airbender(&digest, &r, &s, &x, &y);
+                assert_eq!(legacy, airbender);
+
+                let mut bad_digest = digest;
+                bad_digest[0] ^= 1;
+                let legacy_bad_digest = secp256r1_verify_inner(&bad_digest, &r, &s, &x, &y);
+                let airbender_bad_digest = secp256r1_verify_airbender(&bad_digest, &r, &s, &x, &y);
+                assert_eq!(legacy_bad_digest, airbender_bad_digest);
+
+                let mut bad_r = r;
+                bad_r[31] ^= 1;
+                let legacy_bad_sig = secp256r1_verify_inner(&digest, &bad_r, &s, &x, &y);
+                let airbender_bad_sig = secp256r1_verify_airbender(&digest, &bad_r, &s, &x, &y);
+                assert_eq!(legacy_bad_sig, airbender_bad_sig);
+
+                let mut bad_x = x;
+                bad_x[0] ^= 1;
+                let legacy_bad_pk = secp256r1_verify_inner(&digest, &r, &s, &bad_x, &y);
+                let airbender_bad_pk = secp256r1_verify_airbender(&digest, &r, &s, &bad_x, &y);
+                assert_eq!(legacy_bad_pk, airbender_bad_pk);
+            }
+        }
+    }
+
+    #[test]
+    fn secp256r1_differential_invalid_coordinates() {
+        let digest = hex_to_32("0000000000000000000000000000000000000000000000000000000000000001");
+        let r = hex_to_32("0000000000000000000000000000000000000000000000000000000000000001");
+        let s = hex_to_32("0000000000000000000000000000000000000000000000000000000000000001");
+        let x = [0u8; 32];
+        let y = [0u8; 32];
+
+        let legacy = secp256r1_verify_inner(&digest, &r, &s, &x, &y);
+        let airbender = secp256r1_verify_airbender(&digest, &r, &s, &x, &y);
+        assert_eq!(legacy, airbender);
+    }
+
+    #[test]
+    fn secp256r1_out_of_range_scalar_matches_legacy() {
+        let digest = hex_to_32("0101010101010101010101010101010101010101010101010101010101010101");
+        let r = hex_to_32("ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551");
+        let s = hex_to_32("0000000000000000000000000000000000000000000000000000000000000001");
+        let x = hex_to_32("6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296");
+        let y = hex_to_32("b01cbd1c01e58065711814b583f061e9d431cca994cea1313449bf97c840ae0a");
+
+        let legacy = secp256r1_verify_inner(&digest, &r, &s, &x, &y);
+        let airbender = secp256r1_verify_airbender(&digest, &r, &s, &x, &y);
+
+        assert_eq!(legacy, airbender);
+    }
+
+    #[test]
+    fn secp256r1_x_zero_point_matches_legacy() {
+        let digest = hex_to_32("0000000000000000000000000000000000000000000000000000000000000001");
+        let r = hex_to_32("0000000000000000000000000000000000000000000000000000000000000001");
+        let s = hex_to_32("0000000000000000000000000000000000000000000000000000000000000001");
+        let x = [0u8; 32];
+        let y = hex_to_32("66485c780e2f83d72433bd5d84a06bb6541c2af31dae871728bf856a174f93f4");
+
+        let legacy = secp256r1_verify_inner(&digest, &r, &s, &x, &y);
+        let airbender = secp256r1_verify_airbender(&digest, &r, &s, &x, &y);
+
+        assert_eq!(legacy, airbender);
     }
 }

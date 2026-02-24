@@ -7,6 +7,15 @@ use zkevm_opcode_defs::bn254::{CurveAffine, CurveProjective};
 use zkevm_opcode_defs::ethereum_types::U256;
 pub use zkevm_opcode_defs::sha2::Digest;
 
+#[cfg(feature = "airbender-precompile-delegations")]
+use crate::utils::airbender_bn254::{
+    airbender_fr_from_u256, airbender_g1_from_coordinates, airbender_point_to_u256_tuple,
+};
+#[cfg(feature = "airbender-precompile-delegations")]
+use airbender_crypto::ark_ec::{AffineRepr, CurveGroup};
+#[cfg(feature = "airbender-precompile-delegations")]
+use airbender_crypto::ark_ff::PrimeField as AirPrimeField;
+
 use crate::utils::bn254::{point_to_u256_tuple, validate_values_in_field, ECPointCoordinates};
 
 use super::*;
@@ -128,6 +137,9 @@ impl<const B: bool> Precompile for ECMulPrecompile<B> {
         }
 
         // Performing multiplication
+        #[cfg(feature = "airbender-precompile-delegations")]
+        let point_multiplied = ecmul_airbender((x1_value, y1_value), s_value);
+        #[cfg(not(feature = "airbender-precompile-delegations"))]
         let point_multiplied = ecmul_inner((x1_value, y1_value), s_value);
 
         if let Ok((x, y)) = point_multiplied {
@@ -285,6 +297,19 @@ pub fn ecmul_inner((x1, y1): ECPointCoordinates, s: U256) -> Result<ECPointCoord
     let multiplied = point_1.mul(s_field).into_affine();
     let u256_tuple = point_to_u256_tuple(multiplied);
     Ok(u256_tuple)
+}
+
+#[cfg(feature = "airbender-precompile-delegations")]
+fn ecmul_airbender((x1, y1): ECPointCoordinates, scalar: U256) -> Result<ECPointCoordinates> {
+    if !validate_values_in_field(&[&x1.to_string(), &y1.to_string()]) {
+        return Err(Error::msg("invalid values"));
+    }
+
+    let point = airbender_g1_from_coordinates((x1, y1), "invalid x1", "invalid y1")?;
+    let scalar = airbender_fr_from_u256(scalar, EC_GROUP_ORDER, "invalid scalar")?;
+    let multiplied = point.mul_bigint(scalar.into_bigint()).into_affine();
+
+    Ok(airbender_point_to_u256_tuple(multiplied))
 }
 
 pub fn ecmul_function<M: Memory, const B: bool>(
@@ -467,5 +492,70 @@ pub mod tests {
 
         // This should panic
         let _ = ecmul_inner((x1, y1), s).unwrap();
+    }
+}
+
+#[cfg(all(test, feature = "airbender-precompile-delegations"))]
+mod airbender_backend_tests {
+    use super::{ecmul_airbender, ecmul_inner, EC_GROUP_ORDER};
+    use zkevm_opcode_defs::ethereum_types::U256;
+
+    fn u256_from_hex(hex: &str) -> U256 {
+        U256::from_str_radix(hex, 16).expect("hex vector should parse as U256")
+    }
+
+    fn u256_from_dec(dec: &str) -> U256 {
+        U256::from_str_radix(dec, 10).expect("decimal vector should parse as U256")
+    }
+
+    #[test]
+    fn ecmul_differential_valid_vectors() {
+        let vectors = [
+            (
+                (
+                    u256_from_hex(
+                        "1148f79e53544582d22e5071480ae679d0b9df89d69e881f611e8381384ed1ad",
+                    ),
+                    u256_from_hex(
+                        "0bac10178d2cd8aa9b4af903461b9f1666c219cdfeb2bb5e0cd7cd6486a32a6d",
+                    ),
+                ),
+                u256_from_hex("15f0e77d431a6c4d21df6a71cdcb0b2eeba21fc1192bd9801b8cd8b7c763e115"),
+            ),
+            ((u256_from_dec("1"), u256_from_dec("2")), u256_from_dec("2")),
+            (
+                (u256_from_dec("1"), u256_from_dec("2")),
+                u256_from_hex(EC_GROUP_ORDER),
+            ),
+            (
+                (u256_from_dec("1"), u256_from_dec("2")),
+                u256_from_hex("912ceb58a394e07d28f0d12384840917789bb8d96d2c51b3cba5e0bbd0000003"),
+            ),
+            (
+                (u256_from_dec("1"), u256_from_dec("2")),
+                u256_from_hex("f1f5883e65f820d099915c908786b9d1c903896a609f32d65369cbe3b0000006"),
+            ),
+        ];
+
+        for (point, scalar) in vectors {
+            let legacy = ecmul_inner(point, scalar);
+            let airbender = ecmul_airbender(point, scalar);
+
+            assert_eq!(legacy.is_ok(), airbender.is_ok());
+            if let (Ok(legacy), Ok(airbender)) = (legacy, airbender) {
+                assert_eq!(legacy, airbender);
+            }
+        }
+    }
+
+    #[test]
+    fn ecmul_differential_invalid_point() {
+        let point = (u256_from_dec("1"), u256_from_dec("10"));
+        let scalar =
+            u256_from_hex("15f0e77d431a6c4d21df6a71cdcb0b2eeba21fc1192bd9801b8cd8b7c763e115");
+
+        let legacy = ecmul_inner(point, scalar);
+        let airbender = ecmul_airbender(point, scalar);
+        assert_eq!(legacy.is_ok(), airbender.is_ok());
     }
 }

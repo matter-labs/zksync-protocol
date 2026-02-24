@@ -7,6 +7,20 @@ use zkevm_opcode_defs::bn254::{CurveAffine, CurveProjective};
 use zkevm_opcode_defs::ethereum_types::U256;
 pub use zkevm_opcode_defs::sha2::Digest;
 
+#[cfg(feature = "airbender-precompile-delegations")]
+use airbender_crypto::ark_ec::pairing::Pairing as AirPairing;
+#[cfg(feature = "airbender-precompile-delegations")]
+use airbender_crypto::ark_ec::AffineRepr as AirAffineRepr;
+#[cfg(feature = "airbender-precompile-delegations")]
+use airbender_crypto::ark_ff::{One as AirOne, Zero as AirZero};
+#[cfg(feature = "airbender-precompile-delegations")]
+use airbender_crypto::bn254::{
+    curves::Bn254 as AirBn254, Fq12 as AirFq12, Fq2 as AirFq2, G1Affine as AirG1Affine,
+    G2Affine as AirG2Affine,
+};
+
+#[cfg(feature = "airbender-precompile-delegations")]
+use crate::utils::airbender_bn254::airbender_fq_from_u256;
 use crate::utils::bn254::validate_values_in_field;
 
 use super::*;
@@ -192,6 +206,9 @@ impl<const B: bool> Precompile for ECPairingPrecompile<B> {
         let mut result_query = MemoryQuery::empty();
 
         // Performing ecpairing check
+        #[cfg(feature = "airbender-precompile-delegations")]
+        let pairing_check = ecpairing_airbender(check_tuples.to_vec());
+        #[cfg(not(feature = "airbender-precompile-delegations"))]
         let pairing_check = ecpairing_inner(check_tuples.to_vec());
 
         if let Ok(result) = pairing_check {
@@ -298,6 +315,78 @@ pub fn ecpairing_inner(inputs: Vec<EcPairingInputTuple>) -> Result<bool> {
     }
 
     Ok(total_pairing.eq(&Fq12::one()))
+}
+
+#[cfg(feature = "airbender-precompile-delegations")]
+fn pair_airbender(input: &EcPairingInputTuple) -> Result<AirFq12> {
+    let (x1, y1, x2, y2, x3, y3) = (input[0], input[1], input[2], input[3], input[4], input[5]);
+
+    if !validate_values_in_field(&[
+        &x1.to_string(),
+        &y1.to_string(),
+        &x2.to_string(),
+        &y2.to_string(),
+        &x3.to_string(),
+        &y3.to_string(),
+    ]) {
+        return Err(Error::msg("invalid values"));
+    }
+
+    let x1_field = airbender_fq_from_u256(x1, "invalid x1")?;
+    let y1_field = airbender_fq_from_u256(y1, "invalid y1")?;
+    let x2_field = airbender_fq_from_u256(x2, "invalid x2")?;
+    let y2_field = airbender_fq_from_u256(y2, "invalid y2")?;
+    let x3_field = airbender_fq_from_u256(x3, "invalid x3")?;
+    let y3_field = airbender_fq_from_u256(y3, "invalid y3")?;
+
+    let point_1 = if x1.is_zero() && y1.is_zero() {
+        AirG1Affine::zero()
+    } else {
+        let point = AirG1Affine::new_unchecked(x1_field, y1_field);
+        if !point.is_on_curve() {
+            return Err(Error::msg("G1 point is not on curve"));
+        }
+        if !point.is_in_correct_subgroup_assuming_on_curve() {
+            return Err(Error::msg("G1 point is not in subgroup"));
+        }
+        point
+    };
+
+    // NOTE: In EIP-197 spec, 3rd and 5th positions correspond to imaginary part, while 4th and 6th to real ones.
+    // Thus, it might be confusing why we switch the order below.
+    let point_2_x = AirFq2::new(y2_field, x2_field);
+    let point_2_y = AirFq2::new(y3_field, x3_field);
+
+    let point_2 = if point_2_x.is_zero() && point_2_y.is_zero() {
+        AirG2Affine::zero()
+    } else {
+        let point = AirG2Affine::new_unchecked(point_2_x, point_2_y);
+        if !point.is_on_curve() {
+            return Err(Error::msg("G2 point is not on curve"));
+        }
+        if !point.is_in_correct_subgroup_assuming_on_curve() {
+            anyhow::bail!("G2 not on the subgroup");
+        }
+        point
+    };
+
+    let pairing = <AirBn254 as AirPairing>::pairing(point_1, point_2);
+    Ok(pairing.0)
+}
+
+#[cfg(feature = "airbender-precompile-delegations")]
+fn ecpairing_airbender(inputs: Vec<EcPairingInputTuple>) -> Result<bool> {
+    if inputs.is_empty() {
+        return Ok(true);
+    }
+
+    let mut total_pairing = AirFq12::one();
+    for input in inputs {
+        let pairing = pair_airbender(&input)?;
+        total_pairing *= &pairing;
+    }
+
+    Ok(total_pairing.eq(&AirFq12::one()))
 }
 
 /// Subgroup check for G2 using the Frobenius endomorphism.
@@ -680,5 +769,100 @@ pub mod tests {
             check_if_in_subgroup(infinity_point),
             "infinity point should be in the subgroup"
         );
+    }
+}
+
+#[cfg(all(test, feature = "airbender-precompile-delegations"))]
+mod airbender_backend_tests {
+    use super::{ecpairing_airbender, ecpairing_inner, EcPairingInputTuple};
+    use zkevm_opcode_defs::ethereum_types::U256;
+
+    fn u256_from_hex(hex: &str) -> U256 {
+        U256::from_str_radix(hex, 16).expect("hex vector should parse as U256")
+    }
+
+    fn subgroup_invalid_case() -> Vec<EcPairingInputTuple> {
+        vec![[
+            u256_from_hex("0412aa5b0805215b55a5e2dbf0662031aad0f5ef13f28b25df20b8670d1c59a6"),
+            u256_from_hex("16fb4b64ccff216fa5272e1e987c0616d60d8883d5834229c685949047e9411d"),
+            u256_from_hex("2d81dbc969f72bc0454ff8b04735b717b725fee98a2fcbcdcf6c5b51b1dff33f"),
+            u256_from_hex("075239888fc8448ab781e2a8bb85eb556469474cd707d4b913bee28679920eb6"),
+            u256_from_hex("1ef1c268b7c4c78959f099a043ecd5e537fe3069ac9197235f16162372848cba"),
+            u256_from_hex("209cfadc22f7e80d399d1886f1c53898521a34c62918ed802305f32b4070a3c4"),
+        ]]
+    }
+
+    fn valid_true_case() -> Vec<EcPairingInputTuple> {
+        vec![
+            [
+                u256_from_hex("2cf44499d5d27bb186308b7af7af02ac5bc9eeb6a3d147c186b21fb1b76e18da"),
+                u256_from_hex("2c0f001f52110ccfe69108924926e45f0b0c868df0e7bde1fe16d3242dc715f6"),
+                u256_from_hex("1fb19bb476f6b9e44e2a32234da8212f61cd63919354bc06aef31e3cfaff3ebc"),
+                u256_from_hex("22606845ff186793914e03e21df544c34ffe2f2f3504de8a79d9159eca2d98d9"),
+                u256_from_hex("2bd368e28381e8eccb5fa81fc26cf3f048eea9abfdd85d7ed3ab3698d63e4f90"),
+                u256_from_hex("2fe02e47887507adf0ff1743cbac6ba291e66f59be6bd763950bb16041a0a85e"),
+            ],
+            [
+                u256_from_hex("0000000000000000000000000000000000000000000000000000000000000001"),
+                u256_from_hex("30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd45"),
+                u256_from_hex("1971ff0471b09fa93caaf13cbf443c1aede09cc4328f5a62aad45f40ec133eb4"),
+                u256_from_hex("091058a3141822985733cbdddfed0fd8d6c104e9e9eff40bf5abfef9ab163bc7"),
+                u256_from_hex("2a23af9a5ce2ba2796c1f4e453a370eb0af8c212d9dc9acd8fc02c2e907baea2"),
+                u256_from_hex("23a8eb0b0996252cb548a4487da97b02422ebc0e834613f954de6c7e0afdc1fc"),
+            ],
+        ]
+    }
+
+    fn invalid_point_case() -> Vec<EcPairingInputTuple> {
+        vec![[
+            U256::from(5u64),
+            U256::from(10u64),
+            u256_from_hex("16342ef5343ae56e96dafd3fc43aaf6a715642f376327cf2bdb813cf41a0b55b"),
+            u256_from_hex("237e8c97323c9032ce9e05af4b1597881131d137b5313182c9ef1b2576c9f3f1"),
+            u256_from_hex("09c316c01492b5d4e2521d897b66de1e47438adf83a320054f8fc763935dc754"),
+            u256_from_hex("0e1bf45145e9ee5372a81f2ad50b81830e3bb26400a5a72999fac2f73d768089"),
+        ]]
+    }
+
+    #[test]
+    fn ecpairing_differential_empty_input() {
+        let legacy = ecpairing_inner(vec![]);
+        let airbender = ecpairing_airbender(vec![]);
+
+        assert_eq!(legacy.is_ok(), airbender.is_ok());
+        if let (Ok(legacy), Ok(airbender)) = (legacy, airbender) {
+            assert_eq!(legacy, airbender);
+        }
+    }
+
+    #[test]
+    fn ecpairing_differential_known_cases() {
+        let cases = [
+            subgroup_invalid_case(),
+            valid_true_case(),
+            invalid_point_case(),
+        ];
+
+        for inputs in cases {
+            let legacy = ecpairing_inner(inputs.clone());
+            let airbender = ecpairing_airbender(inputs);
+
+            assert_eq!(legacy.is_ok(), airbender.is_ok());
+            if let (Ok(legacy), Ok(airbender)) = (legacy, airbender) {
+                assert_eq!(legacy, airbender);
+            }
+        }
+    }
+
+    #[test]
+    fn ecpairing_differential_subgroup_error_message() {
+        let legacy = ecpairing_inner(subgroup_invalid_case())
+            .unwrap_err()
+            .to_string();
+        let airbender = ecpairing_airbender(subgroup_invalid_case())
+            .unwrap_err()
+            .to_string();
+
+        assert_eq!(legacy, airbender);
     }
 }

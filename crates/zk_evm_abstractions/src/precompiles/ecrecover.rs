@@ -147,6 +147,9 @@ impl<const B: bool> Precompile for ECRecoverPrecompile<B> {
         let v = buffer[31];
         assert!(v == 0 || v == 1);
 
+        #[cfg(feature = "airbender-precompile-delegations")]
+        let pk = ecrecover_airbender(&hash, &r_bytes, &s_bytes, v);
+        #[cfg(not(feature = "airbender-precompile-delegations"))]
         let pk = ecrecover_inner(&hash, &r_bytes, &s_bytes, v);
 
         // here it may be possible to have non-recoverable k*G point, so can fail
@@ -263,6 +266,43 @@ pub fn ecrecover_inner(
     recover_no_malleability_check(digest, signature, recid)
 }
 
+#[cfg(feature = "airbender-precompile-delegations")]
+fn ecrecover_airbender(
+    digest: &[u8; 32],
+    r: &[u8; 32],
+    s: &[u8; 32],
+    rec_id: u8,
+) -> Result<VerifyingKey, ()> {
+    use airbender_crypto::k256::ecdsa::{RecoveryId, Signature};
+    use airbender_crypto::k256::elliptic_curve::ops::Reduce;
+    use airbender_crypto::k256::{ecdsa::hazmat::bits2field, Scalar};
+    use airbender_crypto::secp256k1;
+
+    let signature = Signature::from_scalars(*r, *s).map_err(|_| ())?;
+    let recovery_id = RecoveryId::try_from(rec_id).unwrap();
+
+    let mut signature_bytes = [0u8; 64];
+    signature_bytes[..32].copy_from_slice(r);
+    signature_bytes[32..].copy_from_slice(s);
+    let legacy_signature =
+        k256::ecdsa::Signature::try_from(&signature_bytes[..]).map_err(|_| ())?;
+
+    let message = <Scalar as Reduce<airbender_crypto::k256::U256>>::reduce_bytes(
+        &bits2field::<airbender_crypto::k256::Secp256k1>(digest).map_err(|_| ())?,
+    );
+
+    let recovered_key = secp256k1::recover(&message, &signature, &recovery_id).map_err(|_| ())?;
+    let encoded = recovered_key.to_encoded_point(false);
+    let vk = VerifyingKey::from_sec1_bytes(encoded.as_bytes()).map_err(|_| ())?;
+
+    let field = k256::ecdsa::hazmat::bits2field::<k256::Secp256k1>(digest).map_err(|_| ())?;
+    let _ =
+        k256::ecdsa::hazmat::verify_prehashed(&vk.as_affine().into(), &field, &legacy_signature)
+            .map_err(|_| ())?;
+
+    Ok(vk)
+}
+
 fn recover_no_malleability_check(
     digest: &[u8; 32],
     signature: k256::ecdsa::Signature,
@@ -341,4 +381,168 @@ pub fn ecrecover_function<M: Memory, const B: bool>(
 ) {
     let mut processor = ECRecoverPrecompile::<B>;
     processor.execute_precompile(monotonic_cycle_counter, precompile_call_params, memory)
+}
+
+#[cfg(all(test, feature = "airbender-precompile-delegations"))]
+mod airbender_backend_tests {
+    use super::ecrecover_airbender;
+    use super::ecrecover_inner;
+    use zkevm_opcode_defs::k256;
+
+    fn hex_to_32(hex_str: &str) -> [u8; 32] {
+        let bytes = hex::decode(hex_str).expect("hex decode should succeed");
+        bytes
+            .as_slice()
+            .try_into()
+            .expect("hex string must be 32 bytes")
+    }
+
+    fn vk_to_uncompressed_bytes(vk: &k256::ecdsa::VerifyingKey) -> [u8; 65] {
+        let encoded = vk.to_encoded_point(false);
+        let mut bytes = [0u8; 65];
+        bytes.copy_from_slice(encoded.as_bytes());
+        bytes
+    }
+
+    #[test]
+    fn ecrecover_differential_known_vectors() {
+        let vectors = [
+            (
+                [
+                    107, 141, 44, 129, 177, 27, 45, 105, 149, 40, 221, 228, 136, 219, 223, 47, 148,
+                    41, 61, 13, 51, 195, 46, 52, 127, 37, 95, 164, 166, 193, 240, 169,
+                ],
+                [
+                    121, 190, 102, 126, 249, 220, 187, 172, 85, 160, 98, 149, 206, 135, 11, 7, 2,
+                    155, 252, 219, 45, 206, 40, 217, 89, 242, 129, 91, 22, 248, 23, 152,
+                ],
+                [
+                    107, 141, 44, 129, 177, 27, 45, 105, 149, 40, 221, 228, 136, 219, 223, 47, 148,
+                    41, 61, 13, 51, 195, 46, 52, 127, 37, 95, 164, 166, 193, 240, 169,
+                ],
+                0u8,
+            ),
+            (
+                [
+                    56, 209, 138, 203, 103, 210, 92, 139, 185, 148, 39, 100, 182, 47, 24, 225, 112,
+                    84, 246, 106, 129, 123, 212, 41, 84, 35, 173, 249, 237, 152, 135, 62,
+                ],
+                [
+                    56, 209, 138, 203, 103, 210, 92, 139, 185, 148, 39, 100, 182, 47, 24, 225, 112,
+                    84, 246, 106, 129, 123, 212, 41, 84, 35, 173, 249, 237, 152, 135, 62,
+                ],
+                [
+                    120, 157, 29, 212, 35, 210, 95, 7, 114, 210, 116, 141, 96, 247, 228, 184, 27,
+                    177, 77, 8, 110, 186, 142, 142, 142, 251, 109, 207, 248, 164, 174, 2,
+                ],
+                0u8,
+            ),
+        ];
+
+        for (digest, r, s, rec_id) in vectors {
+            let legacy = ecrecover_inner(&digest, &r, &s, rec_id);
+            let airbender = ecrecover_airbender(&digest, &r, &s, rec_id);
+
+            assert_eq!(legacy.is_ok(), airbender.is_ok());
+            if let (Ok(legacy), Ok(airbender)) = (legacy, airbender) {
+                assert_eq!(
+                    vk_to_uncompressed_bytes(&legacy),
+                    vk_to_uncompressed_bytes(&airbender)
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn ecrecover_differential_generated_valid_signatures() {
+        use k256::ecdsa::SigningKey;
+        use zkevm_opcode_defs::sha2::Digest;
+        use zkevm_opcode_defs::sha3;
+
+        let private_keys = [
+            hex_to_32("06f9f7f6f4c5f70b2bcf0fdb5f8f4672d8cc9b2f4fbed4352f0f0d0c0b0a0908"),
+            hex_to_32("49a3f7e1d4c6b8a2908172635445362718190a0b0c0d0e0f1021324354657687"),
+            hex_to_32("8854b52e0d56cb713f1189b15fd3684670e8c89ce11b7bcff37204d894f2519a"),
+        ];
+
+        let messages: [&[u8]; 4] = [
+            b"",
+            b"airbender",
+            b"zksync-protocol ecrecover differential test",
+            b"this vector covers prehash recovery semantics",
+        ];
+
+        for private_key in private_keys {
+            let signing_key = SigningKey::from_bytes((&private_key).into())
+                .expect("private key vector must be valid");
+            for message in messages {
+                let digest = sha3::Keccak256::digest(message);
+                let mut digest_bytes = [0u8; 32];
+                digest_bytes.copy_from_slice(digest.as_slice());
+
+                let (signature, recovery_id) = signing_key
+                    .sign_prehash_recoverable(&digest_bytes)
+                    .expect("prehash signing should succeed");
+
+                let signature_bytes = signature.to_bytes();
+                let mut r = [0u8; 32];
+                let mut s = [0u8; 32];
+                r.copy_from_slice(&signature_bytes[..32]);
+                s.copy_from_slice(&signature_bytes[32..]);
+
+                let legacy = ecrecover_inner(&digest_bytes, &r, &s, recovery_id.to_byte());
+                let airbender = ecrecover_airbender(&digest_bytes, &r, &s, recovery_id.to_byte());
+
+                assert_eq!(legacy.is_ok(), airbender.is_ok());
+                if let (Ok(legacy), Ok(airbender)) = (legacy, airbender) {
+                    assert_eq!(
+                        vk_to_uncompressed_bytes(&legacy),
+                        vk_to_uncompressed_bytes(&airbender)
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn ecrecover_differential_invalid_inputs() {
+        let cases = [
+            (
+                hex_to_32("0000000000000000000000000000000000000000000000000000000000000000"),
+                hex_to_32("0000000000000000000000000000000000000000000000000000000000000000"),
+                hex_to_32("0000000000000000000000000000000000000000000000000000000000000000"),
+                0u8,
+            ),
+            (
+                hex_to_32("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
+                hex_to_32("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
+                hex_to_32("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"),
+                1u8,
+            ),
+            (
+                hex_to_32("0101010101010101010101010101010101010101010101010101010101010101"),
+                hex_to_32("0202020202020202020202020202020202020202020202020202020202020202"),
+                hex_to_32("0303030303030303030303030303030303030303030303030303030303030303"),
+                0u8,
+            ),
+        ];
+
+        for (digest, r, s, rec_id) in cases {
+            let legacy = ecrecover_inner(&digest, &r, &s, rec_id);
+            let airbender = ecrecover_airbender(&digest, &r, &s, rec_id);
+            assert_eq!(legacy.is_ok(), airbender.is_ok());
+        }
+    }
+
+    #[test]
+    fn ecrecover_invalid_recovery_id_panics_like_legacy() {
+        let digest = hex_to_32("0101010101010101010101010101010101010101010101010101010101010101");
+        let r = hex_to_32("0202020202020202020202020202020202020202020202020202020202020202");
+        let s = hex_to_32("0303030303030303030303030303030303030303030303030303030303030303");
+
+        let legacy = std::panic::catch_unwind(|| ecrecover_inner(&digest, &r, &s, 2));
+        let airbender = std::panic::catch_unwind(|| ecrecover_airbender(&digest, &r, &s, 2));
+
+        assert_eq!(legacy.is_err(), airbender.is_err());
+    }
 }
