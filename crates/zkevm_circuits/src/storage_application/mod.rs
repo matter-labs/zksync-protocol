@@ -127,7 +127,15 @@ where
         if <CS::Config as CSConfig>::WitnessConfig::EVALUATE_WITNESS {
             let dependencies = [should_allocate.get_variable().into()];
             let witness = self.witness_source.clone();
-            let value_fn = move |inputs: [F; 1]| {
+            fn value_fn<
+                F: SmallField,
+                EL: CSAllocatableExt<F>,
+                DEF: FnOnce() -> EL::Witness + 'static + Send + Sync,
+            >(
+                inputs: [F; 1],
+                witness: Arc<RwLock<VecDeque<EL::Witness>>>,
+                default_values_closure: DEF,
+            ) -> [F; EL::INTERNAL_STRUCT_LEN] {
                 let should_allocate = <bool as WitnessCastable<F, F>>::cast_from_source(inputs[0]);
 
                 let witness = if should_allocate == true {
@@ -148,11 +156,13 @@ where
                 drop(dst);
 
                 result
-            };
+            }
 
             let outputs = Place::from_variables(el.flatten_as_variables());
 
-            cs.set_values_with_dependencies(&dependencies, &outputs, value_fn);
+            cs.set_values_with_dependencies(&dependencies, &outputs, |inputs: [F; 1]| {
+                value_fn(inputs, witness, default_values_closure)
+            });
         }
 
         el
@@ -173,7 +183,15 @@ where
         if <CS::Config as CSConfig>::WitnessConfig::EVALUATE_WITNESS {
             let dependencies = [should_allocate.get_variable().into(), bias.into()];
             let witness = self.witness_source.clone();
-            let value_fn = move |inputs: [F; 2]| {
+            fn value_fn<
+                F: SmallField,
+                EL: CSAllocatableExt<F>,
+                DEF: FnOnce() -> EL::Witness + 'static + Send + Sync,
+            >(
+                inputs: [F; 2],
+                witness: Arc<RwLock<VecDeque<EL::Witness>>>,
+                default_values_closure: DEF,
+            ) -> [F; EL::INTERNAL_STRUCT_LEN] {
                 let should_allocate = <bool as WitnessCastable<F, F>>::cast_from_source(inputs[0]);
 
                 let witness = if should_allocate == true {
@@ -194,11 +212,13 @@ where
                 drop(dst);
 
                 result
-            };
+            }
 
             let outputs = Place::from_variables(el.flatten_as_variables());
 
-            cs.set_values_with_dependencies(&dependencies, &outputs, value_fn);
+            cs.set_values_with_dependencies(&dependencies, &outputs, |inputs: [F; 2]| {
+                value_fn(inputs, witness, default_values_closure)
+            });
         }
 
         el

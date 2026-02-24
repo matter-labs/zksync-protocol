@@ -88,7 +88,15 @@ where
                 should_start_new.get_variable().into(),
             ];
             let witness = self.witness_source.clone();
-            let value_fn = move |inputs: [F; 2]| {
+            fn value_fn<
+                F: SmallField,
+                EL: CSAllocatableExt<F>,
+                DEF: FnOnce() -> EL::Witness + 'static + Send + Sync,
+            >(
+                inputs: [F; 2],
+                witness: Arc<RwLock<VecDeque<VecDeque<EL::Witness>>>>,
+                default_values_closure: DEF,
+            ) -> [F; EL::INTERNAL_STRUCT_LEN + 1] {
                 let should_allocate = <bool as WitnessCastable<F, F>>::cast_from_source(inputs[0]);
                 let should_start_new = <bool as WitnessCastable<F, F>>::cast_from_source(inputs[1]);
 
@@ -124,7 +132,7 @@ where
                 drop(dst);
 
                 result
-            };
+            }
 
             let mut outputs = [Variable::placeholder(); EL::INTERNAL_STRUCT_LEN + 1];
             outputs[0] = sequence_is_empty.get_variable();
@@ -132,7 +140,9 @@ where
 
             let outputs = Place::from_variables(outputs);
 
-            cs.set_values_with_dependencies(&dependencies, &outputs, value_fn);
+            cs.set_values_with_dependencies(&dependencies, &outputs, |inputs: [F; 2]| {
+                value_fn(inputs, witness, default_values_closure)
+            });
         }
 
         (sequence_is_empty, el)
@@ -159,7 +169,15 @@ where
                 bias.into(),
             ];
             let witness = self.witness_source.clone();
-            let value_fn = move |inputs: [F; 3]| {
+            fn value_fn<
+                F: SmallField,
+                EL: CSAllocatableExt<F>,
+                DEF: FnOnce() -> EL::Witness + 'static + Send + Sync,
+            >(
+                inputs: [F; 3],
+                witness: Arc<RwLock<VecDeque<VecDeque<EL::Witness>>>>,
+                default_values_closure: DEF,
+            ) -> [F; EL::INTERNAL_STRUCT_LEN + 1] {
                 let should_allocate = <bool as WitnessCastable<F, F>>::cast_from_source(inputs[0]);
                 let should_start_new = <bool as WitnessCastable<F, F>>::cast_from_source(inputs[1]);
 
@@ -195,7 +213,7 @@ where
                 drop(dst);
 
                 result
-            };
+            }
 
             let mut outputs = [Variable::placeholder(); EL::INTERNAL_STRUCT_LEN + 1];
             outputs[0] = sequence_is_empty.get_variable();
@@ -203,7 +221,9 @@ where
 
             let outputs = Place::from_variables(outputs);
 
-            cs.set_values_with_dependencies(&dependencies, &outputs, value_fn);
+            cs.set_values_with_dependencies(&dependencies, &outputs, |inputs: [F; 3]| {
+                value_fn(inputs, witness, default_values_closure)
+            });
         }
 
         (sequence_is_empty, el)

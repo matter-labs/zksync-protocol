@@ -45,7 +45,7 @@ pub fn validate_jobs(jobs: usize) -> Result<()> {
 pub fn generate_data_source(jobs: usize) -> Result<InMemoryDataSource> {
     let mut source = InMemoryDataSource::new();
 
-    generate_base_layer_vks(&mut source, Some(jobs), || {})
+    generate_base_layer_vks(&mut source, Some(jobs), Box::new(|| {}))
         .map_err(|err| anyhow!("{err}"))
         .context("while attempting to generate base layer verification keys")?;
 
