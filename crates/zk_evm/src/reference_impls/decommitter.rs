@@ -45,8 +45,10 @@ impl<const B: bool> SimpleDecommitter<B> {
             } else {
                 panic!("Unknown versioned hash format {:?}", hash);
             };
-            assert!(!self.known_hashes.contains_key(&normalized));
-            self.known_hashes.insert(normalized, values);
+            // Duplicate normalised preimages are possible
+            if !self.known_hashes.contains_key(&normalized) {
+                self.known_hashes.insert(normalized, values);
+            }
         }
     }
 }
