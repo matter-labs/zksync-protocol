@@ -92,7 +92,7 @@ pub fn initial_bootloader_state<
     let mut current_state = callstack_empty_state.map(|el| el.get_variable());
     assert!(empty_entry_encoding.len() % 8 == 0);
 
-    for encoding_chunk in empty_entry_encoding.array_chunks::<8>() {
+    for encoding_chunk in empty_entry_encoding.as_chunks::<8>().0.iter() {
         // absorb by replacement
         let initial_state = [
             encoding_chunk[0],

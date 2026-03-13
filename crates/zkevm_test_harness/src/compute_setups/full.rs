@@ -164,7 +164,7 @@ pub fn generate_circuit_setup_data(
 pub fn generate_base_layer_vks_and_proofs(
     source: &mut dyn SetupDataSource,
 ) -> crate::data_source::SourceResult<()> {
-    generate_base_layer_vks(source, None, || {})
+    generate_base_layer_vks(source, None, Box::new(|| {}))
 }
 
 /// Returns number of basic verification keys.
@@ -176,10 +176,10 @@ pub fn basic_vk_count() -> usize {
 /// num_threads control how many VKs are generated in parallel - each one takes around 30GB of RAM.
 /// if not specified, will run them sequencially.
 /// CB callback will be called on each finished VK (to track progress).
-pub fn generate_base_layer_vks<CB: Fn() + Send + Sync>(
+pub fn generate_base_layer_vks(
     source: &mut dyn SetupDataSource,
     num_threads: Option<usize>,
-    cb: CB,
+    cb: Box<dyn Fn() + Send + Sync>,
 ) -> crate::data_source::SourceResult<()> {
     let geometry = ProtocolGeometry::latest().config();
     let worker = Worker::new();
@@ -191,16 +191,25 @@ pub fn generate_base_layer_vks<CB: Fn() + Send + Sync>(
         .build()
         .unwrap();
 
-    let r: Vec<_> = pool.install(|| {
-        get_all_basic_circuits(&geometry)
+    fn op_fn(
+        geometry: &GeometryConfig,
+        worker: &Worker,
+        cb: Box<dyn Fn() + Send + Sync>,
+    ) -> Vec<(
+        ZkSyncBaseLayerVerificationKey,
+        ZkSyncBaseLayerFinalizationHint,
+    )> {
+        get_all_basic_circuits(geometry)
             .into_par_iter()
             .map(|circuit| {
-                let result = generate_vk_and_finalization_hint(circuit, &worker);
+                let result = generate_vk_and_finalization_hint(circuit, worker);
                 cb();
                 result
             })
             .collect()
-    });
+    }
+
+    let r: Vec<_> = pool.install(|| op_fn(&geometry, &worker, cb));
 
     for (vk, hint) in r.into_iter() {
         source.set_base_layer_finalization_hint(hint)?;
@@ -435,9 +444,14 @@ mod test {
 
         let pb = Arc::new(Mutex::new(progress_bar));
 
-        generate_base_layer_vks(&mut source, None, || {
-            pb.lock().unwrap().inc(1);
-        })
+        let pb2 = pb.clone();
+        generate_base_layer_vks(
+            &mut source,
+            None,
+            Box::new(move || {
+                pb2.lock().unwrap().inc(1);
+            }),
+        )
         .expect("must compute setup");
         pb.lock().unwrap().finish_with_message("done");
     }
