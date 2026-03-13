@@ -45,8 +45,15 @@ impl<const B: bool> SimpleDecommitter<B> {
             } else {
                 panic!("Unknown versioned hash format {:?}", hash);
             };
-            assert!(!self.known_hashes.contains_key(&normalized));
-            self.known_hashes.insert(normalized, values);
+            // Duplicate normalised preimages are possible
+            if let Some(existing) = self.known_hashes.get(&normalized) {
+                assert_eq!(
+                    existing, &values,
+                    "duplicate normalised preimage with different bytecode content"
+                );
+            } else {
+                self.known_hashes.insert(normalized, values);
+            }
         }
     }
 }
