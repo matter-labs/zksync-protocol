@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.153.10](https://github.com/matter-labs/zksync-protocol/compare/v0.153.9...v0.153.10) (2026-03-13)
+
+
+### Bug Fixes
+
+* Allow duplicate decommits ([#214](https://github.com/matter-labs/zksync-protocol/issues/214)) ([39e6c67](https://github.com/matter-labs/zksync-protocol/commit/39e6c673cfac120f58f214cbdf67bf2b73e08878))
+
 ## [0.153.9](https://github.com/matter-labs/zksync-protocol/compare/v0.153.8...v0.153.9) (2026-02-20)
 
 
