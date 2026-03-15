@@ -5,6 +5,11 @@ use zkevm_opcode_defs::bn254::{CurveAffine, CurveProjective};
 use zkevm_opcode_defs::ethereum_types::U256;
 pub use zkevm_opcode_defs::sha2::Digest;
 
+#[cfg(feature = "airbender-precompile-delegations")]
+use crate::utils::airbender_bn254::{airbender_g1_from_coordinates, airbender_point_to_u256_tuple};
+#[cfg(feature = "airbender-precompile-delegations")]
+use airbender_crypto::ark_ec::{AffineRepr, CurveGroup};
+
 use crate::utils::bn254::{point_to_u256_tuple, validate_values_in_field, ECPointCoordinates};
 
 use super::*;
@@ -139,6 +144,9 @@ impl<const B: bool> Precompile for ECAddPrecompile<B> {
         }
 
         // Performing addition
+        #[cfg(feature = "airbender-precompile-delegations")]
+        let points_sum = ecadd_airbender((x1_value, y1_value), (x2_value, y2_value));
+        #[cfg(not(feature = "airbender-precompile-delegations"))]
         let points_sum = ecadd_inner((x1_value, y1_value), (x2_value, y2_value));
 
         if let Ok((x, y)) = points_sum {
@@ -292,6 +300,29 @@ pub fn ecadd_inner(
     let point_1 = point_1_projective.into_affine();
     let coordinates = point_to_u256_tuple(point_1);
     Ok(coordinates)
+}
+
+#[cfg(feature = "airbender-precompile-delegations")]
+fn ecadd_airbender(
+    (x1, y1): ECPointCoordinates,
+    (x2, y2): ECPointCoordinates,
+) -> Result<ECPointCoordinates> {
+    if !validate_values_in_field(&[
+        &x1.to_string(),
+        &y1.to_string(),
+        &x2.to_string(),
+        &y2.to_string(),
+    ]) {
+        return Err(Error::msg("invalid values"));
+    }
+
+    let point_1 = airbender_g1_from_coordinates((x1, y1), "invalid x", "invalid y")?;
+    let point_2 = airbender_g1_from_coordinates((x2, y2), "invalid x", "invalid y")?;
+
+    let mut sum = point_1.into_group();
+    sum += point_2;
+
+    Ok(airbender_point_to_u256_tuple(sum.into_affine()))
 }
 
 pub fn ecadd_function<M: Memory, const B: bool>(
@@ -485,5 +516,110 @@ pub mod tests {
 
         // This should panic:
         let _ = ecadd_inner((x1, y1), (x2, y2)).unwrap();
+    }
+}
+
+#[cfg(all(test, feature = "airbender-precompile-delegations"))]
+mod airbender_backend_tests {
+    use super::{ecadd_airbender, ecadd_inner};
+    use zkevm_opcode_defs::ethereum_types::U256;
+
+    fn u256_from_hex(hex: &str) -> U256 {
+        U256::from_str_radix(hex, 16).expect("hex vector should parse as U256")
+    }
+
+    fn u256_from_dec(dec: &str) -> U256 {
+        U256::from_str_radix(dec, 10).expect("decimal vector should parse as U256")
+    }
+
+    #[test]
+    fn ecadd_differential_valid_vectors() {
+        let vectors = [
+            (
+                (
+                    u256_from_hex(
+                        "1148f79e53544582d22e5071480ae679d0b9df89d69e881f611e8381384ed1ad",
+                    ),
+                    u256_from_hex(
+                        "0bac10178d2cd8aa9b4af903461b9f1666c219cdfeb2bb5e0cd7cd6486a32a6d",
+                    ),
+                ),
+                (
+                    u256_from_hex(
+                        "251edb9081aba0cb29a45e4565ab2a2136750be5c893000e35e031ee123889e8",
+                    ),
+                    u256_from_hex(
+                        "24a972b009ad5986a7e14781d4e0c2d11aff281004712470811ec9b4fcb7c569",
+                    ),
+                ),
+            ),
+            (
+                (u256_from_dec("1"), u256_from_dec("2")),
+                (u256_from_dec("1"), u256_from_dec("2")),
+            ),
+            (
+                (
+                    u256_from_hex(
+                        "1148f79e53544582d22e5071480ae679d0b9df89d69e881f611e8381384ed1ad",
+                    ),
+                    u256_from_hex(
+                        "0bac10178d2cd8aa9b4af903461b9f1666c219cdfeb2bb5e0cd7cd6486a32a6d",
+                    ),
+                ),
+                (
+                    u256_from_hex(
+                        "1148f79e53544582d22e5071480ae679d0b9df89d69e881f611e8381384ed1ad",
+                    ),
+                    u256_from_hex(
+                        "24b83e5b5404c77f1d054cb33b65b94730bf50c369bf0f2f2f48beb251d9d2da",
+                    ),
+                ),
+            ),
+            ((U256::zero(), U256::zero()), (U256::zero(), U256::zero())),
+        ];
+
+        for (point_1, point_2) in vectors {
+            let legacy = ecadd_inner(point_1, point_2);
+            let airbender = ecadd_airbender(point_1, point_2);
+
+            assert_eq!(legacy.is_ok(), airbender.is_ok());
+            if let (Ok(legacy), Ok(airbender)) = (legacy, airbender) {
+                assert_eq!(legacy, airbender);
+            }
+        }
+    }
+
+    #[test]
+    fn ecadd_differential_invalid_points() {
+        let vectors = [
+            (
+                (u256_from_dec("1"), u256_from_dec("3")),
+                (
+                    u256_from_hex(
+                        "251edb9081aba0cb29a45e4565ab2a2136750be5c893000e35e031ee123889e8",
+                    ),
+                    u256_from_hex(
+                        "24a972b009ad5986a7e14781d4e0c2d11aff281004712470811ec9b4fcb7c569",
+                    ),
+                ),
+            ),
+            (
+                (
+                    u256_from_hex(
+                        "1148f79e53544582d22e5071480ae679d0b9df89d69e881f611e8381384ed1ad",
+                    ),
+                    u256_from_hex(
+                        "0bac10178d2cd8aa9b4af903461b9f1666c219cdfeb2bb5e0cd7cd6486a32a6d",
+                    ),
+                ),
+                (u256_from_dec("1"), u256_from_dec("16")),
+            ),
+        ];
+
+        for (point_1, point_2) in vectors {
+            let legacy = ecadd_inner(point_1, point_2);
+            let airbender = ecadd_airbender(point_1, point_2);
+            assert_eq!(legacy.is_ok(), airbender.is_ok());
+        }
     }
 }

@@ -25,6 +25,9 @@ zkevm_opcode_defs = { version = "=0.153.10", path = "crates/zkevm_opcode_defs" }
 zkevm_test_harness = { version = "=0.153.10", path = "crates/zkevm_test_harness" }
 zkevm-assembly = { version = "=0.153.10", path = "crates/zkEVM-assembly" }
 
+# TODO: Pin to a specific commit once moved to the `matter-labs` org.
+airbender-crypto = { git = "https://github.com/popzxc/airbender-platform", branch = "main" }
+
 # `zksync-crypto` workspace dependencies
 snark_wrapper = "=0.32.10"
 bellman = { package = "zksync_bellman", version = "=0.32.10" }

@@ -2,6 +2,9 @@ use zkevm_opcode_defs::ethereum_types::U256;
 pub use zkevm_opcode_defs::sha2::Digest;
 pub use zkevm_opcode_defs::sha3::Keccak256;
 
+#[cfg(feature = "airbender-precompile-delegations")]
+use airbender_crypto::sha3::Keccak256 as AirbenderKeccak256;
+
 use crate::aux::*;
 use crate::queries::*;
 use crate::vm::*;
@@ -123,6 +126,9 @@ impl<const B: bool> Precompile for Keccak256Precompile<B> {
             filled: 0,
         };
 
+        #[cfg(feature = "airbender-precompile-delegations")]
+        let mut internal_state = Some(<AirbenderKeccak256 as airbender_crypto::MiniDigest>::new());
+        #[cfg(not(feature = "airbender-precompile-delegations"))]
         let mut internal_state = Keccak256::default();
 
         for round in 0..num_rounds {
@@ -185,35 +191,68 @@ impl<const B: bool> Precompile for Keccak256Precompile<B> {
                     data.to_big_endian(&mut bytes32_buffer[..]);
                 }
 
-                input_buffer.fill_with_bytes(&bytes32_buffer, unalignment, bytes_to_fill)
+                #[cfg(feature = "airbender-precompile-delegations")]
+                {
+                    if bytes_to_fill != 0 {
+                        let end = unalignment + bytes_to_fill;
+                        airbender_crypto::MiniDigest::update(
+                            internal_state
+                                .as_mut()
+                                .expect("airbender keccak state must exist before finalization"),
+                            &bytes32_buffer[unalignment..end],
+                        );
+                    }
+                }
+
+                input_buffer.fill_with_bytes(&bytes32_buffer, unalignment, bytes_to_fill);
             }
 
             // buffer is always large enough for us to have data
 
-            let mut block = input_buffer.consume::<KECCAK_RATE_BYTES>();
-            // apply padding
-            if paddings_round {
-                block = full_round_padding;
-            } else if is_last {
-                if padding_space == KECCAK_RATE_BYTES - 1 {
-                    block[KECCAK_RATE_BYTES - 1] = 0x81;
-                } else {
-                    block[padding_space] = 0x01;
-                    block[KECCAK_RATE_BYTES - 1] = 0x80;
-                }
+            #[cfg(feature = "airbender-precompile-delegations")]
+            {
+                let _ = input_buffer.consume::<KECCAK_RATE_BYTES>();
             }
-            // update the keccak internal state
-            internal_state.update(&block);
+
+            #[cfg(not(feature = "airbender-precompile-delegations"))]
+            {
+                let mut block = input_buffer.consume::<KECCAK_RATE_BYTES>();
+                // apply padding
+                if paddings_round {
+                    block = full_round_padding;
+                } else if is_last {
+                    if padding_space == KECCAK_RATE_BYTES - 1 {
+                        block[KECCAK_RATE_BYTES - 1] = 0x81;
+                    } else {
+                        block[padding_space] = 0x01;
+                        block[KECCAK_RATE_BYTES - 1] = 0x80;
+                    }
+                }
+                // update the keccak internal state
+                internal_state.update(&block);
+            }
 
             if is_last {
-                let state_inner = transmute_state(internal_state.clone());
+                #[cfg(feature = "airbender-precompile-delegations")]
+                let hash_as_bytes32 = airbender_crypto::MiniDigest::finalize(
+                    internal_state
+                        .take()
+                        .expect("airbender keccak state must exist for finalization"),
+                );
 
-                // take hash and properly set endianess for the output word
-                let mut hash_as_bytes32 = [0u8; 32];
-                hash_as_bytes32[0..8].copy_from_slice(&state_inner[0].to_le_bytes());
-                hash_as_bytes32[8..16].copy_from_slice(&state_inner[1].to_le_bytes());
-                hash_as_bytes32[16..24].copy_from_slice(&state_inner[2].to_le_bytes());
-                hash_as_bytes32[24..32].copy_from_slice(&state_inner[3].to_le_bytes());
+                #[cfg(not(feature = "airbender-precompile-delegations"))]
+                let hash_as_bytes32 = {
+                    let state_inner = transmute_state(internal_state.clone());
+
+                    // take hash and properly set endianess for the output word
+                    let mut hash_as_bytes32 = [0u8; 32];
+                    hash_as_bytes32[0..8].copy_from_slice(&state_inner[0].to_le_bytes());
+                    hash_as_bytes32[8..16].copy_from_slice(&state_inner[1].to_le_bytes());
+                    hash_as_bytes32[16..24].copy_from_slice(&state_inner[2].to_le_bytes());
+                    hash_as_bytes32[24..32].copy_from_slice(&state_inner[3].to_le_bytes());
+                    hash_as_bytes32
+                };
+
                 let as_u256 = U256::from_big_endian(&hash_as_bytes32);
                 let write_location = MemoryLocation {
                     memory_type: MemoryType::Heap, // we default for some value, here it's not that important
@@ -298,7 +337,7 @@ pub fn transmute_state(reference_state: Keccak256) -> Keccak256InnerState {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{transmute_state, Keccak256};
     use zkevm_opcode_defs::sha2::Digest;
 
     #[test]
@@ -317,5 +356,171 @@ mod tests {
         for (idx, el) in state_inner.iter().enumerate() {
             println!("Element {} = 0x{:016x}", idx, el);
         }
+    }
+}
+
+#[cfg(all(test, feature = "airbender-precompile-delegations"))]
+mod airbender_backend_tests {
+    use super::{
+        keccak256_rounds_function, AirbenderKeccak256, Keccak256, KECCAK_PRECOMPILE_BUFFER_SIZE,
+        KECCAK_RATE_BYTES, MEMORY_READS_PER_CYCLE,
+    };
+    use crate::aux::Timestamp;
+    use crate::queries::{LogQuery, MemoryQuery};
+    use crate::vm::Memory;
+    use zkevm_opcode_defs::ethereum_types::{Address, U256};
+    use zkevm_opcode_defs::PrecompileCallABI;
+
+    #[derive(Debug, Default)]
+    struct DeterministicMemory;
+
+    impl Memory for DeterministicMemory {
+        fn execute_partial_query(
+            &mut self,
+            _monotonic_cycle_counter: u32,
+            mut query: MemoryQuery,
+        ) -> MemoryQuery {
+            if !query.rw_flag {
+                query.value = U256::from(query.location.index.0 as u64);
+            }
+
+            query
+        }
+
+        fn specialized_code_query(
+            &mut self,
+            _monotonic_cycle_counter: u32,
+            _query: MemoryQuery,
+        ) -> MemoryQuery {
+            unreachable!("keccak precompile does not issue code queries")
+        }
+
+        fn read_code_query(
+            &self,
+            _monotonic_cycle_counter: u32,
+            _query: MemoryQuery,
+        ) -> MemoryQuery {
+            unreachable!("keccak precompile does not issue code queries")
+        }
+    }
+
+    fn keccak256_digest_legacy(input: &[u8]) -> [u8; 32] {
+        let digest = <Keccak256 as zkevm_opcode_defs::sha2::Digest>::digest(input);
+        let mut hash = [0u8; 32];
+        hash.copy_from_slice(digest.as_slice());
+        hash
+    }
+
+    fn keccak256_digest_airbender(input: &[u8]) -> [u8; 32] {
+        <AirbenderKeccak256 as airbender_crypto::MiniDigest>::digest(input)
+    }
+
+    fn legacy_keccak_read_counts(input_offset: usize, input_length: usize) -> Vec<usize> {
+        let mut input_byte_offset = input_offset;
+        let mut bytes_left = input_length;
+        let mut num_rounds = (bytes_left + (KECCAK_RATE_BYTES - 1)) / KECCAK_RATE_BYTES;
+        let needs_extra_padding_round = bytes_left % KECCAK_RATE_BYTES == 0;
+        if needs_extra_padding_round {
+            num_rounds += 1;
+        }
+
+        let mut buffer_filled = 0usize;
+        let mut reads_per_round = Vec::with_capacity(num_rounds);
+
+        for round in 0..num_rounds {
+            let is_last = round == num_rounds - 1;
+            let paddings_round = needs_extra_padding_round && is_last;
+            let mut reads_this_round = 0usize;
+
+            for _ in 0..MEMORY_READS_PER_CYCLE {
+                let unalignment = input_byte_offset % 32;
+                let at_most_meaningful_bytes_in_query = 32 - unalignment;
+                let meaningful_bytes_in_query = bytes_left.min(at_most_meaningful_bytes_in_query);
+                let enough_buffer_space =
+                    buffer_filled + meaningful_bytes_in_query <= KECCAK_PRECOMPILE_BUFFER_SIZE;
+                let should_read =
+                    meaningful_bytes_in_query != 0 && !paddings_round && enough_buffer_space;
+
+                if should_read {
+                    input_byte_offset += meaningful_bytes_in_query;
+                    bytes_left -= meaningful_bytes_in_query;
+                    buffer_filled += meaningful_bytes_in_query;
+                    reads_this_round += 1;
+                }
+            }
+
+            if buffer_filled < KECCAK_RATE_BYTES {
+                buffer_filled = 0;
+            } else {
+                buffer_filled -= KECCAK_RATE_BYTES;
+            }
+
+            reads_per_round.push(reads_this_round);
+        }
+
+        reads_per_round
+    }
+
+    fn delegated_keccak_read_counts(input_offset: u32, input_length: u32) -> Vec<usize> {
+        let abi = PrecompileCallABI {
+            input_memory_offset: input_offset,
+            input_memory_length: input_length,
+            output_memory_offset: 0,
+            output_memory_length: 1,
+            memory_page_to_read: 1,
+            memory_page_to_write: 2,
+            precompile_interpreted_data: 0,
+        };
+        let query = LogQuery {
+            timestamp: Timestamp(1),
+            tx_number_in_block: 0,
+            aux_byte: 0,
+            shard_id: 0,
+            address: Address::zero(),
+            key: abi.to_u256(),
+            read_value: U256::zero(),
+            written_value: U256::zero(),
+            rw_flag: false,
+            rollback: false,
+            is_service: false,
+        };
+
+        let mut memory = DeterministicMemory;
+        let (_, witness) =
+            keccak256_rounds_function::<DeterministicMemory, true>(0, query, &mut memory);
+        let (_, _, round_witness) = witness.expect("keccak with B=true must produce witness");
+
+        round_witness
+            .iter()
+            .map(|round| round.reads.iter().filter(|query| query.is_some()).count())
+            .collect()
+    }
+
+    #[test]
+    fn keccak256_differential_vectors() {
+        let lengths = [
+            0usize, 1, 2, 31, 32, 33, 63, 64, 65, 135, 136, 137, 271, 272, 273, 512,
+        ];
+
+        for length in lengths {
+            let input: Vec<u8> = (0..length)
+                .map(|idx| ((idx as u8).wrapping_mul(37)).wrapping_add(length as u8))
+                .collect();
+            let legacy = keccak256_digest_legacy(&input);
+            let airbender = keccak256_digest_airbender(&input);
+            assert_eq!(legacy, airbender);
+        }
+    }
+
+    #[test]
+    fn keccak256_delegated_read_schedule_matches_legacy_model() {
+        let input_offset = 0u32;
+        let input_length = 329u32;
+
+        let legacy_schedule =
+            legacy_keccak_read_counts(input_offset as usize, input_length as usize);
+        let delegated_schedule = delegated_keccak_read_counts(input_offset, input_length);
+
+        assert_eq!(delegated_schedule, legacy_schedule);
     }
 }
