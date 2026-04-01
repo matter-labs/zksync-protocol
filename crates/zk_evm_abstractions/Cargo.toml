@@ -33,3 +33,5 @@ airbender-precompile-delegations = ["dep:airbender-crypto"]
 
 [dev-dependencies]
 hex = "0.4"
+quickcheck.workspace = true
+tiny-keccak = { workspace = true, features = ["keccak"] }

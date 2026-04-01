@@ -19,6 +19,8 @@ circuit_encodings = { version = "=0.153.10", path = "crates/circuit_encodings" }
 circuit_sequencer_api = { version = "=0.153.10", path = "crates/circuit_sequencer_api" }
 cfg-if = "1"
 kzg = { version = "=0.153.10", path = "crates/kzg", package = "zksync_kzg" }
+quickcheck = "1"
+tiny-keccak = "2"
 zk_evm = { version = "=0.153.10", path = "crates/zk_evm" }
 zk_evm_abstractions = { version = "=0.153.10", path = "crates/zk_evm_abstractions" }
 zkevm_circuits = { version = "=0.153.10", path = "crates/zkevm_circuits" }
