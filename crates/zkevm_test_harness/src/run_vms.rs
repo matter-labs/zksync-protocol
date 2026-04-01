@@ -112,7 +112,27 @@ pub fn run_vms<S: Storage>(
             contract_bytecode_to_words(&entry_point_code),
         ));
     }
+    // Deduplicate by normalised preimage across all versioned-hash formats before
+    // populating the decommitter. Duplicate entries decode to the same words.
+    use crate::zk_evm::zkevm_opcode_defs::ContractCodeSha256Format;
+    let mut seen_normalized = std::collections::HashSet::new();
     for (k, v) in used_bytecodes.into_iter() {
+        let mut buffer = [0u8; 32];
+        k.to_big_endian(&mut buffer);
+        let normalized_opt = if ContractCodeSha256Format::is_valid(&buffer) {
+            let (_, n) = ContractCodeSha256Format::normalize_for_decommitment(&buffer);
+            Some(n)
+        } else if BlobSha256Format::is_valid(&buffer) {
+            let (_, n) = BlobSha256Format::normalize_for_decommitment(&buffer);
+            Some(n)
+        } else {
+            None
+        };
+        if let Some(n) = normalized_opt {
+            if !seen_normalized.insert(n) {
+                continue;
+            }
+        }
         to_fill.push((k, contract_bytecode_to_words(&v)));
     }
     tools.decommittment_processor.populate(to_fill);
@@ -210,6 +230,8 @@ pub fn run_vms<S: Storage>(
 
         // Dynamically insert newly deployed EVM contracts in decommiter
         if default_tracer.evm_tracer.pending_bytecodes.len() != 0 {
+            // Deduplicate within this flush by normalised preimage.
+            let mut seen_in_flush = std::collections::HashSet::new();
             let deployed_bytecodes = default_tracer
                 .evm_tracer
                 .flush_bytecodes()
@@ -223,6 +245,7 @@ pub fn run_vms<S: Storage>(
                         .decommittment_processor
                         .get_preimage_by_hash(normalized)
                         .is_none()
+                        && seen_in_flush.insert(normalized)
                 })
                 .collect();
 
