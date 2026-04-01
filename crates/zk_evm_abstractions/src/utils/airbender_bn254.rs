@@ -11,7 +11,10 @@ use crate::utils::bn254::ECPointCoordinates;
 pub(crate) fn airbender_field_element_to_u256<F: AirPrimeField>(value: F) -> U256 {
     let bytes = value.into_bigint().to_bytes_be();
     let mut padded = [0u8; 32];
-    let write_offset = padded.len() - bytes.len();
+    let write_offset = padded
+        .len()
+        .checked_sub(bytes.len())
+        .expect("field element byte representation must not exceed 32 bytes");
     padded[write_offset..].copy_from_slice(&bytes);
     U256::from_big_endian(&padded)
 }
