@@ -1,6 +1,6 @@
 use super::{
-    transmute_state, ByteBuffer, Digest, Keccak256, KeccakBackend,
-    KECCAK_PRECOMPILE_BUFFER_SIZE, KECCAK_RATE_BYTES,
+    transmute_state, ByteBuffer, Digest, Keccak256, KeccakBackend, KECCAK_PRECOMPILE_BUFFER_SIZE,
+    KECCAK_RATE_BYTES,
 };
 
 // ==============================================================================

@@ -57,8 +57,8 @@ pub(super) const DETERMINISTIC_KECCAK_CASES: &[DeterministicKeccakCase] = &[
         seed: 0x01,
     },
     DeterministicKeccakCase {
-        name: "single-byte-unaligned",
-        input_length: 1,
+        name: "crosses-word-boundary",
+        input_length: 33,
         input_offset: 31,
         seed: 0x23,
     },
