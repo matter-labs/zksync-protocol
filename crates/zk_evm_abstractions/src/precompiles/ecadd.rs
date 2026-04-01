@@ -619,7 +619,14 @@ mod airbender_backend_tests {
         for (point_1, point_2) in vectors {
             let legacy = ecadd_inner(point_1, point_2);
             let airbender = ecadd_airbender(point_1, point_2);
-            assert_eq!(legacy.is_ok(), airbender.is_ok());
+            assert!(
+                legacy.is_err(),
+                "Legacy ecadd should fail for invalid points"
+            );
+            assert!(
+                airbender.is_err(),
+                "Legacy failed for invalid point, but Airbender did not fail"
+            );
         }
     }
 }
