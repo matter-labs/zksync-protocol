@@ -37,7 +37,7 @@ dependencies = [
 [[package]]
 name = "airbender-crypto"
 version = "0.1.0"
-source = "git+https://github.com/popzxc/airbender-platform?branch=main#5260a728bd023653dcd7832c3a5fc1fb52f1b0ee"
+source = "git+https://github.com/matter-labs/airbender-platform?branch=main#321b2d783f90a5621d78409e068ef78f9d8271f2"
 dependencies = [
  "ark-bls12-381",
  "ark-bn254",
@@ -2784,6 +2784,7 @@ version = "0.153.10"
 dependencies = [
  "airbender-crypto",
  "anyhow",
+ "cfg-if",
  "hex",
  "num_enum",
  "serde",

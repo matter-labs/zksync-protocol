@@ -17,6 +17,7 @@ categories = ["cryptography"]
 circuit_definitions = { version = "=0.153.10", path = "crates/circuit_definitions" }
 circuit_encodings = { version = "=0.153.10", path = "crates/circuit_encodings" }
 circuit_sequencer_api = { version = "=0.153.10", path = "crates/circuit_sequencer_api" }
+cfg-if = "1"
 kzg = { version = "=0.153.10", path = "crates/kzg", package = "zksync_kzg" }
 zk_evm = { version = "=0.153.10", path = "crates/zk_evm" }
 zk_evm_abstractions = { version = "=0.153.10", path = "crates/zk_evm_abstractions" }

@@ -1,9 +1,13 @@
+use cfg_if::cfg_if;
 use zkevm_opcode_defs::ethereum_types::U256;
 pub use zkevm_opcode_defs::sha2::Digest;
 pub use zkevm_opcode_defs::sha3::Keccak256;
 
-#[cfg(feature = "airbender-precompile-delegations")]
-use airbender_crypto::sha3::Keccak256 as AirbenderKeccak256;
+cfg_if! {
+    if #[cfg(feature = "airbender-precompile-delegations")] {
+        use airbender_crypto::sha3::Keccak256 as AirbenderKeccak256;
+    }
+}
 
 use crate::aux::*;
 use crate::queries::*;
@@ -64,6 +68,143 @@ impl<const BUFFER_SIZE: usize> ByteBuffer<BUFFER_SIZE> {
     }
 }
 
+cfg_if! {
+    if #[cfg(feature = "airbender-precompile-delegations")] {
+        // ==============================================================================
+        // Delegated Keccak Backend
+        // ==============================================================================
+        //
+        // The delegated backend must preserve the legacy read cadence so witnesses and
+        // cycle accounting stay stable. Once bytes have been forwarded to the delegated
+        // digest, though, re-buffering them locally does not buy us anything.
+        struct KeccakRoundAccumulator {
+            buffered_bytes: usize,
+            state: Option<AirbenderKeccak256>,
+        }
+
+        impl KeccakRoundAccumulator {
+            fn new() -> Self {
+                Self {
+                    buffered_bytes: 0,
+                    state: Some(<AirbenderKeccak256 as airbender_crypto::MiniDigest>::new()),
+                }
+            }
+
+            fn can_fill_bytes(&self, num_bytes: usize) -> bool {
+                self.buffered_bytes + num_bytes <= KECCAK_PRECOMPILE_BUFFER_SIZE
+            }
+
+            fn absorb_query_bytes(
+                &mut self,
+                input: &[u8; 32],
+                offset: usize,
+                meaningful_bytes: usize,
+            ) {
+                if meaningful_bytes == 0 {
+                    return;
+                }
+
+                let end = offset + meaningful_bytes;
+                airbender_crypto::MiniDigest::update(
+                    self.state
+                        .as_mut()
+                        .expect("airbender keccak state must exist before finalization"),
+                    &input[offset..end],
+                );
+                self.buffered_bytes += meaningful_bytes;
+            }
+
+            fn finish_round(
+                &mut self,
+                _full_round_padding: &[u8; KECCAK_RATE_BYTES],
+                _is_last: bool,
+                _paddings_round: bool,
+                _padding_space: usize,
+            ) {
+                self.buffered_bytes = self.buffered_bytes.saturating_sub(KECCAK_RATE_BYTES);
+            }
+
+            fn finalize(&mut self) -> [u8; 32] {
+                airbender_crypto::MiniDigest::finalize(
+                    self.state
+                        .take()
+                        .expect("airbender keccak state must exist for finalization"),
+                )
+            }
+        }
+    } else {
+        // ==============================================================================
+        // Legacy Keccak Backend
+        // ==============================================================================
+        //
+        // The legacy backend still absorbs complete rate-sized blocks, so it keeps the
+        // explicit staging buffer that assembles aligned memory reads into keccak rounds.
+        struct KeccakRoundAccumulator {
+            buffer: ByteBuffer<KECCAK_PRECOMPILE_BUFFER_SIZE>,
+            state: Keccak256,
+        }
+
+        impl KeccakRoundAccumulator {
+            fn new() -> Self {
+                Self {
+                    buffer: ByteBuffer {
+                        bytes: [0u8; KECCAK_PRECOMPILE_BUFFER_SIZE],
+                        filled: 0,
+                    },
+                    state: Keccak256::default(),
+                }
+            }
+
+            fn can_fill_bytes(&self, num_bytes: usize) -> bool {
+                self.buffer.can_fill_bytes(num_bytes)
+            }
+
+            fn absorb_query_bytes(
+                &mut self,
+                input: &[u8; 32],
+                offset: usize,
+                meaningful_bytes: usize,
+            ) {
+                self.buffer.fill_with_bytes(input, offset, meaningful_bytes);
+            }
+
+            fn finish_round(
+                &mut self,
+                full_round_padding: &[u8; KECCAK_RATE_BYTES],
+                is_last: bool,
+                paddings_round: bool,
+                padding_space: usize,
+            ) {
+                let mut block = self.buffer.consume::<KECCAK_RATE_BYTES>();
+                if paddings_round {
+                    block = *full_round_padding;
+                } else if is_last {
+                    if padding_space == KECCAK_RATE_BYTES - 1 {
+                        block[KECCAK_RATE_BYTES - 1] = 0x81;
+                    } else {
+                        block[padding_space] = 0x01;
+                        block[KECCAK_RATE_BYTES - 1] = 0x80;
+                    }
+                }
+
+                self.state.update(&block);
+            }
+
+            fn finalize(&mut self) -> [u8; 32] {
+                let state_inner = transmute_state(std::mem::take(&mut self.state));
+
+                // Take the first four lanes and serialize them into the canonical digest bytes.
+                let mut hash_as_bytes32 = [0u8; 32];
+                hash_as_bytes32[0..8].copy_from_slice(&state_inner[0].to_le_bytes());
+                hash_as_bytes32[8..16].copy_from_slice(&state_inner[1].to_le_bytes());
+                hash_as_bytes32[16..24].copy_from_slice(&state_inner[2].to_le_bytes());
+                hash_as_bytes32[24..32].copy_from_slice(&state_inner[3].to_le_bytes());
+                hash_as_bytes32
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Keccak256Precompile<const B: bool>;
 
@@ -121,15 +262,7 @@ impl<const B: bool> Precompile for Keccak256Precompile<B> {
             vec![]
         };
 
-        let mut input_buffer = ByteBuffer::<KECCAK_PRECOMPILE_BUFFER_SIZE> {
-            bytes: [0u8; KECCAK_PRECOMPILE_BUFFER_SIZE],
-            filled: 0,
-        };
-
-        #[cfg(feature = "airbender-precompile-delegations")]
-        let mut internal_state = Some(<AirbenderKeccak256 as airbender_crypto::MiniDigest>::new());
-        #[cfg(not(feature = "airbender-precompile-delegations"))]
-        let mut internal_state = Keccak256::default();
+        let mut round_accumulator = KeccakRoundAccumulator::new();
 
         for round in 0..num_rounds {
             let mut round_witness = Keccak256RoundWitness {
@@ -155,7 +288,8 @@ impl<const B: bool> Precompile for Keccak256Precompile<B> {
                     bytes_left
                 };
 
-                let enough_buffer_space = input_buffer.can_fill_bytes(meaningful_bytes_in_query);
+                let enough_buffer_space =
+                    round_accumulator.can_fill_bytes(meaningful_bytes_in_query);
                 let nothing_to_read = meaningful_bytes_in_query == 0;
                 let should_read =
                     nothing_to_read == false && paddings_round == false && enough_buffer_space;
@@ -191,67 +325,18 @@ impl<const B: bool> Precompile for Keccak256Precompile<B> {
                     data.to_big_endian(&mut bytes32_buffer[..]);
                 }
 
-                #[cfg(feature = "airbender-precompile-delegations")]
-                {
-                    if bytes_to_fill != 0 {
-                        let end = unalignment + bytes_to_fill;
-                        airbender_crypto::MiniDigest::update(
-                            internal_state
-                                .as_mut()
-                                .expect("airbender keccak state must exist before finalization"),
-                            &bytes32_buffer[unalignment..end],
-                        );
-                    }
-                }
-
-                input_buffer.fill_with_bytes(&bytes32_buffer, unalignment, bytes_to_fill);
+                round_accumulator.absorb_query_bytes(&bytes32_buffer, unalignment, bytes_to_fill);
             }
 
-            // buffer is always large enough for us to have data
-
-            #[cfg(feature = "airbender-precompile-delegations")]
-            {
-                let _ = input_buffer.consume::<KECCAK_RATE_BYTES>();
-            }
-
-            #[cfg(not(feature = "airbender-precompile-delegations"))]
-            {
-                let mut block = input_buffer.consume::<KECCAK_RATE_BYTES>();
-                // apply padding
-                if paddings_round {
-                    block = full_round_padding;
-                } else if is_last {
-                    if padding_space == KECCAK_RATE_BYTES - 1 {
-                        block[KECCAK_RATE_BYTES - 1] = 0x81;
-                    } else {
-                        block[padding_space] = 0x01;
-                        block[KECCAK_RATE_BYTES - 1] = 0x80;
-                    }
-                }
-                // update the keccak internal state
-                internal_state.update(&block);
-            }
+            round_accumulator.finish_round(
+                &full_round_padding,
+                is_last,
+                paddings_round,
+                padding_space,
+            );
 
             if is_last {
-                #[cfg(feature = "airbender-precompile-delegations")]
-                let hash_as_bytes32 = airbender_crypto::MiniDigest::finalize(
-                    internal_state
-                        .take()
-                        .expect("airbender keccak state must exist for finalization"),
-                );
-
-                #[cfg(not(feature = "airbender-precompile-delegations"))]
-                let hash_as_bytes32 = {
-                    let state_inner = transmute_state(internal_state.clone());
-
-                    // take hash and properly set endianess for the output word
-                    let mut hash_as_bytes32 = [0u8; 32];
-                    hash_as_bytes32[0..8].copy_from_slice(&state_inner[0].to_le_bytes());
-                    hash_as_bytes32[8..16].copy_from_slice(&state_inner[1].to_le_bytes());
-                    hash_as_bytes32[16..24].copy_from_slice(&state_inner[2].to_le_bytes());
-                    hash_as_bytes32[24..32].copy_from_slice(&state_inner[3].to_le_bytes());
-                    hash_as_bytes32
-                };
+                let hash_as_bytes32 = round_accumulator.finalize();
 
                 let as_u256 = U256::from_big_endian(&hash_as_bytes32);
                 let write_location = MemoryLocation {
@@ -514,13 +599,26 @@ mod airbender_backend_tests {
 
     #[test]
     fn keccak256_delegated_read_schedule_matches_legacy_model() {
-        let input_offset = 0u32;
-        let input_length = 329u32;
+        let vectors = [
+            (0u32, 0u32),
+            (0, 329),
+            (1, 1),
+            (17, 135),
+            (5, 136),
+            (31, 137),
+            (13, 272),
+            (7, 512),
+        ];
 
-        let legacy_schedule =
-            legacy_keccak_read_counts(input_offset as usize, input_length as usize);
-        let delegated_schedule = delegated_keccak_read_counts(input_offset, input_length);
+        for (input_offset, input_length) in vectors {
+            let legacy_schedule =
+                legacy_keccak_read_counts(input_offset as usize, input_length as usize);
+            let delegated_schedule = delegated_keccak_read_counts(input_offset, input_length);
 
-        assert_eq!(delegated_schedule, legacy_schedule);
+            assert_eq!(
+                delegated_schedule, legacy_schedule,
+                "delegated schedule must match legacy schedule for offset={input_offset}, length={input_length}",
+            );
+        }
     }
 }
