@@ -17,13 +17,19 @@ categories = ["cryptography"]
 circuit_definitions = { version = "=0.153.10", path = "crates/circuit_definitions" }
 circuit_encodings = { version = "=0.153.10", path = "crates/circuit_encodings" }
 circuit_sequencer_api = { version = "=0.153.10", path = "crates/circuit_sequencer_api" }
+cfg-if = "1"
 kzg = { version = "=0.153.10", path = "crates/kzg", package = "zksync_kzg" }
+quickcheck = "1"
+tiny-keccak = "2"
 zk_evm = { version = "=0.153.10", path = "crates/zk_evm" }
 zk_evm_abstractions = { version = "=0.153.10", path = "crates/zk_evm_abstractions" }
 zkevm_circuits = { version = "=0.153.10", path = "crates/zkevm_circuits" }
 zkevm_opcode_defs = { version = "=0.153.10", path = "crates/zkevm_opcode_defs" }
 zkevm_test_harness = { version = "=0.153.10", path = "crates/zkevm_test_harness" }
 zkevm-assembly = { version = "=0.153.10", path = "crates/zkEVM-assembly" }
+
+# TODO: Pin to a specific commit once `airbender-platform` is stablilized.
+airbender-crypto = { git = "https://github.com/matter-labs/airbender-platform", branch = "main" }
 
 # `zksync-crypto` workspace dependencies
 snark_wrapper = "=0.32.10"

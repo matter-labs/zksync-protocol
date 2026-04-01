@@ -16,9 +16,22 @@ zkevm_opcode_defs.workspace = true
 
 # "External" dependencies
 anyhow = "1.0"
+cfg-if.workspace = true
 serde = { version = "1", features = ["derive"] }
 static_assertions = "1"
 num_enum = "0.6"
 
+
+[target.'cfg(target_arch = "riscv32")'.dependencies]
+airbender-crypto = { workspace = true, optional = true, features = ["proving"] }
+
+[target.'cfg(not(target_arch = "riscv32"))'.dependencies]
+airbender-crypto = { workspace = true, optional = true }
+
+[features]
+airbender-precompile-delegations = ["dep:airbender-crypto"]
+
 [dev-dependencies]
 hex = "0.4"
+quickcheck.workspace = true
+tiny-keccak = { workspace = true, features = ["keccak"] }
