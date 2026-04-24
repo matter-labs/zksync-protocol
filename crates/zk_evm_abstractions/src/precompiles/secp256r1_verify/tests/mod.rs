@@ -7,12 +7,20 @@ mod utils;
 
 use self::utils::{
     assert_backend_matches_case, deterministic_secp256r1_cases,
-    legacy_backend_matches_signed_message, QUICKCHECK_MAX_MESSAGE_BYTES, QUICKCHECK_NUM_CASES,
+    legacy_backend_matches_signed_message, wycheproof_edge_case_divergences,
+    QUICKCHECK_MAX_MESSAGE_BYTES, QUICKCHECK_NUM_CASES,
 };
 
 #[test]
 fn legacy_backend_matches_static_vectors() {
     for case in deterministic_secp256r1_cases() {
+        assert_backend_matches_case::<LegacySecp256r1Backend>(&case);
+    }
+}
+
+#[test]
+fn legacy_backend_treats_wycheproof_edge_cases_as_failed_verification() {
+    for case in wycheproof_edge_case_divergences() {
         assert_backend_matches_case::<LegacySecp256r1Backend>(&case);
     }
 }
@@ -37,6 +45,13 @@ cfg_if! {
         #[test]
         fn delegated_backend_matches_static_vectors() {
             for case in deterministic_secp256r1_cases() {
+                assert_backend_matches_case::<DelegatedSecp256r1Backend>(&case);
+            }
+        }
+
+        #[test]
+        fn delegated_backend_matches_legacy_on_wycheproof_edge_cases() {
+            for case in wycheproof_edge_case_divergences() {
                 assert_backend_matches_case::<DelegatedSecp256r1Backend>(&case);
             }
         }
