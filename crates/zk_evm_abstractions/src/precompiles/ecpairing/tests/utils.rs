@@ -39,6 +39,11 @@ pub(super) fn deterministic_ecpairing_cases() -> Vec<DeterministicECPairingCase>
             expected: PairingExpectation::Ok(true),
         },
         DeterministicECPairingCase {
+            name: "valid-generator-pairing-false-case",
+            inputs: vec![pairing_tuple(G1Affine::one(), G2Affine::one())],
+            expected: PairingExpectation::Ok(false),
+        },
+        DeterministicECPairingCase {
             name: "evm-codes-true-case-with-zeros",
             inputs: {
                 let mut inputs = valid_true_case();
