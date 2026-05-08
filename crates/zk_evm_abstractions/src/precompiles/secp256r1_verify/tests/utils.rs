@@ -23,6 +23,10 @@ pub(super) struct DeterministicSecp256r1Case {
 // reaches an exceptional elliptic-curve state. The precompile contract
 // distinguishes malformed inputs (`Err(())`) from well-formed signatures that
 // simply do not verify (`Ok(false)`), so these must stay on the latter path.
+//
+// Attribution: These test cases are taken from the wycheproof project, licensed
+// under Apache 2.0 license.
+// Project repository: https://github.com/C2SP/wycheproof/
 pub(super) fn wycheproof_edge_case_divergences() -> Vec<DeterministicSecp256r1Case> {
     vec![
         DeterministicSecp256r1Case {
