@@ -460,6 +460,8 @@ impl<
             is_kernel_mode,
         };
 
+        self.update_register_value(after_masking_decoded.dst1_reg_idx, PrimitiveValue::empty());
+
         after_masking_decoded.apply(self, prestate)?;
 
         if !skip_cycle {

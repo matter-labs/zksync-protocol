@@ -27,19 +27,9 @@ impl<const N: usize, E: VmEncodingMode<N>> DecodedOpcode<N, E> {
         vm_state.local_state.flags.reset();
 
         let PrimitiveValue {
-            value: mut src0,
-            is_pointer: mut src0_is_ptr,
+            value: src0,
+            is_pointer: src0_is_ptr,
         } = src0;
-
-        // on panic, we should never return any data. in this case, zero out src0 data
-        match inner_variant {
-            RetOpcode::Panic => {
-                src0 = U256::default();
-                src0_is_ptr = false;
-            }
-            _ => {}
-        }
-
         let ret_abi = RetABI::from_u256(src0);
 
         // we want to mark with one that was will become a new current (taken from stack)

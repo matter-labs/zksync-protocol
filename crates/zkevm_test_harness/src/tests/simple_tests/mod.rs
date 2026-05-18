@@ -5,6 +5,7 @@ use zkevm_assembly::Assembly;
 
 mod asm_tests;
 mod context;
+mod dirty_encoding_overconstraints;
 mod eip4844;
 mod evm_emulator;
 mod far_call;

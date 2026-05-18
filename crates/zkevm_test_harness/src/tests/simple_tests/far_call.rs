@@ -116,3 +116,15 @@ fn test_far_call_blob_marker_mismatch_static_overconstraint() {
         Default::default(),
     );
 }
+
+#[test_log::test]
+fn test_ret_panic_heap_growth_overconstraint() {
+    run_asm_based_test(
+        "src/tests/simple_tests/testdata/ret_panic_heap_growth_overconstraint",
+        &[800000],
+        Options {
+            cycle_limit: 200,
+            ..Default::default()
+        },
+    );
+}
