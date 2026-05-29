@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.153.11](https://github.com/matter-labs/zksync-protocol/compare/v0.153.10...v0.153.11) (2026-05-19)
+
+
+### Features
+
+* v31 ooc patch ([#217](https://github.com/matter-labs/zksync-protocol/issues/217)) ([76452f7](https://github.com/matter-labs/zksync-protocol/commit/76452f799091ae9a4524dd99a189e39ca46a1fbe))
+
 ## [0.153.10](https://github.com/matter-labs/zksync-protocol/compare/v0.153.9...v0.153.10) (2026-03-13)
 
 

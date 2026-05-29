@@ -2,8 +2,8 @@ use self::run_manually::{
     run_and_try_create_witness_for_extended_state, run_and_try_create_witness_inner, Options,
 };
 use super::*;
-use crate::tests::utils::preprocess_asm::preprocess_asm;
 pub use crate::tests::utils::preprocess_asm::TemplateDictionary;
+use crate::tests::utils::preprocess_asm::{asm_with_default_config, preprocess_asm};
 use std::{fs, path::Path};
 use zkevm_assembly::Assembly;
 
@@ -141,4 +141,52 @@ fn test_manual_asm() {
         &[],
         Default::default(),
     )
+}
+#[test_log::test]
+fn test_noncanonical_dst1_on_add() {
+    let asm = asm_with_default_config(
+        r#"
+    __entry:
+    .main:
+        add 42, r0, r1
+        add r0, r0, r2
+        add r1, r0, stack[0]
+        ret.ok r0
+    "#,
+    );
+
+    let mut assembly = Assembly::try_from(asm).unwrap();
+    let mut bytecode = assembly.compile_to_bytecode().unwrap();
+    assert_eq!(
+        bytecode[0][12], 0x02,
+        "Unexpected dst_regs byte for instruction 1; layout may have shifted"
+    );
+
+    // set dst1_reg_idx from 0 -> 1.
+    bytecode[0][12] |= 0x10;
+
+    // Expecting: r1 stays 42, stack[0] = 42
+
+    run_and_try_create_witness_for_extended_state(bytecode, vec![], 50);
+}
+
+#[test_log::test]
+fn test_canonical_dst1_on_mul() {
+    let asm = asm_with_default_config(
+        r#"
+    __entry:
+    .main:
+        add 3, r0, r1
+        add 5, r0, r2
+        mul r1, r2, r3, r4
+        add r3, r0, stack[0]
+        add r4, r0, stack[1]
+        ret.ok r0
+    "#,
+    );
+
+    let mut assembly = Assembly::try_from(asm).unwrap();
+    let bytecode = assembly.compile_to_bytecode().unwrap();
+
+    run_and_try_create_witness_for_extended_state(bytecode, vec![], 50);
 }
