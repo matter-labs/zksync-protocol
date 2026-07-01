@@ -67,3 +67,43 @@ fn test_dirty_dst1_encoding_on_add() {
         },
     );
 }
+
+#[test_log::test]
+fn test_dst0_dst1_alias_on_add() {
+    run_asm_based_test_with_bytecode_patch(
+        "src/tests/simple_tests/testdata/dirty_encoding_overconstraints/dst0_dst1_alias_add",
+        Default::default(),
+        |entry_bytecode| {
+            // Same packing as above: 2nd instruction (pc = 1), dst byte at offset 8*1 + 4.
+            assert!(!entry_bytecode.is_empty(), "empty entry bytecode");
+            let word0 = &mut entry_bytecode[0];
+            let idx = 8 * 1 + 4;
+            assert!(idx < 32, "unexpected instruction packing");
+
+            // Precondition: `add 7, r0, r2` decodes as dst0 = r2, dst1 = r0 (canonical).
+            {
+                let instr_bytes: [u8; 8] = word0[8..16].try_into().expect("instr slice");
+                let enc = u64::from_be_bytes(instr_bytes);
+                let (decoded, _) =
+                    EncodingModeProduction::parse_preliminary_variant_and_absolute_number(enc);
+                assert_eq!(decoded.dst0_reg_idx, 2, "precondition: dst0 must be r2");
+                assert_eq!(decoded.dst1_reg_idx, 0, "precondition: dst1 must be 0");
+            }
+
+            // Patch dst1_reg_idx (high nibble) to r2, aliasing dst0.
+            word0[idx] = (word0[idx] & 0x0f) | (2u8 << 4);
+
+            {
+                let instr_bytes: [u8; 8] = word0[8..16].try_into().expect("instr slice");
+                let enc = u64::from_be_bytes(instr_bytes);
+                let (decoded, _) =
+                    EncodingModeProduction::parse_preliminary_variant_and_absolute_number(enc);
+                assert_eq!(decoded.dst0_reg_idx, 2, "dst0 must remain r2");
+                assert_eq!(
+                    decoded.dst1_reg_idx, 2,
+                    "dst1 must be patched to r2 (alias with dst0)"
+                );
+            }
+        },
+    );
+}
