@@ -424,6 +424,7 @@ impl<
     }
 
     pub fn perform_dst1_update(&mut self, value: PrimitiveValue, mask_u4_value: u8) {
+        self.dst1_was_updated_this_cycle = true;
         self.update_register_value(mask_u4_value, value);
     }
 

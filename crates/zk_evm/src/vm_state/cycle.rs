@@ -460,9 +460,13 @@ impl<
             is_kernel_mode,
         };
 
-        self.update_register_value(after_masking_decoded.dst1_reg_idx, PrimitiveValue::empty());
+        self.dst1_was_updated_this_cycle = false;
 
         after_masking_decoded.apply(self, prestate)?;
+
+        if !self.dst1_was_updated_this_cycle {
+            self.update_register_value(after_masking_decoded.dst1_reg_idx, PrimitiveValue::empty());
+        }
 
         if !skip_cycle {
             self.increment_timestamp_after_cycle();

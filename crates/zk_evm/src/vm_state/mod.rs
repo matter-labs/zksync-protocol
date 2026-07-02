@@ -174,6 +174,7 @@ pub struct VmState<
     pub decommittment_processor: DP,
     pub witness_tracer: WT,
     pub version: Version,
+    pub dst1_was_updated_this_cycle: bool,
 }
 
 #[non_exhaustive]
@@ -220,6 +221,7 @@ impl<
             witness_tracer,
             block_properties,
             version,
+            dst1_was_updated_this_cycle: false,
         }
     }
     pub fn reset_flags(&mut self) {
