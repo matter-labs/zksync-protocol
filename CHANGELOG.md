@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.153.12](https://github.com/matter-labs/zksync-protocol/compare/v0.153.11...v0.153.12) (2026-07-02)
+
+
+### Bug Fixes
+
+* dst1 ([#222](https://github.com/matter-labs/zksync-protocol/issues/222)) ([6375319](https://github.com/matter-labs/zksync-protocol/commit/6375319d9ead1f7701bfd8a178e36bd3d6d079d5))
+
 ## [0.153.11](https://github.com/matter-labs/zksync-protocol/compare/v0.153.10...v0.153.11) (2026-05-19)
 
 
