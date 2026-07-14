@@ -47,12 +47,12 @@ fn pair_airbender(input: &EcPairingInputTuple) -> Result<AirFq12> {
         return Err(Error::msg("invalid values"));
     }
 
-    let x1_field = airbender_fq_from_u256(x1, "invalid x1")?;
-    let y1_field = airbender_fq_from_u256(y1, "invalid y1")?;
-    let x2_field = airbender_fq_from_u256(x2, "invalid x2")?;
-    let y2_field = airbender_fq_from_u256(y2, "invalid y2")?;
-    let x3_field = airbender_fq_from_u256(x3, "invalid x3")?;
-    let y3_field = airbender_fq_from_u256(y3, "invalid y3")?;
+    let x1_field = airbender_fq_from_u256(x1);
+    let y1_field = airbender_fq_from_u256(y1);
+    let x2_field = airbender_fq_from_u256(x2);
+    let y2_field = airbender_fq_from_u256(y2);
+    let x3_field = airbender_fq_from_u256(x3);
+    let y3_field = airbender_fq_from_u256(y3);
 
     let point_1 = if x1.is_zero() && y1.is_zero() {
         AirG1Affine::zero()

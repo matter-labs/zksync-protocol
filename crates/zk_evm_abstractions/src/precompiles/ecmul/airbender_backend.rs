@@ -8,7 +8,7 @@ use crate::utils::airbender_bn254::{
 };
 use crate::utils::bn254::{validate_values_in_field, ECPointCoordinates};
 
-use super::{ECMulBackend, EC_GROUP_ORDER};
+use super::ECMulBackend;
 
 // ==============================================================================
 // Delegated Backend
@@ -21,8 +21,8 @@ impl ECMulBackend for DelegatedECMulBackend {
             return Err(Error::msg("invalid values"));
         }
 
-        let point = airbender_g1_from_coordinates((x1, y1), "invalid x1", "invalid y1")?;
-        let scalar = airbender_fr_from_u256(scalar, EC_GROUP_ORDER, "invalid scalar")?;
+        let point = airbender_g1_from_coordinates((x1, y1))?;
+        let scalar = airbender_fr_from_u256(scalar);
         let multiplied = point.mul_bigint(scalar.into_bigint()).into_affine();
 
         Ok(airbender_point_to_u256_tuple(multiplied))

@@ -28,8 +28,8 @@ impl ECAddBackend for DelegatedECAddBackend {
             return Err(Error::msg("invalid values"));
         }
 
-        let point_1 = airbender_g1_from_coordinates((x1, y1), "invalid x", "invalid y")?;
-        let point_2 = airbender_g1_from_coordinates((x2, y2), "invalid x", "invalid y")?;
+        let point_1 = airbender_g1_from_coordinates((x1, y1))?;
+        let point_2 = airbender_g1_from_coordinates((x2, y2))?;
 
         let mut sum = point_1.into_group();
         sum += point_2;
