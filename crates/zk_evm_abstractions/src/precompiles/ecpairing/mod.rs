@@ -70,14 +70,7 @@ pub(super) fn check_if_in_subgroup(point: G2Affine) -> bool {
 pub fn pair(input: &EcPairingInputTuple) -> Result<Fq12> {
     let (x1, y1, x2, y2, x3, y3) = (input[0], input[1], input[2], input[3], input[4], input[5]);
 
-    if !validate_values_in_field(&[
-        &x1.to_string(),
-        &y1.to_string(),
-        &x2.to_string(),
-        &y2.to_string(),
-        &x3.to_string(),
-        &y3.to_string(),
-    ]) {
+    if !validate_values_in_field(&[x1, y1, x2, y2, x3, y3]) {
         return Err(Error::msg("invalid values"));
     }
 
