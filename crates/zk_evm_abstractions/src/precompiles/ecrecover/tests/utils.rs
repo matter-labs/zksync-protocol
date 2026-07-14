@@ -131,6 +131,39 @@ cfg_if! {
             backend_matches_case::<Backend>(&case)
         }
 
+        /// Differential check over arbitrary (possibly malformed) inputs: the two
+        /// backends must agree on both the accept/reject decision and the
+        /// recovered key. Because the legacy backend's ECDSA re-verification
+        /// always passes for a key its recovery produced, "legacy returns Ok" is
+        /// equivalent to "legacy recovery succeeds"; this therefore pins the
+        /// delegated (verify-free) recovery to the exact same accept-set and
+        /// output as legacy over unsigned/garbage inputs — the boundary the
+        /// dropped re-verification used to backstop. `rec_id` is restricted to
+        /// {0, 1} (the domain the precompile ABI passes; 2/3 panic and are
+        /// covered by `invalid_recovery_id_panics_like_legacy`).
+        pub(super) fn delegated_matches_legacy_on_raw<Legacy, Delegated>(
+            digest: [u8; 32],
+            r: [u8; 32],
+            s: [u8; 32],
+            rec_id_odd: bool,
+        ) -> bool
+        where
+            Legacy: ECRecoverBackend,
+            Delegated: ECRecoverBackend,
+        {
+            let rec_id = u8::from(rec_id_odd);
+            match (
+                Legacy::recover(&digest, &r, &s, rec_id),
+                Delegated::recover(&digest, &r, &s, rec_id),
+            ) {
+                (Ok(legacy), Ok(delegated)) => {
+                    verifying_key_bytes(&legacy) == verifying_key_bytes(&delegated)
+                }
+                (Err(_), Err(_)) => true,
+                _ => false,
+            }
+        }
+
         pub(super) fn invalid_recovery_id_panics_like_legacy<Legacy, Delegated>() -> bool
         where
             Legacy: ECRecoverBackend,

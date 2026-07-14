@@ -40,8 +40,16 @@ cfg_if! {
     if #[cfg(feature = "airbender-precompile-delegations")] {
         use super::airbender_backend::DelegatedECRecoverBackend;
         use self::utils::{
-            delegated_backend_matches_signed_message, invalid_recovery_id_panics_like_legacy,
+            delegated_backend_matches_signed_message, delegated_matches_legacy_on_raw,
+            invalid_recovery_id_panics_like_legacy,
         };
+
+        fn pad_to_32(bytes: &[u8]) -> [u8; 32] {
+            let mut out = [0u8; 32];
+            let n = bytes.len().min(32);
+            out[..n].copy_from_slice(&bytes[..n]);
+            out
+        }
 
         #[test]
         fn delegated_backend_matches_static_vectors() {
@@ -68,6 +76,22 @@ cfg_if! {
             QuickCheck::new()
                 .tests(QUICKCHECK_NUM_CASES)
                 .quickcheck(property as fn(Vec<u8>) -> bool);
+        }
+
+        #[test]
+        fn delegated_backend_matches_legacy_on_arbitrary_inputs_quickcheck() {
+            fn property(digest: Vec<u8>, r: Vec<u8>, s: Vec<u8>, rec_id_odd: bool) -> bool {
+                delegated_matches_legacy_on_raw::<LegacyECRecoverBackend, DelegatedECRecoverBackend>(
+                    pad_to_32(&digest),
+                    pad_to_32(&r),
+                    pad_to_32(&s),
+                    rec_id_odd,
+                )
+            }
+
+            QuickCheck::new()
+                .tests(QUICKCHECK_NUM_CASES)
+                .quickcheck(property as fn(Vec<u8>, Vec<u8>, Vec<u8>, bool) -> bool);
         }
 
         #[test]
