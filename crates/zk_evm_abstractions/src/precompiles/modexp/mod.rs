@@ -1,7 +1,26 @@
+use cfg_if::cfg_if;
 use zkevm_opcode_defs::ethereum_types::U256;
 pub use zkevm_opcode_defs::sha2::Digest;
 
 use super::*;
+
+#[cfg(feature = "airbender-precompile-delegations")]
+pub mod airbender_backend;
+#[cfg(test)]
+mod tests;
+
+/// Computes `modexp(b, e, m)` with the fastest implementation available for
+/// the current build configuration. All implementations produce identical
+/// results.
+fn active_modexp(b: U256, e: U256, m: U256) -> U256 {
+    cfg_if! {
+        if #[cfg(feature = "airbender-precompile-delegations")] {
+            airbender_backend::modexp_delegated(b, e, m)
+        } else {
+            modexp_inner(b, e, m)
+        }
+    }
+}
 
 // Base, exponent and modulus
 pub const MEMORY_READS_PER_CYCLE: usize = 3;
@@ -98,7 +117,7 @@ impl<const B: bool> Precompile for ModexpPrecompile<B> {
             read_history.push(m_query);
         }
 
-        let result = modexp_inner(base, exponent, modulus);
+        let result = active_modexp(base, exponent, modulus);
 
         let write_location = MemoryLocation {
             memory_type: MemoryType::Heap, // we default for some value, here it's not that important
@@ -174,7 +193,10 @@ pub fn modexp_inner(b: U256, e: U256, m: U256) -> U256 {
         U256::try_from(rem).unwrap()
     };
 
-    for i in (0..256).rev() {
+    // Iterating from the highest set bit of `e` is equivalent to iterating
+    // from bit 255: while `a == 1`, squaring keeps it at 1 and all skipped
+    // bits are 0, so no multiplications are skipped.
+    for i in (0..e.bits()).rev() {
         let bit = e.bit(i);
         a = modmul(a, a, m);
         if bit {
@@ -194,59 +216,4 @@ pub fn modexp_function<M: Memory, const B: bool>(
 ) {
     let mut processor = ModexpPrecompile::<B>;
     processor.execute_precompile(monotonic_cycle_counter, precompile_call_params, memory)
-}
-
-#[cfg(test)]
-pub mod tests {
-    use std::str::FromStr;
-
-    /// Tests the correctness of the `modexp_inner` function for a specified
-    /// set of inputs from https://www.evm.codes/precompiled#0x05.
-    #[test]
-    fn test_modexp_inner_correctness_evm_codes() {
-        use super::*;
-
-        let b = U256::from_str("0x8").unwrap();
-        let e = U256::from_str("0x9").unwrap();
-        let m = U256::from_str("0xa").unwrap();
-
-        let result = modexp_inner(b, e, m);
-
-        assert_eq!(result, U256::from_str("0x8").unwrap());
-    }
-
-    /// Tests the correctness of the `modexp_inner` function for randomly
-    /// generated U256 integers.
-    #[test]
-    fn test_modexp_inner_correctness_big_ints() {
-        use super::*;
-
-        let b =
-            U256::from_str("0x7f333213268023a7d3d40ea760d0e1c00d5fe99710e379193fc5973e7ad09370")
-                .unwrap();
-        let e = U256::from_str("0x39d71831130091794534336679323390f4408be38cb89963ec41f4a90d6bf63")
-            .unwrap();
-        let m =
-            U256::from_str("0xec6f05ec20e4c25420f9d6bc6800f9544ecabf5dbea80d11e0fb12c7f0517f5b")
-                .unwrap();
-
-        let result = modexp_inner(b, e, m);
-
-        assert_eq!(
-            result,
-            U256::from_str("0x2779a7e4d2b26461c6557a12eb86285eeeb9cf5a40155305177854b15b4ed3df")
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn test() {
-        use super::*;
-
-        let b = U256::from_str("0x05").unwrap();
-        let e = U256::from_str("0x00").unwrap();
-        let m = U256::from_str("0x01").unwrap();
-
-        let result = modexp_inner(b, e, m);
-    }
 }
