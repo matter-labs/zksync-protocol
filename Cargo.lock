@@ -36,8 +36,8 @@ dependencies = [
 
 [[package]]
 name = "airbender-crypto"
-version = "0.1.0"
-source = "git+https://github.com/matter-labs/airbender-platform?branch=main#321b2d783f90a5621d78409e068ef78f9d8271f2"
+version = "0.2.3"
+source = "git+https://github.com/matter-labs/airbender-platform?tag=v0.2.3#db2767d9ba871bb556ad8a2c8b4d39717f36cd47"
 dependencies = [
  "ark-bls12-381",
  "ark-bn254",
@@ -435,7 +435,7 @@ dependencies = [
 [[package]]
 name = "blake2s_u32"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender?branch=dev#769ec2e3937fa591221e8f27dab66273c8ab1ffb"
+source = "git+https://github.com/matter-labs/zksync-airbender?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
 dependencies = [
  "common_constants",
  "unroll",
@@ -629,7 +629,10 @@ checksum = "5b63caa9aa9397e2d9480a9b13673856c78d8ac123288526c37d7839f2a86990"
 [[package]]
 name = "common_constants"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender?branch=dev#769ec2e3937fa591221e8f27dab66273c8ab1ffb"
+source = "git+https://github.com/matter-labs/zksync-airbender?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
+dependencies = [
+ "seq-macro",
+]
 
 [[package]]
 name = "console"
