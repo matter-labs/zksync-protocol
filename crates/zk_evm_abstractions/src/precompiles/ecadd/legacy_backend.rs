@@ -20,12 +20,7 @@ impl ECAddBackend for LegacyECAddBackend {
         (x1, y1): ECPointCoordinates,
         (x2, y2): ECPointCoordinates,
     ) -> Result<ECPointCoordinates> {
-        if !validate_values_in_field(&[
-            &x1.to_string(),
-            &y1.to_string(),
-            &x2.to_string(),
-            &y2.to_string(),
-        ]) {
+        if !validate_values_in_field(&[x1, y1, x2, y2]) {
             return Err(Error::msg("invalid values"));
         }
 

@@ -18,7 +18,7 @@ pub(super) struct LegacyECMulBackend;
 
 impl ECMulBackend for LegacyECMulBackend {
     fn mul((x1, y1): ECPointCoordinates, s: U256) -> Result<ECPointCoordinates> {
-        if !validate_values_in_field(&[&x1.to_string(), &y1.to_string()]) {
+        if !validate_values_in_field(&[x1, y1]) {
             return Err(Error::msg("invalid values"));
         }
 
