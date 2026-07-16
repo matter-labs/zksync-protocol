@@ -139,8 +139,10 @@ cfg_if! {
         /// delegated (verify-free) recovery to the exact same accept-set and
         /// output as legacy over unsigned/garbage inputs — the boundary the
         /// dropped re-verification used to backstop. `rec_id` is restricted to
-        /// {0, 1} (the domain the precompile ABI passes; 2/3 panic and are
-        /// covered by `invalid_recovery_id_panics_like_legacy`).
+        /// {0, 1} (the domain the precompile ABI passes; 2/3 are valid
+        /// x-reduced recovery ids the ABI never emits, and ids >= 4 are rejected
+        /// by `RecoveryId::try_from` — the latter's panic parity is covered by
+        /// `invalid_recovery_id_panics_like_legacy`).
         pub(super) fn delegated_matches_legacy_on_raw<Legacy, Delegated>(
             digest: [u8; 32],
             r: [u8; 32],
@@ -173,8 +175,11 @@ cfg_if! {
             let r = hex_to_32("0202020202020202020202020202020202020202020202020202020202020202");
             let s = hex_to_32("0303030303030303030303030303030303030303030303030303030303030303");
 
-            let legacy = std::panic::catch_unwind(|| Legacy::recover(&digest, &r, &s, 2));
-            let delegated = std::panic::catch_unwind(|| Delegated::recover(&digest, &r, &s, 2));
+            // `RecoveryId::try_from` accepts only 0..=3, so 4 is an out-of-range
+            // id that both backends `.unwrap()` into a panic. (Ids 2/3 are valid
+            // x-reduced recovery and would NOT panic, so they cannot test this.)
+            let legacy = std::panic::catch_unwind(|| Legacy::recover(&digest, &r, &s, 4));
+            let delegated = std::panic::catch_unwind(|| Delegated::recover(&digest, &r, &s, 4));
 
             legacy.is_err() == delegated.is_err()
         }
