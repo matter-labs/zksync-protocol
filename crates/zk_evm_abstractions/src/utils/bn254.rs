@@ -7,10 +7,8 @@ use zkevm_opcode_defs::{
     ethereum_types::U256,
 };
 
-const P: &str = "21888242871839275222246405745257275088696311157297823662689037894645226208583";
-
 /// BN254 base field modulus `P`, as little-endian `u64` limbs. Equality with the
-/// decimal `P` above is asserted in `test::field_modulus_matches_decimal`.
+/// decimal modulus is asserted in `test::field_modulus_matches_decimal`.
 const FIELD_MODULUS: U256 = U256([
     0x3c208c16d87cfd47,
     0x97816a916871ca8d,
@@ -49,6 +47,9 @@ pub fn validate_values_in_field(values: &[U256]) -> bool {
 
 #[cfg(test)]
 pub mod test {
+    /// BN254 base field modulus `P` in decimal, used to check [`super::FIELD_MODULUS`].
+    const P: &str = "21888242871839275222246405745257275088696311157297823662689037894645226208583";
+
     /// Verifies that the `point_to_u256_tuple` function returns the correct
     /// values for a point at infinity, that is (0, 0) according to
     /// evm codes spec.
