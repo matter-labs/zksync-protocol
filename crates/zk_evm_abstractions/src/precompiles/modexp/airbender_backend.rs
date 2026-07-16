@@ -67,15 +67,18 @@ fn mul_low(a: &Limbs, b: &Limbs) -> Limbs {
     result
 }
 
+/// High 256 bits of `a * b`.
+fn mul_high(a: &Limbs, b: &Limbs) -> Limbs {
+    let mut result = *a;
+    unsafe {
+        bigint_op_delegation_raw(ptr_mut(&mut result), ptr_const(b), BigIntOps::MulHigh);
+    }
+    result
+}
+
 /// Full 512-bit product of `a * b` as `(low, high)`.
 fn mul_wide(a: &Limbs, b: &Limbs) -> (Limbs, Limbs) {
-    let mut low = *a;
-    let mut high = *a;
-    unsafe {
-        bigint_op_delegation_raw(ptr_mut(&mut low), ptr_const(b), BigIntOps::MulLow);
-        bigint_op_delegation_raw(ptr_mut(&mut high), ptr_const(b), BigIntOps::MulHigh);
-    }
-    (low, high)
+    (mul_low(a, b), mul_high(a, b))
 }
 
 fn ptr_mut(a: &mut Limbs) -> *mut () {
@@ -156,8 +159,8 @@ fn barrett_reduce(y_low: Limbs, y_high: Limbs, m_norm: &Limbs, mu0: &Limbs) -> L
     // q2 = q1 * mu, where mu = 2^256 + mu0. Expanding,
     //   q2 = t_low + (t_high + q1 + q1_high_bit * mu0) * 2^256 + q1_high_bit * 2^512,
     // with (t_low, t_high) = q1_low * mu0. We only need floor(q2 / 2^257),
-    // so t_low is never computed.
-    let (_, t_high) = mul_wide(&q1, mu0);
+    // so t_low is never computed (the `MulLow` delegation is skipped).
+    let t_high = mul_high(&q1, mu0);
     let mut mid = t_high;
     let mut high = q1_high_bit;
     high += add_assign(&mut mid, &q1) as u64;
@@ -185,15 +188,21 @@ fn barrett_reduce(y_low: Limbs, y_high: Limbs, m_norm: &Limbs, mu0: &Limbs) -> L
     debug_assert!(!underflow);
     debug_assert!(r_high.0[0] <= 2 && r_high.0[1..] == [0; 3]);
 
-    // At most two correcting subtractions.
+    // Barrett guarantees r < 3 * m_norm, so at most two correcting
+    // subtractions; the loop is explicitly bounded so a violated invariant
+    // cannot turn it into a long loop in release builds.
     let mut r_extra = r_high.0[0];
-    while r_extra != 0 || is_geq(&r, m_norm) {
+    for _ in 0..2 {
+        if r_extra == 0 && !is_geq(&r, m_norm) {
+            break;
+        }
         let borrow = sub_assign(&mut r, m_norm);
         if borrow {
             debug_assert!(r_extra > 0);
-            r_extra -= 1;
+            r_extra = r_extra.saturating_sub(1);
         }
     }
+    debug_assert!(r_extra == 0 && !is_geq(&r, m_norm));
     r
 }
 
