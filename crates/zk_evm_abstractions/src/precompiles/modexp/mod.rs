@@ -148,58 +148,68 @@ impl<const B: bool> Precompile for ModexpPrecompile<B> {
     }
 }
 
+/// EIP-198 edge cases shared by `modexp_inner` and the delegated backend so the
+/// two entry points cannot drift. Returns `Some(result)` when the call is fully
+/// determined by an edge case; `None` means the generic square-and-multiply path
+/// must run — and the callers rely on that to guarantee `m >= 2`, `e >= 2`, and
+/// `b >= 2`. In particular the `m == 0` arm is load-bearing: without it the
+/// generic path hits a division by zero / `m - 1` underflow.
+pub(crate) fn modexp_edge_case(b: U256, e: U256, m: U256) -> Option<U256> {
+    // If m = 0, everything is 0.
+    if m.is_zero() {
+        return Some(U256::zero());
+    }
+    // e = 0 => b^0 mod m => generally 1, but if m == 1 => 0
+    if e.is_zero() {
+        return Some(if m == U256::one() {
+            U256::zero()
+        } else {
+            U256::one()
+        });
+    }
+    // e = 1 => b^1 mod m => just b % m
+    if e == U256::one() {
+        return Some(b % m);
+    }
+    // b = 0 => 0^e ( for e>0 ) => 0
+    if b.is_zero() {
+        return Some(U256::zero());
+    }
+    // b = 1 => 1^e => 1 mod m => if m == 1 => 0, else 1
+    if b == U256::one() {
+        return Some(if m == U256::one() {
+            U256::zero()
+        } else {
+            U256::one()
+        });
+    }
+    None
+}
+
 /// This function evaluates the `modexp(b,e,m)`.
 /// It uses the simplest square-and-multiply method that can be found here:
 /// https://cse.buffalo.edu/srds2009/escs2009_submission_Gopal.pdf.
 pub fn modexp_inner(b: U256, e: U256, m: U256) -> U256 {
-    // See EIP-198 for specification
-    // If m = 0, everything is 0.
-    if m.is_zero() {
-        return U256::zero();
-    }
-    // Some edge cases:
-    // e = 0 => b^0 mod m => generally 1, but if m == 1 => 0
-    if e.is_zero() {
-        return if m == U256::one() {
-            U256::zero()
-        } else {
-            U256::one()
-        };
+    if let Some(result) = modexp_edge_case(b, e, m) {
+        return result;
     }
 
-    // e = 1 => b^1 mod m => just b % m
-    if e == U256::one() {
-        return b % m;
-    }
-
-    // b = 0 => 0^e ( for e>0 ) => 0
-    if b.is_zero() {
-        return U256::zero();
-    }
-
-    // b = 1 => 1^e => 1 mod m => if m == 1 => 0, else 1
-    if b == U256::one() {
-        return if m == U256::one() {
-            U256::zero()
-        } else {
-            U256::one()
-        };
-    }
-
-    let mut a = U256::one();
+    // From here on: m >= 2, e >= 2, b >= 2.
+    debug_assert!(e >= U256::from(2u64));
     let modmul = |x: U256, y: U256, m: U256| {
         let product = x.full_mul(y);
         let (_, rem) = product.div_mod(m.into());
         U256::try_from(rem).unwrap()
     };
 
-    // Iterating from the highest set bit of `e` is equivalent to iterating
-    // from bit 255: while `a == 1`, squaring keeps it at 1 and all skipped
-    // bits are 0, so no multiplications are skipped.
-    for i in (0..e.bits()).rev() {
-        let bit = e.bit(i);
+    // Square-and-multiply seeded with the base: the highest set bit of `e` (bit
+    // `e.bits() - 1`) always contributes `1² · b = b`, so we start at `b` and
+    // process the remaining `e.bits() - 1` bits. The seed is the unreduced `b`;
+    // the first modmul reduces it, so the result is unchanged.
+    let mut a = b;
+    for i in (0..e.bits() - 1).rev() {
         a = modmul(a, a, m);
-        if bit {
+        if e.bit(i) {
             a = modmul(a, b, m);
         }
     }

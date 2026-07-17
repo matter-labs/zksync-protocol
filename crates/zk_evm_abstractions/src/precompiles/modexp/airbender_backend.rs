@@ -32,8 +32,6 @@ use zkevm_opcode_defs::ethereum_types::{U256, U512};
 struct Limbs([u64; 4]);
 
 impl Limbs {
-    const ONE: Self = Self([1, 0, 0, 0]);
-
     fn from_u256(v: U256) -> Self {
         Self(v.0)
     }
@@ -42,6 +40,20 @@ impl Limbs {
         U256(self.0)
     }
 }
+
+// The delegation ABI reinterprets a `&Limbs` as airbender's own 256-bit integer
+// (`airbender_crypto::BigInt<4>`, which is `[u64; 4]` little-endian) and requires
+// 32 LE bytes at a 32-byte-aligned address. Nothing else checks this contract on
+// the riscv32 proving build — the one the prover runs, where the host-side
+// differential tests never execute — so assert the layout at compile time. These
+// arm per-target on both sides of airbender-crypto's cfg split (`ark_ff::BigInt`
+// on host, the `repr(align(32))` fork on riscv32/proving).
+static_assertions::assert_eq_size!(Limbs, airbender_crypto::BigInt<4>);
+static_assertions::const_assert_eq!(core::mem::align_of::<Limbs>(), 32);
+static_assertions::const_assert!(
+    core::mem::align_of::<Limbs>() >= core::mem::align_of::<airbender_crypto::BigInt<4>>()
+);
+static_assertions::const_assert_eq!(core::mem::offset_of!(airbender_crypto::BigInt::<4>, 0), 0);
 
 fn add_assign(a: &mut Limbs, b: &Limbs) -> bool {
     unsafe { bigint_op_delegation_raw(ptr_mut(a), ptr_const(b), BigIntOps::Add) != 0 }
@@ -212,7 +224,13 @@ fn barrett_reduce(y_low: Limbs, y_high: Limbs, m_norm: &Limbs, mu0: &Limbs) -> L
 /// satisfies the `barrett_reduce` precondition.
 fn modmul_shifted(x: &Limbs, y: &Limbs, m_norm: &Limbs, mu0: &Limbs, s: u32) -> Limbs {
     let (p_low, p_high) = mul_wide(x, y);
-    let (y_low, y_high) = shr_512(&p_low, &p_high, s);
+    // For a top-bit-set (crypto-sized) modulus `s == 0`, so the shift is a pure
+    // copy — skip it on the hot path (runs once per modmul).
+    let (y_low, y_high) = if s == 0 {
+        (p_low, p_high)
+    } else {
+        shr_512(&p_low, &p_high, s)
+    };
     barrett_reduce(y_low, y_high, m_norm, mu0)
 }
 
@@ -220,13 +238,25 @@ fn modmul_shifted(x: &Limbs, y: &Limbs, m_norm: &Limbs, mu0: &Limbs, s: u32) -> 
 /// homomorphism onto `mod 2^j`, so the whole exponentiation runs on plain
 /// `MulLow` and the result is masked once at the end.
 fn modexp_pow2(b: U256, e: U256, m: U256) -> U256 {
+    debug_assert!(e >= U256::from(2u64));
     let mask = m - U256::one();
     let base = Limbs::from_u256(b);
-    let mut acc = Limbs::ONE;
-    for i in (0..e.bits()).rev() {
+    // Seed with the base (the top exponent bit always contributes it), then
+    // process the remaining `e.bits() - 1` bits.
+    let mut acc = base;
+    for i in (0..e.bits() - 1).rev() {
         acc = mul_low(&acc, &acc);
+        // The accumulator lives mod 2^256; for an even base it collapses to zero
+        // partway through, after which every MulLow is dead work and the masked
+        // result is zero (`0 & mask == 0`).
+        if acc.0 == [0; 4] {
+            return U256::zero();
+        }
         if e.bit(i) {
             acc = mul_low(&acc, &base);
+            if acc.0 == [0; 4] {
+                return U256::zero();
+            }
         }
     }
     acc.to_u256() & mask
@@ -244,14 +274,26 @@ fn modexp_barrett(b: U256, e: U256, m: U256) -> U256 {
     let mu0 = Limbs([mu.0[0], mu.0[1], mu.0[2], mu.0[3]]);
 
     // base' = (b mod m) << s via a Barrett reduction of b << s. The bound
-    // holds: b·2^s < 2^256·2^s <= 2^256·M since 2^s <= 2^254 < M.
-    let (b_low, b_high) = shl_to_512(&Limbs::from_u256(b), s);
+    // holds: b·2^s < 2^256·2^s <= 2^256·M since 2^s <= 2^254 < M. At s == 0
+    // (top-bit-set modulus) the widening shift is a copy.
+    let (b_low, b_high) = if s == 0 {
+        (Limbs::from_u256(b), Limbs::default())
+    } else {
+        shl_to_512(&Limbs::from_u256(b), s)
+    };
     let base = barrett_reduce(b_low, b_high, &m_norm, &mu0);
 
-    // acc' = 1 << s.
-    let mut acc = Limbs::from_u256(U256::one() << s);
+    // `base` is `(b mod m) << s`, which is zero iff `m | b`; then the result is
+    // zero for every `e >= 1`, so skip the whole loop.
+    if base.0 == [0; 4] {
+        return U256::zero();
+    }
 
-    for i in (0..e.bits()).rev() {
+    // Seed with the base (the top exponent bit always contributes it), then
+    // process the remaining `e.bits() - 1` bits.
+    debug_assert!(e >= U256::from(2u64));
+    let mut acc = base;
+    for i in (0..e.bits() - 1).rev() {
         acc = modmul_shifted(&acc, &acc, &m_norm, &mu0, s);
         if e.bit(i) {
             acc = modmul_shifted(&acc, &base, &m_norm, &mu0, s);
@@ -264,29 +306,9 @@ fn modexp_barrett(b: U256, e: U256, m: U256) -> U256 {
 /// Drop-in replacement for [`super::modexp_inner`] built on the bigint
 /// delegation circuit. Produces bit-identical results.
 pub fn modexp_delegated(b: U256, e: U256, m: U256) -> U256 {
-    // Edge cases mirror `modexp_inner` exactly; see EIP-198.
-    if m.is_zero() {
-        return U256::zero();
-    }
-    if e.is_zero() {
-        return if m == U256::one() {
-            U256::zero()
-        } else {
-            U256::one()
-        };
-    }
-    if e == U256::one() {
-        return b % m;
-    }
-    if b.is_zero() {
-        return U256::zero();
-    }
-    if b == U256::one() {
-        return if m == U256::one() {
-            U256::zero()
-        } else {
-            U256::one()
-        };
+    // EIP-198 edge cases share one implementation with `modexp_inner`.
+    if let Some(result) = super::modexp_edge_case(b, e, m) {
+        return result;
     }
 
     // From here on: m >= 2, e >= 2, b >= 2.
