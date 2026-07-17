@@ -39,6 +39,6 @@ impl ECRecoverBackend for DelegatedECRecoverBackend {
         let recovered_key =
             secp256k1::recover(&message, &signature, &recovery_id).map_err(|_| ())?;
         let encoded = recovered_key.to_encoded_point(false);
-        VerifyingKey::from_sec1_bytes(encoded.as_bytes()).map_err(|_| ())
+        VerifyingKey::from_encoded_point(&encoded).map_err(|_| ())
     }
 }
