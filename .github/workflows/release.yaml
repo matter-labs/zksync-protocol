@@ -23,4 +23,8 @@ jobs:
       config: '.github/release-please/config.json'     # Specify the path to the configuration file
       manifest: '.github/release-please/manifest.json' # Specify the path to the manifest file
       update-cargo-lock: true                          # Update Cargo.lock file
-      publish-to-crates-io: true                       # Enable publishing to crates.io
+      # Publishing to crates.io is disabled: `zk_evm_abstractions` depends on
+      # `airbender-crypto` via a git dependency (matter-labs/airbender-platform),
+      # which is not published to crates.io, so crates.io publishing is impossible.
+      # release-please still cuts release tags; consumers pin the git tag (e.g. v0.153.13).
+      publish-to-crates-io: false                      # Disabled (git-only airbender-crypto dep)
