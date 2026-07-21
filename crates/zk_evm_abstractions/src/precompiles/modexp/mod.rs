@@ -1,7 +1,26 @@
+use cfg_if::cfg_if;
 use zkevm_opcode_defs::ethereum_types::U256;
 pub use zkevm_opcode_defs::sha2::Digest;
 
 use super::*;
+
+#[cfg(feature = "airbender-precompile-delegations")]
+pub mod airbender_backend;
+#[cfg(test)]
+mod tests;
+
+/// Computes `modexp(b, e, m)` with the fastest implementation available for
+/// the current build configuration. All implementations produce identical
+/// results.
+fn active_modexp(b: U256, e: U256, m: U256) -> U256 {
+    cfg_if! {
+        if #[cfg(feature = "airbender-precompile-delegations")] {
+            airbender_backend::modexp_delegated(b, e, m)
+        } else {
+            modexp_inner(b, e, m)
+        }
+    }
+}
 
 // Base, exponent and modulus
 pub const MEMORY_READS_PER_CYCLE: usize = 3;
@@ -98,7 +117,7 @@ impl<const B: bool> Precompile for ModexpPrecompile<B> {
             read_history.push(m_query);
         }
 
-        let result = modexp_inner(base, exponent, modulus);
+        let result = active_modexp(base, exponent, modulus);
 
         let write_location = MemoryLocation {
             memory_type: MemoryType::Heap, // we default for some value, here it's not that important
@@ -129,55 +148,68 @@ impl<const B: bool> Precompile for ModexpPrecompile<B> {
     }
 }
 
+/// EIP-198 edge cases shared by `modexp_inner` and the delegated backend so the
+/// two entry points cannot drift. Returns `Some(result)` when the call is fully
+/// determined by an edge case; `None` means the generic square-and-multiply path
+/// must run — and the callers rely on that to guarantee `m >= 2`, `e >= 2`, and
+/// `b >= 2`. In particular the `m == 0` arm is load-bearing: without it the
+/// generic path hits a division by zero / `m - 1` underflow.
+pub(crate) fn modexp_edge_case(b: U256, e: U256, m: U256) -> Option<U256> {
+    // If m = 0, everything is 0.
+    if m.is_zero() {
+        return Some(U256::zero());
+    }
+    // e = 0 => b^0 mod m => generally 1, but if m == 1 => 0
+    if e.is_zero() {
+        return Some(if m == U256::one() {
+            U256::zero()
+        } else {
+            U256::one()
+        });
+    }
+    // e = 1 => b^1 mod m => just b % m
+    if e == U256::one() {
+        return Some(b % m);
+    }
+    // b = 0 => 0^e ( for e>0 ) => 0
+    if b.is_zero() {
+        return Some(U256::zero());
+    }
+    // b = 1 => 1^e => 1 mod m => if m == 1 => 0, else 1
+    if b == U256::one() {
+        return Some(if m == U256::one() {
+            U256::zero()
+        } else {
+            U256::one()
+        });
+    }
+    None
+}
+
 /// This function evaluates the `modexp(b,e,m)`.
 /// It uses the simplest square-and-multiply method that can be found here:
 /// https://cse.buffalo.edu/srds2009/escs2009_submission_Gopal.pdf.
 pub fn modexp_inner(b: U256, e: U256, m: U256) -> U256 {
-    // See EIP-198 for specification
-    // If m = 0, everything is 0.
-    if m.is_zero() {
-        return U256::zero();
-    }
-    // Some edge cases:
-    // e = 0 => b^0 mod m => generally 1, but if m == 1 => 0
-    if e.is_zero() {
-        return if m == U256::one() {
-            U256::zero()
-        } else {
-            U256::one()
-        };
+    if let Some(result) = modexp_edge_case(b, e, m) {
+        return result;
     }
 
-    // e = 1 => b^1 mod m => just b % m
-    if e == U256::one() {
-        return b % m;
-    }
-
-    // b = 0 => 0^e ( for e>0 ) => 0
-    if b.is_zero() {
-        return U256::zero();
-    }
-
-    // b = 1 => 1^e => 1 mod m => if m == 1 => 0, else 1
-    if b == U256::one() {
-        return if m == U256::one() {
-            U256::zero()
-        } else {
-            U256::one()
-        };
-    }
-
-    let mut a = U256::one();
+    // From here on: m >= 2, e >= 2, b >= 2.
+    debug_assert!(e >= U256::from(2u64));
     let modmul = |x: U256, y: U256, m: U256| {
         let product = x.full_mul(y);
         let (_, rem) = product.div_mod(m.into());
         U256::try_from(rem).unwrap()
     };
 
-    for i in (0..256).rev() {
-        let bit = e.bit(i);
+    // Square-and-multiply seeded with the base: the highest set bit of `e` (bit
+    // `e.bits() - 1`) always contributes `1² · b = b`, so we start at `b` and
+    // process the remaining `e.bits() - 1` bits. The seed is the unreduced `b`;
+    // the first modmul reduces it, so the result is unchanged.
+    let mut a = b;
+    for i in (0..e.bits() - 1).rev() {
         a = modmul(a, a, m);
-        if bit {
+        if e.bit(i) {
             a = modmul(a, b, m);
         }
     }
@@ -194,59 +226,4 @@ pub fn modexp_function<M: Memory, const B: bool>(
 ) {
     let mut processor = ModexpPrecompile::<B>;
     processor.execute_precompile(monotonic_cycle_counter, precompile_call_params, memory)
-}
-
-#[cfg(test)]
-pub mod tests {
-    use std::str::FromStr;
-
-    /// Tests the correctness of the `modexp_inner` function for a specified
-    /// set of inputs from https://www.evm.codes/precompiled#0x05.
-    #[test]
-    fn test_modexp_inner_correctness_evm_codes() {
-        use super::*;
-
-        let b = U256::from_str("0x8").unwrap();
-        let e = U256::from_str("0x9").unwrap();
-        let m = U256::from_str("0xa").unwrap();
-
-        let result = modexp_inner(b, e, m);
-
-        assert_eq!(result, U256::from_str("0x8").unwrap());
-    }
-
-    /// Tests the correctness of the `modexp_inner` function for randomly
-    /// generated U256 integers.
-    #[test]
-    fn test_modexp_inner_correctness_big_ints() {
-        use super::*;
-
-        let b =
-            U256::from_str("0x7f333213268023a7d3d40ea760d0e1c00d5fe99710e379193fc5973e7ad09370")
-                .unwrap();
-        let e = U256::from_str("0x39d71831130091794534336679323390f4408be38cb89963ec41f4a90d6bf63")
-            .unwrap();
-        let m =
-            U256::from_str("0xec6f05ec20e4c25420f9d6bc6800f9544ecabf5dbea80d11e0fb12c7f0517f5b")
-                .unwrap();
-
-        let result = modexp_inner(b, e, m);
-
-        assert_eq!(
-            result,
-            U256::from_str("0x2779a7e4d2b26461c6557a12eb86285eeeb9cf5a40155305177854b15b4ed3df")
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn test() {
-        use super::*;
-
-        let b = U256::from_str("0x05").unwrap();
-        let e = U256::from_str("0x00").unwrap();
-        let m = U256::from_str("0x01").unwrap();
-
-        let result = modexp_inner(b, e, m);
-    }
 }
