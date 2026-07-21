@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.153.13](https://github.com/matter-labs/zksync-protocol/compare/v0.153.12...v0.153.13) (2026-07-21)
+
+
+### Features
+
+* Support airbender delegations in precompiles ([#209](https://github.com/matter-labs/zksync-protocol/issues/209)) ([9f16fdf](https://github.com/matter-labs/zksync-protocol/commit/9f16fdfd31cfd0d33578b7b58fa53aed0a4c5ce7))
+
 ## [0.153.12](https://github.com/matter-labs/zksync-protocol/compare/v0.153.11...v0.153.12) (2026-07-02)
 
 
