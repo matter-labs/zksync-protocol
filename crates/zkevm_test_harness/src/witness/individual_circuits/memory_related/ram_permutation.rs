@@ -215,6 +215,7 @@ pub(crate) fn compute_ram_circuit_snapshots(
     let mut previous_comparison_key = [0u32; RAM_FULL_KEY_LENGTH];
     let mut previous_value = U256::zero();
     let mut previous_is_ptr = false;
+    let mut previous_rw_flag = false;
 
     let mut current_number_of_nondet_writes = 0u32;
 
@@ -337,6 +338,7 @@ pub(crate) fn compute_ram_circuit_snapshots(
                     previous_full_key: previous_comparison_key,
                     previous_value: previous_value,
                     previous_is_ptr: previous_is_ptr,
+                    previous_rw_flag: previous_rw_flag,
                     num_nondeterministic_writes: current_number_of_nondet_writes,
                 },
                 hidden_fsm_output: RamPermutationFSMInputOutputWitness {
@@ -348,6 +350,7 @@ pub(crate) fn compute_ram_circuit_snapshots(
                     previous_full_key: comparison_key.0,
                     previous_value: value,
                     previous_is_ptr: is_ptr,
+                    previous_rw_flag: last_sorted_query.rw_flag,
                     num_nondeterministic_writes: new_num_nondet_writes,
                 },
             },
@@ -380,6 +383,10 @@ pub(crate) fn compute_ram_circuit_snapshots(
                 .closed_form_input
                 .hidden_fsm_output
                 .previous_is_ptr = false;
+            instance_witness
+                .closed_form_input
+                .hidden_fsm_output
+                .previous_rw_flag = false;
         }
 
         current_lhs_product = accumulated_lhs;
@@ -389,6 +396,7 @@ pub(crate) fn compute_ram_circuit_snapshots(
         previous_comparison_key = comparison_key.0;
         previous_value = value;
         previous_is_ptr = is_ptr;
+        previous_rw_flag = last_sorted_query.rw_flag;
 
         current_number_of_nondet_writes = new_num_nondet_writes;
 

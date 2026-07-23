@@ -72,6 +72,10 @@ pub struct RamPermutationFSMInputOutput<F: SmallField> {
     pub previous_full_key: [UInt32<F>; RAM_FULL_KEY_LENGTH],
     pub previous_value: UInt256<F>,
     pub previous_is_ptr: Boolean<F>,
+    // rw_flag of the previously processed sorted query. Needed so the strict-order
+    // relaxation for byte-identical duplicate reads can require BOTH neighbours to be
+    // reads even when the duplicate pair straddles a circuit-chunk boundary.
+    pub previous_rw_flag: Boolean<F>,
     pub num_nondeterministic_writes: UInt32<F>,
 }
 
@@ -92,6 +96,7 @@ impl<F: SmallField> CSPlaceholder<F> for RamPermutationFSMInputOutput<F> {
             previous_full_key: [zero_u32; RAM_FULL_KEY_LENGTH],
             previous_value: zero_u256,
             previous_is_ptr: boolean_false,
+            previous_rw_flag: boolean_false,
             num_nondeterministic_writes: zero_u32,
         }
     }
