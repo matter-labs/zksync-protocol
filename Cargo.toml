@@ -28,7 +28,7 @@ zkevm_opcode_defs = { version = "=0.153.13", path = "crates/zkevm_opcode_defs" }
 zkevm_test_harness = { version = "=0.153.13", path = "crates/zkevm_test_harness" }
 zkevm-assembly = { version = "=0.153.13", path = "crates/zkEVM-assembly" }
 
-airbender-crypto = { git = "https://github.com/matter-labs/airbender-platform", tag = "v0.2.3" }
+airbender-crypto = { git = "https://github.com/matter-labs/airbender-platform", tag = "v0.2.4" }
 
 # `zksync-crypto` workspace dependencies
 snark_wrapper = "=0.32.10"

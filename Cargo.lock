@@ -36,8 +36,8 @@ dependencies = [
 
 [[package]]
 name = "airbender-crypto"
-version = "0.2.3"
-source = "git+https://github.com/matter-labs/airbender-platform?tag=v0.2.3#db2767d9ba871bb556ad8a2c8b4d39717f36cd47"
+version = "0.2.4"
+source = "git+https://github.com/matter-labs/airbender-platform?tag=v0.2.4#a350ee3e08bef4cbe2b7bc968966bee45bc98a17"
 dependencies = [
  "ark-bls12-381",
  "ark-bn254",
