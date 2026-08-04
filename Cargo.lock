@@ -131,9 +131,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.98"
+version = "1.0.104"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e16d2d3311acee920a9eb8d33b8cbc1787ce4a264e85f964c2404b969bdcd487"
+checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
 name = "ark-bls12-381"
@@ -268,7 +268,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "246a225cc6131e9ee4f24619af0f19d67761fff15d7ccc22e42b80846e69449a"
 dependencies = [
  "num-traits",
- "rand 0.8.5",
+ "rand 0.8.7",
 ]
 
 [[package]]
@@ -486,7 +486,7 @@ dependencies = [
  "lazy_static",
  "num-modular",
  "num_cpus",
- "rand 0.8.5",
+ "rand 0.8.7",
  "rayon",
  "serde",
  "sha2 0.10.9",
@@ -1060,7 +1060,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "835c052cb0c08c1acf6ffd71c022172e18723949c8282f2b9f27efbc51e64534"
 dependencies = [
  "byteorder",
- "rand 0.8.5",
+ "rand 0.8.7",
  "rustc-hex",
  "static_assertions",
 ]
@@ -1100,7 +1100,7 @@ dependencies = [
  "num-derive",
  "num-integer",
  "num-traits",
- "rand 0.8.5",
+ "rand 0.8.7",
  "rand_chacha",
  "rand_xorshift",
  "serde",
@@ -1873,7 +1873,7 @@ checksum = "95c589f335db0f6aaa168a7cd27b1fc6920f5e1470c804f814d9cd6e62a0f70b"
 dependencies = [
  "env_logger 0.11.8",
  "log",
- "rand 0.10.0",
+ "rand 0.10.2",
 ]
 
 [[package]]
@@ -1908,9 +1908,9 @@ checksum = "dc33ff2d4973d518d823d61aa239014831e521c75da58e3df4840d3f47749d09"
 
 [[package]]
 name = "rand"
-version = "0.8.5"
+version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34af8d1a0e25924bc5b7c43c079c942339d8f0a8b57c39049bef581b46327404"
+checksum = "22f6172bdec972074665ed81ed53b71da00bfc44b65a753cfde883ec4c702a1a"
 dependencies = [
  "libc",
  "rand_chacha",
@@ -1919,9 +1919,9 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.10.0"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc266eb313df6c5c09c1c7b1fbe2510961e5bcd3add930c1e31f7ed9da0feff8"
+checksum = "c7f5fa3a058cd35567ef9bfa5e75732bee0f9e4c55fa90477bef2dfcdbc4be80"
 dependencies = [
  "getrandom 0.4.2",
  "rand_core 0.10.0",
@@ -2028,7 +2028,7 @@ dependencies = [
  "num-integer",
  "num-iter",
  "num-traits",
- "rand 0.8.5",
+ "rand 0.8.7",
  "rand_chacha",
  "rand_xorshift",
  "serde",
@@ -2280,7 +2280,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5427fd5cbe3021b7e92f438edf7675f97afbe1cf942701980b0c52f31718e5a2"
 dependencies = [
  "derivative",
- "rand 0.8.5",
+ "rand 0.8.7",
  "rescue_poseidon",
  "serde",
 ]
@@ -3049,7 +3049,7 @@ dependencies = [
  "hex",
  "itertools 0.10.5",
  "lazy_static",
- "rand 0.8.5",
+ "rand 0.8.7",
  "seq-macro",
  "serde",
  "serde_json",
@@ -3089,7 +3089,7 @@ dependencies = [
  "ethabi",
  "hex",
  "indicatif",
- "rand 0.8.5",
+ "rand 0.8.7",
  "rayon",
  "regex",
  "serde",
@@ -3118,7 +3118,7 @@ dependencies = [
  "hex",
  "lazy_static",
  "num_cpus",
- "rand 0.8.5",
+ "rand 0.8.7",
  "rand_chacha",
  "rand_xorshift",
  "serde",
@@ -3147,7 +3147,7 @@ checksum = "5bc485f5d7a16a83bebde0a083f8d27d94001c58485fbf3b12a21ed9ad3aacc0"
 dependencies = [
  "byteorder",
  "hex",
- "rand 0.8.5",
+ "rand 0.8.7",
  "rand_xorshift",
  "serde",
  "zksync_ff_derive",
@@ -3176,7 +3176,7 @@ dependencies = [
  "derivative",
  "hex",
  "once_cell",
- "rand 0.8.5",
+ "rand 0.8.7",
  "rayon",
  "serde",
  "serde_json",
@@ -3192,7 +3192,7 @@ checksum = "6e1becfb74e11f67afb73366c2f57412feab53581da029e6107719424b332b8b"
 dependencies = [
  "byteorder",
  "cfg-if",
- "rand 0.8.5",
+ "rand 0.8.7",
  "rand_xorshift",
  "serde",
  "zksync_ff",
