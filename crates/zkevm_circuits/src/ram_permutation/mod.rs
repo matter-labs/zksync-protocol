@@ -154,6 +154,7 @@ where
     let mut previous_full_key = hidden_fsm_input.previous_full_key;
     let mut previous_value = hidden_fsm_input.previous_value;
     let mut previous_is_ptr = hidden_fsm_input.previous_is_ptr;
+    let mut previous_rw_flag = hidden_fsm_input.previous_rw_flag;
 
     partial_accumulate_inner::<F, CS, R>(
         cs,
@@ -167,6 +168,7 @@ where
         &mut previous_full_key,
         &mut previous_value,
         &mut previous_is_ptr,
+        &mut previous_rw_flag,
         &mut num_nondeterministic_writes,
         limit,
     );
@@ -205,6 +207,7 @@ where
     structured_input.hidden_fsm_output.previous_full_key = previous_full_key;
     structured_input.hidden_fsm_output.previous_value = previous_value;
     structured_input.hidden_fsm_output.previous_is_ptr = previous_is_ptr;
+    structured_input.hidden_fsm_output.previous_rw_flag = previous_rw_flag;
 
     structured_input.completion_flag = completed;
 
@@ -239,6 +242,7 @@ pub fn partial_accumulate_inner<
     previous_comparison_key: &mut [UInt32<F>; RAM_FULL_KEY_LENGTH],
     previous_element_value: &mut UInt256<F>,
     previous_is_ptr: &mut Boolean<F>,
+    previous_rw_flag: &mut Boolean<F>,
     num_nondeterministic_writes: &mut UInt32<F>,
     limit: usize,
 ) where
@@ -314,12 +318,44 @@ pub fn partial_accumulate_inner<
             let comparison_key = [sorted_item.index, sorted_item.memory_page];
 
             // ensure sorting
-            let (_keys_are_equal, previous_key_is_smaller) =
+            let (keys_are_equal, previous_key_is_smaller) =
                 unpacked_long_comparison(cs, &sorting_key, previous_sorting_key);
 
-            // we can not have previous sorting key even to be >= than our current key
+            // A single benign exception to the strict [timestamp, index, page] ordering:
+            // two byte-identical reads of the same cell at the same timestamp. This happens
+            // when an instruction's implicit opcode fetch and its explicit UseCodePage
+            // source read resolve to the same code word in one cycle (both use
+            // timestamp_for_code_or_src_read). Such records are interchangeable, so
+            // admitting an equal key here does not weaken the permutation or the
+            // read/uninit consistency checks below.
+            //
+            // The gate is deliberately tight: it fires only when the keys are equal, both
+            // neighbours are reads, and their value and pointer flag match. Any write at an
+            // equal key, or any differing value/pointer flag, keeps the strict requirement.
+            let current_is_read = sorted_item.rw_flag.negated(cs);
+            let previous_is_read = previous_rw_flag.negated(cs);
+            let both_are_reads = current_is_read.and(cs, previous_is_read);
+            let duplicate_values_are_equal =
+                UInt256::equals(cs, &sorted_item.value, previous_element_value);
+            let duplicate_pointer_flags_are_equal = Num::equals(
+                cs,
+                &previous_is_ptr.into_num(),
+                &sorted_item.is_ptr.into_num(),
+            );
+            let is_identical_duplicate_read = Boolean::multi_and(
+                cs,
+                &[
+                    keys_are_equal,
+                    both_are_reads,
+                    duplicate_values_are_equal,
+                    duplicate_pointer_flags_are_equal,
+                ],
+            );
 
-            let keys_are_in_ascending_order = previous_key_is_smaller;
+            // We can not have a previous sorting key equal to or greater than the current
+            // key unless this is exactly a byte-identical duplicate read.
+            let keys_are_in_ascending_order =
+                previous_key_is_smaller.or(cs, is_identical_duplicate_read);
 
             if _cycle != 0 {
                 keys_are_in_ascending_order.conditionally_enforce_true(cs, can_pop);
@@ -373,6 +409,7 @@ pub fn partial_accumulate_inner<
             *previous_comparison_key = comparison_key;
             *previous_element_value = sorted_item.value;
             *previous_is_ptr = sorted_item.is_ptr;
+            *previous_rw_flag = sorted_item.rw_flag;
         }
 
         // if we did pop then accumulate to grand product
@@ -542,6 +579,7 @@ mod tests {
         let mut previous_element_value =
             UInt256::allocated_constant(cs, U256::from_dec_str("0").unwrap());
         let mut previous_is_ptr = Boolean::allocated_constant(cs, false);
+        let mut previous_rw_flag = Boolean::allocated_constant(cs, false);
         let mut num_nondeterministic_writes = UInt32::allocated_constant(cs, 1);
         partial_accumulate_inner(
             cs,
@@ -555,6 +593,7 @@ mod tests {
             &mut previous_comparison_key,
             &mut previous_element_value,
             &mut previous_is_ptr,
+            &mut previous_rw_flag,
             &mut num_nondeterministic_writes,
             limit,
         );
@@ -564,6 +603,238 @@ mod tests {
         let mut owned_cs = owned_cs.into_assembly::<std::alloc::Global>();
         owned_cs.print_gate_stats();
         assert!(owned_cs.check_if_satisfied(&worker));
+    }
+
+    fn alloc_query<CS: ConstraintSystem<F>>(
+        cs: &mut CS,
+        timestamp: u32,
+        page: u32,
+        index: u32,
+        rw_flag: bool,
+        is_ptr: bool,
+        value: U256,
+    ) -> MemoryQuery<F> {
+        MemoryQuery::<F> {
+            timestamp: UInt32::allocated_constant(cs, timestamp),
+            memory_page: UInt32::allocated_constant(cs, page),
+            index: UInt32::allocated_constant(cs, index),
+            rw_flag: Boolean::allocated_constant(cs, rw_flag),
+            is_ptr: Boolean::allocated_constant(cs, is_ptr),
+            value: UInt256::allocated_constant(cs, value),
+        }
+    }
+
+    // Runs partial_accumulate_inner over a fresh argument whose sorted and unsorted
+    // queues are exactly entries. Each tuple is
+    // (timestamp, page, index, rw_flag, is_ptr, value).
+    fn ordering_case_is_satisfied(entries: &[(u32, u32, u32, bool, bool, U256)]) -> bool {
+        let geometry = CSGeometry {
+            num_columns_under_copy_permutation: 100,
+            num_witness_columns: 0,
+            num_constant_columns: 8,
+            max_allowed_constraint_degree: 4,
+        };
+
+        use boojum::cs::cs_builder::*;
+
+        fn configure<
+            T: CsBuilderImpl<F, T>,
+            GC: GateConfigurationHolder<F>,
+            TB: StaticToolboxHolder,
+        >(
+            builder: CsBuilder<T, F, GC, TB>,
+        ) -> CsBuilder<T, F, impl GateConfigurationHolder<F>, impl StaticToolboxHolder> {
+            let builder = builder.allow_lookup(
+                LookupParameters::UseSpecializedColumnsWithTableIdAsConstant {
+                    width: 3,
+                    num_repetitions: 8,
+                    share_table_id: true,
+                },
+            );
+            let builder = ConstantsAllocatorGate::configure_builder(
+                builder,
+                GatePlacementStrategy::UseGeneralPurposeColumns,
+            );
+            let builder = FmaGateInBaseFieldWithoutConstant::configure_builder(
+                builder,
+                GatePlacementStrategy::UseGeneralPurposeColumns,
+            );
+            let builder = ReductionGate::<F, 4>::configure_builder(
+                builder,
+                GatePlacementStrategy::UseGeneralPurposeColumns,
+            );
+            let builder = BooleanConstraintGate::configure_builder(
+                builder,
+                GatePlacementStrategy::UseGeneralPurposeColumns,
+            );
+            let builder = UIntXAddGate::<32>::configure_builder(
+                builder,
+                GatePlacementStrategy::UseGeneralPurposeColumns,
+            );
+            let builder = UIntXAddGate::<16>::configure_builder(
+                builder,
+                GatePlacementStrategy::UseGeneralPurposeColumns,
+            );
+            let builder = SelectionGate::configure_builder(
+                builder,
+                GatePlacementStrategy::UseGeneralPurposeColumns,
+            );
+            let builder = ZeroCheckGate::configure_builder(
+                builder,
+                GatePlacementStrategy::UseGeneralPurposeColumns,
+                false,
+            );
+            let builder = DotProductGate::<4>::configure_builder(
+                builder,
+                GatePlacementStrategy::UseGeneralPurposeColumns,
+            );
+            let builder = MatrixMultiplicationGate::<
+                F,
+                12,
+                Poseidon2GoldilocksExternalMatrix,
+            >::configure_builder(
+                builder,
+                GatePlacementStrategy::UseGeneralPurposeColumns,
+            );
+            let builder = NopGate::configure_builder(
+                builder,
+                GatePlacementStrategy::UseGeneralPurposeColumns,
+            );
+
+            builder
+        }
+
+        use boojum::config::DevCSConfig;
+        use boojum::cs::cs_builder_reference::CsReferenceImplementationBuilder;
+
+        let builder_impl =
+            CsReferenceImplementationBuilder::<F, P, DevCSConfig>::new(geometry, 1 << 20);
+        use boojum::cs::cs_builder::new_builder;
+        let builder = new_builder::<_, F>(builder_impl);
+
+        let builder = configure(builder);
+        let mut owned_cs = builder.build(1 << 26);
+
+        let table = create_xor8_table();
+        owned_cs.add_lookup_table::<Xor8Table, 3>(table);
+
+        let cs = &mut owned_cs;
+
+        let execute = Boolean::allocated_constant(cs, true);
+        let mut original_queue = MemoryQueriesQueue::<F, Poseidon2Goldilocks>::empty(cs);
+        for &(timestamp, page, index, rw_flag, is_ptr, value) in entries {
+            let query = alloc_query(cs, timestamp, page, index, rw_flag, is_ptr, value);
+            original_queue.push(cs, query, execute);
+        }
+        let mut sorted_queue = MemoryQueriesQueue::<F, Poseidon2Goldilocks>::empty(cs);
+        for &(timestamp, page, index, rw_flag, is_ptr, value) in entries {
+            let query = alloc_query(cs, timestamp, page, index, rw_flag, is_ptr, value);
+            sorted_queue.push(cs, query, execute);
+        }
+
+        let mut lhs = [Num::allocated_constant(cs, F::from_nonreduced_u64(1));
+            DEFAULT_NUM_PERMUTATION_ARGUMENT_REPETITIONS];
+        let mut rhs = [Num::allocated_constant(cs, F::from_nonreduced_u64(1));
+            DEFAULT_NUM_PERMUTATION_ARGUMENT_REPETITIONS];
+        let is_start = Boolean::allocated_constant(cs, true);
+        let round_function = Poseidon2Goldilocks;
+        let fs_challenges = crate::utils::produce_fs_challenges(
+            cs,
+            original_queue.into_state().tail,
+            sorted_queue.into_state().tail,
+            &round_function,
+        );
+        let limit = 16;
+        let mut previous_sorting_key = [UInt32::allocated_constant(cs, 0); RAM_SORTING_KEY_LENGTH];
+        let mut previous_comparison_key = [UInt32::allocated_constant(cs, 0); RAM_FULL_KEY_LENGTH];
+        let mut previous_element_value = UInt256::allocated_constant(cs, U256::zero());
+        let mut previous_is_ptr = Boolean::allocated_constant(cs, false);
+        let mut previous_rw_flag = Boolean::allocated_constant(cs, false);
+        let mut num_nondeterministic_writes = UInt32::allocated_constant(cs, 0);
+        partial_accumulate_inner(
+            cs,
+            &mut original_queue,
+            &mut sorted_queue,
+            &fs_challenges,
+            is_start,
+            &mut lhs,
+            &mut rhs,
+            &mut previous_sorting_key,
+            &mut previous_comparison_key,
+            &mut previous_element_value,
+            &mut previous_is_ptr,
+            &mut previous_rw_flag,
+            &mut num_nondeterministic_writes,
+            limit,
+        );
+
+        cs.pad_and_shrink();
+        let worker = Worker::new();
+        let mut owned_cs = owned_cs.into_assembly::<std::alloc::Global>();
+        owned_cs.check_if_satisfied(&worker)
+    }
+
+    #[test]
+    fn identical_duplicate_reads_are_accepted() {
+        let entries = [
+            (1024u32, 2048u32, 0u32, false, false, U256::zero()),
+            (1024u32, 2048u32, 0u32, false, false, U256::zero()),
+        ];
+        assert!(
+            ordering_case_is_satisfied(&entries),
+            "byte-identical duplicate reads at an equal key must be accepted"
+        );
+    }
+
+    #[test]
+    fn increasing_order_is_accepted() {
+        let entries = [
+            (1024u32, 2048u32, 0u32, false, false, U256::zero()),
+            (1024u32, 2048u32, 1u32, false, false, U256::zero()),
+        ];
+        assert!(ordering_case_is_satisfied(&entries));
+    }
+
+    #[test]
+    fn descending_order_is_rejected() {
+        let entries = [
+            (1024u32, 2048u32, 1u32, false, false, U256::zero()),
+            (1024u32, 2048u32, 0u32, false, false, U256::zero()),
+        ];
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            ordering_case_is_satisfied(&entries)
+        }));
+        assert!(result.is_err(), "a descending key order must be rejected");
+    }
+
+    #[test]
+    fn equal_key_write_is_rejected() {
+        let entries = [
+            (1024u32, 2048u32, 0u32, true, false, U256::zero()),
+            (1024u32, 2048u32, 0u32, true, false, U256::zero()),
+        ];
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            ordering_case_is_satisfied(&entries)
+        }));
+        assert!(
+            result.is_err(),
+            "equal keys involving a write must remain rejected"
+        );
+    }
+
+    #[test]
+    fn equal_key_conflicting_reads_are_rejected() {
+        let entries = [
+            (1024u32, 2048u32, 0u32, false, false, U256::zero()),
+            (1024u32, 2048u32, 0u32, false, false, U256::from(5u64)),
+        ];
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            ordering_case_is_satisfied(&entries)
+        }));
+        assert!(
+            result.is_err(),
+            "equal keys with conflicting values must remain rejected"
+        );
     }
 
     fn witness_input_unsorted<CS: ConstraintSystem<F>>(cs: &mut CS) -> Vec<MemoryQuery<F>> {

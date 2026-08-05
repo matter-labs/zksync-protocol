@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.153.14](https://github.com/matter-labs/zksync-protocol/compare/v0.153.13...v0.153.14) (2026-08-04)
+
+
+### Bug Fixes
+
+* permutation ([#231](https://github.com/matter-labs/zksync-protocol/issues/231)) ([0dd657a](https://github.com/matter-labs/zksync-protocol/commit/0dd657a9141c2eb9ec75a2b6fa820451a142c3f9))
+
 ## [0.153.13](https://github.com/matter-labs/zksync-protocol/compare/v0.153.12...v0.153.13) (2026-07-21)
 
 

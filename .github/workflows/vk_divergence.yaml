@@ -39,6 +39,15 @@ jobs:
             --generated-dir generated/vk_regression_checker \
             --jobs 1
 
+      - name: Upload generated keys
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-vks
+          path: generated/vk_regression_checker
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Post sticky comment for VK mismatch
         if: always() && (steps.vk_check.outcome == 'failure')
         uses: marocchino/sticky-pull-request-comment@v2
@@ -49,7 +58,17 @@ jobs:
 
             The details of the mismatch can be found in the workflow logs. Please check the "VK divergence check" job logs for more information.
 
-            If this is expected, update the keys in `crates/vk_regression_checker/reference/`.
+            If this is expected, the freshly generated keys are attached to
+            [this workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            as the `generated-vks` artifact, so you can update the reference set without regenerating them locally:
+
+            ```bash
+            gh run download ${{ github.run_id }} -R ${{ github.repository }} \
+              -n generated-vks -D crates/vk_regression_checker/reference
+            ```
+
+            Then review the diff, commit the updated keys and push.
+
             If this is not expected, please fix the issue.
 
       - name: Clear sticky comment when keys match

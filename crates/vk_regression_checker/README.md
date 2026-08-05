@@ -53,3 +53,17 @@ cargo run -p vk_regression_checker -- compare --keys-dir <reference-dir> --gener
 ```
 
 `compare` exits with a non-zero status if any key artifact differs.
+
+## Updating the reference keys
+
+The `VK divergence check` CI job runs `compare` on every PR and uploads the freshly generated
+keys as the `generated-vks` artifact (regardless of the outcome). When a change intentionally
+alters the keys, take them from that artifact instead of regenerating locally:
+
+```bash
+gh run download <run-id> -R matter-labs/zksync-protocol \
+  -n generated-vks -D crates/vk_regression_checker/reference
+```
+
+The artifact contains exactly the same file set as `reference/`, so this overwrites the whole
+reference set in place. Review the resulting diff before committing.
