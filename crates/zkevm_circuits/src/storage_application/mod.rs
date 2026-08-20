@@ -129,7 +129,12 @@ where
         if <CS::Config as CSConfig>::WitnessConfig::EVALUATE_WITNESS {
             let dependencies = [should_allocate.get_variable().into()];
             let witness = self.witness_source.clone();
-            let value_fn = move |inputs: [F; 1]| {
+            // The vararg form takes `FnOnce(&[F], &mut DstBuffer)`, which carries no const
+            // generics. The fixed-arity form's `[F; EL::INTERNAL_STRUCT_LEN]` return type puts an
+            // unevaluated const projection in the closure's signature, and instantiating that
+            // closure ICEs the compiler (rustc_type_ir/binder.rs:788) on nightlies after
+            // 2025-11-05. Writing straight into the caller's buffer avoids it.
+            let value_fn = move |inputs: &[F], dst: &mut DstBuffer<'_, '_, F>| {
                 let should_allocate = <bool as WitnessCastable<F, F>>::cast_from_source(inputs[0]);
 
                 let witness = if should_allocate == true {
@@ -139,22 +144,15 @@ where
 
                     witness_element
                 } else {
-                    let witness_element = (default_values_closure)();
-
-                    witness_element
+                    (default_values_closure)()
                 };
 
-                let mut result = [F::ZERO; EL::INTERNAL_STRUCT_LEN];
-                let mut dst = DstBuffer::MutSlice(&mut result, 0);
-                EL::set_internal_variables_values(witness, &mut dst);
-                drop(dst);
-
-                result
+                EL::set_internal_variables_values(witness, dst);
             };
 
             let outputs = Place::from_variables(el.flatten_as_variables());
 
-            cs.set_values_with_dependencies(&dependencies, &outputs, value_fn);
+            cs.set_values_with_dependencies_vararg(&dependencies, &outputs, value_fn);
         }
 
         el
@@ -175,7 +173,9 @@ where
         if <CS::Config as CSConfig>::WitnessConfig::EVALUATE_WITNESS {
             let dependencies = [should_allocate.get_variable().into(), bias.into()];
             let witness = self.witness_source.clone();
-            let value_fn = move |inputs: [F; 2]| {
+            // See the note in `conditionally_allocate_with_default`: the vararg form keeps the
+            // const projection out of the closure signature and avoids the binder.rs:788 ICE.
+            let value_fn = move |inputs: &[F], dst: &mut DstBuffer<'_, '_, F>| {
                 let should_allocate = <bool as WitnessCastable<F, F>>::cast_from_source(inputs[0]);
 
                 let witness = if should_allocate == true {
@@ -185,22 +185,15 @@ where
 
                     witness_element
                 } else {
-                    let witness_element = (default_values_closure)();
-
-                    witness_element
+                    (default_values_closure)()
                 };
 
-                let mut result = [F::ZERO; EL::INTERNAL_STRUCT_LEN];
-                let mut dst = DstBuffer::MutSlice(&mut result, 0);
-                EL::set_internal_variables_values(witness, &mut dst);
-                drop(dst);
-
-                result
+                EL::set_internal_variables_values(witness, dst);
             };
 
             let outputs = Place::from_variables(el.flatten_as_variables());
 
-            cs.set_values_with_dependencies(&dependencies, &outputs, value_fn);
+            cs.set_values_with_dependencies_vararg(&dependencies, &outputs, value_fn);
         }
 
         el
