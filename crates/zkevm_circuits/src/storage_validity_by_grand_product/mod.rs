@@ -135,11 +135,11 @@ impl<F: SmallField> CSAllocatableExt<F> for TimestampedStorageLogRecord<F> {
         }
     }
 
-    fn flatten_as_variables(&self) -> [Variable; 37]
+    fn flatten_as_variables(&self) -> [Variable; Self::INTERNAL_STRUCT_LEN]
     where
         [(); Self::INTERNAL_STRUCT_LEN]:,
     {
-        let mut result = [Variable::placeholder(); 37];
+        let mut result = [Variable::placeholder(); Self::INTERNAL_STRUCT_LEN];
         let record_variables = self.record.flatten_as_variables_impl();
         result[..crate::base_structures::log_query::FLATTENED_VARIABLE_LENGTH]
             .copy_from_slice(&record_variables);

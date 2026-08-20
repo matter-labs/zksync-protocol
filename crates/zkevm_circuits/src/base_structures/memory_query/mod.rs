@@ -50,21 +50,21 @@ impl<F: SmallField> CSAllocatableExt<F> for MemoryQuery<F> {
     const INTERNAL_STRUCT_LEN: usize = MEMORY_QUERY_UNROLLED_WIDTH;
 
     fn flatten_as_variables(&self) -> [Variable; Self::INTERNAL_STRUCT_LEN] {
-        [
-            self.timestamp.get_variable(),
-            self.memory_page.get_variable(),
-            self.index.get_variable(),
-            self.rw_flag.get_variable(),
-            self.is_ptr.get_variable(),
-            self.value.inner[0].get_variable(),
-            self.value.inner[1].get_variable(),
-            self.value.inner[2].get_variable(),
-            self.value.inner[3].get_variable(),
-            self.value.inner[4].get_variable(),
-            self.value.inner[5].get_variable(),
-            self.value.inner[6].get_variable(),
-            self.value.inner[7].get_variable(),
-        ]
+        let mut result = [Variable::placeholder(); Self::INTERNAL_STRUCT_LEN];
+        result[0] = self.timestamp.get_variable();
+        result[1] = self.memory_page.get_variable();
+        result[2] = self.index.get_variable();
+        result[3] = self.rw_flag.get_variable();
+        result[4] = self.is_ptr.get_variable();
+        result[5] = self.value.inner[0].get_variable();
+        result[6] = self.value.inner[1].get_variable();
+        result[7] = self.value.inner[2].get_variable();
+        result[8] = self.value.inner[3].get_variable();
+        result[9] = self.value.inner[4].get_variable();
+        result[10] = self.value.inner[5].get_variable();
+        result[11] = self.value.inner[6].get_variable();
+        result[12] = self.value.inner[7].get_variable();
+        result
     }
 
     fn set_internal_variables_values(witness: Self::Witness, dst: &mut DstBuffer<'_, '_, F>) {

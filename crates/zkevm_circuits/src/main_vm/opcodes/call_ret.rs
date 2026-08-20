@@ -186,7 +186,7 @@ pub(crate) fn apply_calls_and_ret<
 
     let mut all_states = ArrayVec::<_, 5>::new();
     assert!(encoded_execution_record.len() % 8 == 0);
-    for encoding_chunk in encoded_execution_record.array_chunks::<8>() {
+    for encoding_chunk in encoded_execution_record.as_chunks::<8>().0.iter() {
         // absorb by replacement
         let round_initial = [
             encoding_chunk[0],

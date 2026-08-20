@@ -91,17 +91,12 @@ impl<F: SmallField> CSAllocatableExt<F> for VMRegister<F> {
         // NOTE: CSAllocatable is done by the macro, so it allocates in the order of declaration,
         // and we should do the same here!
 
-        [
-            self.is_pointer.get_variable(),
-            self.value.inner[0].get_variable(),
-            self.value.inner[1].get_variable(),
-            self.value.inner[2].get_variable(),
-            self.value.inner[3].get_variable(),
-            self.value.inner[4].get_variable(),
-            self.value.inner[5].get_variable(),
-            self.value.inner[6].get_variable(),
-            self.value.inner[7].get_variable(),
-        ]
+        let mut result = [Variable::placeholder(); Self::INTERNAL_STRUCT_LEN];
+        result[0] = self.is_pointer.get_variable();
+        for (dst, src) in result[1..].iter_mut().zip(self.value.inner.iter()) {
+            *dst = src.get_variable();
+        }
+        result
     }
 
     fn set_internal_variables_values(_witness: Self::Witness, _dst: &mut DstBuffer<'_, '_, F>) {

@@ -237,26 +237,26 @@ impl<F: SmallField> CSAllocatableExt<F> for ClosedFormInputCompactForm<F> {
     where
         [(); Self::INTERNAL_STRUCT_LEN]:,
     {
-        [
-            self.start_flag.get_variable(),
-            self.completion_flag.get_variable(),
-            self.observable_input_committment[0].get_variable(),
-            self.observable_input_committment[1].get_variable(),
-            self.observable_input_committment[2].get_variable(),
-            self.observable_input_committment[3].get_variable(),
-            self.observable_output_committment[0].get_variable(),
-            self.observable_output_committment[1].get_variable(),
-            self.observable_output_committment[2].get_variable(),
-            self.observable_output_committment[3].get_variable(),
-            self.hidden_fsm_input_committment[0].get_variable(),
-            self.hidden_fsm_input_committment[1].get_variable(),
-            self.hidden_fsm_input_committment[2].get_variable(),
-            self.hidden_fsm_input_committment[3].get_variable(),
-            self.hidden_fsm_output_committment[0].get_variable(),
-            self.hidden_fsm_output_committment[1].get_variable(),
-            self.hidden_fsm_output_committment[2].get_variable(),
-            self.hidden_fsm_output_committment[3].get_variable(),
-        ]
+        let mut result = [Variable::placeholder(); Self::INTERNAL_STRUCT_LEN];
+        result[0] = self.start_flag.get_variable();
+        result[1] = self.completion_flag.get_variable();
+        result[2] = self.observable_input_committment[0].get_variable();
+        result[3] = self.observable_input_committment[1].get_variable();
+        result[4] = self.observable_input_committment[2].get_variable();
+        result[5] = self.observable_input_committment[3].get_variable();
+        result[6] = self.observable_output_committment[0].get_variable();
+        result[7] = self.observable_output_committment[1].get_variable();
+        result[8] = self.observable_output_committment[2].get_variable();
+        result[9] = self.observable_output_committment[3].get_variable();
+        result[10] = self.hidden_fsm_input_committment[0].get_variable();
+        result[11] = self.hidden_fsm_input_committment[1].get_variable();
+        result[12] = self.hidden_fsm_input_committment[2].get_variable();
+        result[13] = self.hidden_fsm_input_committment[3].get_variable();
+        result[14] = self.hidden_fsm_output_committment[0].get_variable();
+        result[15] = self.hidden_fsm_output_committment[1].get_variable();
+        result[16] = self.hidden_fsm_output_committment[2].get_variable();
+        result[17] = self.hidden_fsm_output_committment[3].get_variable();
+        result
     }
     fn set_internal_variables_values(witness: Self::Witness, dst: &mut DstBuffer<'_, '_, F>) {
         // NOTE: must be same sequence as in `flatten_as_variables`
@@ -419,7 +419,7 @@ pub fn commit_encoding<
     let zero_var = cs.allocate_constant(F::ZERO);
     buffer.resize(buffer_length, zero_var);
 
-    for chunk in buffer.array_chunks::<AW>() {
+    for chunk in buffer.as_chunks::<AW>().0.iter() {
         let capacity_els = R::split_capacity_elements(&state);
 
         state = R::absorb_with_replacement(cs, *chunk, capacity_els);
