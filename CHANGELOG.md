@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.153.15](https://github.com/matter-labs/zksync-protocol/compare/v0.153.14...v0.153.15) (2026-08-21)
+
+
+### Bug Fixes
+
+* **deps:** bump airbender-crypto to v0.2.4 ([#230](https://github.com/matter-labs/zksync-protocol/issues/230)) ([882ae0f](https://github.com/matter-labs/zksync-protocol/commit/882ae0fa5fac8991fea7221b8f226c71900599b0))
+
 ## [0.153.14](https://github.com/matter-labs/zksync-protocol/compare/v0.153.13...v0.153.14) (2026-08-04)
 
 
