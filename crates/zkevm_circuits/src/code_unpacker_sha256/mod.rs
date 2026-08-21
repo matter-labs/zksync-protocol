@@ -88,7 +88,9 @@ where
                 should_start_new.get_variable().into(),
             ];
             let witness = self.witness_source.clone();
-            let value_fn = move |inputs: [F; 2]| {
+            // vararg form: keeps the `EL::INTERNAL_STRUCT_LEN + 1` const projection out of the
+            // closure signature, which otherwise ICEs rustc (binder.rs:788) on newer nightlies.
+            let value_fn = move |inputs: &[F], dst: &mut DstBuffer<'_, '_, F>| {
                 let should_allocate = <bool as WitnessCastable<F, F>>::cast_from_source(inputs[0]);
                 let should_start_new = <bool as WitnessCastable<F, F>>::cast_from_source(inputs[1]);
 
@@ -117,13 +119,10 @@ where
                     (false, witness_element)
                 };
 
-                let mut result = [F::ZERO; EL::INTERNAL_STRUCT_LEN + 1];
-                result[0] = <bool as WitnessCastable<F, F>>::cast_into_source(sequence_is_empty);
-                let mut dst = DstBuffer::MutSlice(&mut result[1..], 0);
-                EL::set_internal_variables_values(witness, &mut dst);
-                drop(dst);
-
-                result
+                dst.push(<bool as WitnessCastable<F, F>>::cast_into_source(
+                    sequence_is_empty,
+                ));
+                EL::set_internal_variables_values(witness, dst);
             };
 
             let mut outputs = [Variable::placeholder(); EL::INTERNAL_STRUCT_LEN + 1];
@@ -132,7 +131,7 @@ where
 
             let outputs = Place::from_variables(outputs);
 
-            cs.set_values_with_dependencies(&dependencies, &outputs, value_fn);
+            cs.set_values_with_dependencies_vararg(&dependencies, &outputs, value_fn);
         }
 
         (sequence_is_empty, el)
@@ -159,7 +158,9 @@ where
                 bias.into(),
             ];
             let witness = self.witness_source.clone();
-            let value_fn = move |inputs: [F; 3]| {
+            // vararg form: keeps the `EL::INTERNAL_STRUCT_LEN + 1` const projection out of the
+            // closure signature, which otherwise ICEs rustc (binder.rs:788) on newer nightlies.
+            let value_fn = move |inputs: &[F], dst: &mut DstBuffer<'_, '_, F>| {
                 let should_allocate = <bool as WitnessCastable<F, F>>::cast_from_source(inputs[0]);
                 let should_start_new = <bool as WitnessCastable<F, F>>::cast_from_source(inputs[1]);
 
@@ -188,13 +189,10 @@ where
                     (false, witness_element)
                 };
 
-                let mut result = [F::ZERO; EL::INTERNAL_STRUCT_LEN + 1];
-                result[0] = <bool as WitnessCastable<F, F>>::cast_into_source(sequence_is_empty);
-                let mut dst = DstBuffer::MutSlice(&mut result[1..], 0);
-                EL::set_internal_variables_values(witness, &mut dst);
-                drop(dst);
-
-                result
+                dst.push(<bool as WitnessCastable<F, F>>::cast_into_source(
+                    sequence_is_empty,
+                ));
+                EL::set_internal_variables_values(witness, dst);
             };
 
             let mut outputs = [Variable::placeholder(); EL::INTERNAL_STRUCT_LEN + 1];
@@ -203,7 +201,7 @@ where
 
             let outputs = Place::from_variables(outputs);
 
-            cs.set_values_with_dependencies(&dependencies, &outputs, value_fn);
+            cs.set_values_with_dependencies_vararg(&dependencies, &outputs, value_fn);
         }
 
         (sequence_is_empty, el)
@@ -548,8 +546,10 @@ where
         let mut sha256_input = [zero_u32; 16];
         for (dst, src) in sha256_input.iter_mut().zip(
             code_word_0_be_bytes
-                .array_chunks::<4>()
-                .chain(code_word_1_be_bytes.array_chunks::<4>()),
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .chain(code_word_1_be_bytes.as_chunks::<4>().0.iter()),
         ) {
             *dst = UInt32::from_be_bytes(cs, *src);
         }

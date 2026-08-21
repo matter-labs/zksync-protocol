@@ -34,7 +34,7 @@ impl<F: SmallField> RegisterInputView<F> {
             .value
             .inner
             .iter()
-            .zip(u8x32_view.array_chunks_mut::<4>())
+            .zip(u8x32_view.as_chunks_mut::<4>().0.iter_mut())
         {
             let decomposition = unsafe { src.decompose_into_bytes_unchecked(cs) };
             dst[0].write(decomposition[0]);

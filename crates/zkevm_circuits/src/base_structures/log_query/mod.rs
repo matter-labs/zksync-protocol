@@ -600,7 +600,11 @@ impl<F: SmallField> CSAllocatableExt<F> for LogQuery<F> {
     const INTERNAL_STRUCT_LEN: usize = FLATTENED_VARIABLE_LENGTH;
 
     fn witness_from_set_of_values(values: [F; Self::INTERNAL_STRUCT_LEN]) -> Self::Witness {
-        log_query_witness_from_values(values)
+        // `INTERNAL_STRUCT_LEN` is defined as `FLATTENED_VARIABLE_LENGTH`, but the compiler no
+        // longer normalizes the associated const to it, so copy through a slice.
+        let mut buffer = [F::ZERO; FLATTENED_VARIABLE_LENGTH];
+        buffer.copy_from_slice(&values);
+        log_query_witness_from_values(buffer)
     }
 
     // we should be able to allocate without knowing values yet
@@ -624,7 +628,10 @@ impl<F: SmallField> CSAllocatableExt<F> for LogQuery<F> {
     where
         [(); Self::INTERNAL_STRUCT_LEN]:,
     {
-        self.flatten_as_variables_impl()
+        let flattened = self.flatten_as_variables_impl();
+        let mut result = [Variable::placeholder(); Self::INTERNAL_STRUCT_LEN];
+        result.copy_from_slice(&flattened);
+        result
     }
 
     fn set_internal_variables_values(witness: Self::Witness, dst: &mut DstBuffer<'_, '_, F>) {

@@ -68,13 +68,13 @@ impl<F: SmallField> CSAllocatableExt<F> for RecursionQuery<F> {
     where
         [(); Self::INTERNAL_STRUCT_LEN]:,
     {
-        [
-            self.circuit_type.get_variable(),
-            self.input_commitment[0].get_variable(),
-            self.input_commitment[1].get_variable(),
-            self.input_commitment[2].get_variable(),
-            self.input_commitment[3].get_variable(),
-        ]
+        let mut result = [Variable::placeholder(); Self::INTERNAL_STRUCT_LEN];
+        result[0] = self.circuit_type.get_variable();
+        result[1] = self.input_commitment[0].get_variable();
+        result[2] = self.input_commitment[1].get_variable();
+        result[3] = self.input_commitment[2].get_variable();
+        result[4] = self.input_commitment[3].get_variable();
+        result
     }
     fn set_internal_variables_values(witness: Self::Witness, dst: &mut DstBuffer<'_, '_, F>) {
         Num::set_internal_variables_values(witness.circuit_type, dst);

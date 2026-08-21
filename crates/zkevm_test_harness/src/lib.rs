@@ -1,13 +1,11 @@
 #![recursion_limit = "64"]
 #![feature(allocator_api)]
-#![feature(array_chunks)]
 #![feature(stmt_expr_attributes)]
 #![allow(incomplete_features)]
 #![feature(generic_const_exprs)]
 #![feature(iter_array_chunks)]
 #![feature(iter_next_chunk)]
 #![feature(associated_type_defaults)]
-#![feature(bigint_helper_methods)]
 #![allow(unused_imports)]
 #![allow(
     dropping_references,

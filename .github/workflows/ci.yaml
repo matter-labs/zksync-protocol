@@ -23,8 +23,8 @@ jobs:
         run: |
           rustup set profile minimal
           rustup toolchain install 1.81.0
-          rustup toolchain install nightly-2024-11-19
-          rustup default nightly-2024-11-19
+          rustup toolchain install nightly-2026-08-09
+          rustup default nightly-2026-08-09
           cargo install cargo-nextest@0.9.108 --locked
       - name: Compile
         run: cargo build
@@ -46,8 +46,8 @@ jobs:
       - name: Setup rust
         run: |
           rustup set profile minimal
-          rustup toolchain install nightly-2024-11-19
-          rustup default nightly-2024-11-19
+          rustup toolchain install nightly-2026-08-09
+          rustup default nightly-2026-08-09
           cargo install cargo-nextest@0.9.108 --locked
       - name: zkevm_test_harness - Main test
         run: cargo nextest run --release --manifest-path crates/zkevm_test_harness/Cargo.toml --test-threads 2
@@ -83,8 +83,8 @@ jobs:
       - name: Setup rust
         run: |
           rustup set profile minimal
-          rustup toolchain install nightly-2024-11-19
-          rustup default nightly-2024-11-19
+          rustup toolchain install nightly-2026-08-09
+          rustup default nightly-2026-08-09
           cargo install cargo-nextest@0.9.108 --locked
       - name: ZKEVM abstractions airbender delegation tests
         run: cargo nextest run --release --manifest-path crates/zk_evm_abstractions/Cargo.toml --features airbender-precompile-delegations

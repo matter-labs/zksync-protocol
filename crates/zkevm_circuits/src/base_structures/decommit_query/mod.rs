@@ -142,19 +142,19 @@ impl<F: SmallField> CSAllocatableExt<F> for DecommitQuery<F> {
     where
         [(); Self::INTERNAL_STRUCT_LEN]:,
     {
-        [
-            self.code_hash.inner[0].get_variable(),
-            self.code_hash.inner[1].get_variable(),
-            self.code_hash.inner[2].get_variable(),
-            self.code_hash.inner[3].get_variable(),
-            self.code_hash.inner[4].get_variable(),
-            self.code_hash.inner[5].get_variable(),
-            self.code_hash.inner[6].get_variable(),
-            self.code_hash.inner[7].get_variable(),
-            self.page.get_variable(),
-            self.is_first.get_variable(),
-            self.timestamp.get_variable(),
-        ]
+        let mut result = [Variable::placeholder(); Self::INTERNAL_STRUCT_LEN];
+        result[0] = self.code_hash.inner[0].get_variable();
+        result[1] = self.code_hash.inner[1].get_variable();
+        result[2] = self.code_hash.inner[2].get_variable();
+        result[3] = self.code_hash.inner[3].get_variable();
+        result[4] = self.code_hash.inner[4].get_variable();
+        result[5] = self.code_hash.inner[5].get_variable();
+        result[6] = self.code_hash.inner[6].get_variable();
+        result[7] = self.code_hash.inner[7].get_variable();
+        result[8] = self.page.get_variable();
+        result[9] = self.is_first.get_variable();
+        result[10] = self.timestamp.get_variable();
+        result
     }
     fn set_internal_variables_values(witness: Self::Witness, dst: &mut DstBuffer<'_, '_, F>) {
         // NOTE: must be same sequence as in `flatten_as_variables`
