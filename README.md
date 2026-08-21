@@ -4,6 +4,16 @@ This repository contains the protocol libraries for ZKsync project,
 including the implementation of out-of-circuit and in-circuit VM,
 as well as utilities required for witness generation and CPU proving.
 
+## Toolchain
+
+This repository pins a specific Rust nightly in `rust-toolchain`; `rustup` will
+pick it up automatically. The pinned toolchain is currently
+**`nightly-2026-08-09`**.
+
+A pinned nightly is required rather than stable: several crates rely on
+`generic_const_exprs`, `allocator_api` and `portable_simd`. The pin is exact
+because these features change shape between nightlies.
+
 ## Crates
 
 The project contains the following crates:
