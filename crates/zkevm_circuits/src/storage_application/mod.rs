@@ -602,10 +602,7 @@ where
 
         let mut current_hash = blake2s(cs, &leaf_bytes);
 
-        for (path_bit, path_witness) in path_selectors
-            .into_iter()
-            .zip(merkle_path_witness.into_iter())
-        {
+        for (path_bit, path_witness) in path_selectors.into_iter().zip(merkle_path_witness.iter()) {
             let left = UInt8::parallel_select(cs, path_bit, &path_witness, &current_hash);
             let right = UInt8::parallel_select(cs, path_bit, &current_hash, &path_witness);
             let mut input = [zero_u8; 64];
