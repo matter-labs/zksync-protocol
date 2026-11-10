@@ -1,0 +1,14 @@
+# Extra cargo config for a guest build with Rust's UB precondition checks on
+# (`cargo airbender build -- --config <this file>`). CI runs one batch on such a
+# guest; see the "UB-checks guest" steps in .github/workflows/ci-verifier.yaml.
+#
+# The pointer-arithmetic checks (`ptr::add` and friends) are compiled into `core`
+# only under `debug_assertions`, so `core` (built by build-std) needs them; turning
+# debug assertions on everywhere instead overflows the 4 MiB ROM. `-Zub-checks`
+# then evaluates the checks at every call site. Merged into the guest's own
+# `build.rustflags`, not a replacement for them.
+[build]
+rustflags = ["-Zub-checks=yes"]
+
+[profile.release.package.core]
+debug-assertions = true

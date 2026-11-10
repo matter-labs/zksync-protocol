@@ -1,0 +1,62 @@
+[package]
+name = "rescue_poseidon"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords = ["poseidon", "rescue", "sponge"]
+categories.workspace = true
+description = "Sponge construction based Algebraic Hash Functions"
+
+[dependencies]
+franklin-crypto = { workspace = true, features = ["plonk"]  }
+
+derivative = "2"
+typemap_rev = "0.3"
+lazy_static = "1.4"
+num-bigint = "0.3"
+num-integer = "0.1"
+num-iter = "0.1"
+rand = "0.8"
+rand_chacha = "0.3"
+rand_xorshift = "0.3"
+byteorder = "1"
+num-traits = "0.2"
+sha3 = "0.9.1"
+serde = {version = "1", features = ["derive"]}
+addchain = "0.2"
+smallvec = "1.9"
+blake2 = "0.10"
+rayon = {version = "1.5", optional = true}
+futures = {version = "0.3", features = ["executor", "thread-pool"], optional = true}
+arrayvec = "0.7"
+log = "0.4.19"
+
+[dev-dependencies]
+# reference poseidon does not uses specialization so some tests will fail.
+poseidon_hash = {git = "https://github.com/shamatar/poseidon_hash"}
+# poseidon_hash = {path = "../../shamatar/poseidon_hash"}
+criterion = "0.3"
+hex = "0.4"
+
+# [profile.bench]
+# opt-level = 3
+# debug = false
+# debug-assertions = false
+# overflow-checks = false
+# lto = false
+# panic = 'unwind'
+# incremental = false
+# codegen-units = 16
+# rpath = false
+
+[features]
+default = []
+rayon = ["dep:rayon"]
+futures = ["dep:futures"]
+
+[[bench]]
+name = "benches"
+harness = false

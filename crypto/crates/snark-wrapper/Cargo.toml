@@ -1,0 +1,17 @@
+[package]
+name = "snark_wrapper"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "ZKsync snark wrapper"
+
+[dependencies]
+rescue_poseidon.workspace = true
+serde = { version = "1", features = ["derive"] }
+derivative = "2"
+rand = "0.8"

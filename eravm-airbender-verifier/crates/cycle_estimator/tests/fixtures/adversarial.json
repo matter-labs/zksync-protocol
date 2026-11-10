@@ -1,0 +1,1394 @@
+[
+ {
+  "batch_number": 900103,
+  "label": "add_flood",
+  "raw_cycles": 2289461390,
+  "effective_cycles": 2499664942,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10135800,
+   "1994": 41426,
+   "1995": 11966262
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 9505131,
+    "arith_shift_op": 454,
+    "arith_mul_op": 32,
+    "arith_div_op": 35,
+    "arith_ptr_op": 296,
+    "average_op": 1005,
+    "storage_read": 33,
+    "storage_write": 22,
+    "event": 10,
+    "precompile_call": 24,
+    "far_call": 60,
+    "uma_write": 600,
+    "uma_read": 473,
+    "keccak256_cycles": 24,
+    "ec_recover_cycles": 1,
+    "decommit_cycles": 4819,
+    "storage_application": 64,
+    "transaction_count": 1,
+    "near_call_count": 292,
+    "pubdata_bytes": 297,
+    "merkle_leaf_count": 54,
+    "state_diff_count": 11
+   }
+  }
+ },
+ {
+  "batch_number": 900107,
+  "label": "sub_flood",
+  "raw_cycles": 2361456541,
+  "effective_cycles": 2571660433,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10135800,
+   "1994": 41511,
+   "1995": 11966262
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 9505128,
+    "arith_shift_op": 454,
+    "arith_mul_op": 32,
+    "arith_div_op": 35,
+    "arith_ptr_op": 296,
+    "average_op": 1005,
+    "storage_read": 33,
+    "storage_write": 22,
+    "event": 10,
+    "precompile_call": 24,
+    "far_call": 60,
+    "uma_write": 600,
+    "uma_read": 473,
+    "keccak256_cycles": 24,
+    "ec_recover_cycles": 1,
+    "decommit_cycles": 4819,
+    "storage_application": 64,
+    "transaction_count": 1,
+    "near_call_count": 292,
+    "pubdata_bytes": 297,
+    "merkle_leaf_count": 54,
+    "state_diff_count": 11
+   }
+  }
+ },
+ {
+  "batch_number": 900113,
+  "label": "twrite_flood",
+  "raw_cycles": 9569177615,
+  "effective_cycles": 9779378703,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10135800,
+   "1994": 41459,
+   "1995": 11965613
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 879114,
+    "arith_shift_op": 454,
+    "arith_mul_op": 32,
+    "arith_div_op": 35,
+    "arith_ptr_op": 296,
+    "average_op": 1005,
+    "storage_read": 33,
+    "storage_write": 22,
+    "transient_storage_write": 736000,
+    "event": 10,
+    "precompile_call": 24,
+    "far_call": 60,
+    "uma_write": 600,
+    "uma_read": 473,
+    "keccak256_cycles": 24,
+    "ec_recover_cycles": 1,
+    "decommit_cycles": 4793,
+    "storage_application": 64,
+    "transaction_count": 1,
+    "near_call_count": 292,
+    "pubdata_bytes": 268,
+    "merkle_leaf_count": 54,
+    "state_diff_count": 11
+   }
+  }
+ },
+ {
+  "batch_number": 900117,
+  "label": "tread_flood",
+  "raw_cycles": 1698972886,
+  "effective_cycles": 1909172058,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10135800,
+   "1994": 40980,
+   "1995": 11965613
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 2455116,
+    "arith_shift_op": 455,
+    "arith_mul_op": 32,
+    "arith_div_op": 35,
+    "arith_ptr_op": 296,
+    "average_op": 1005,
+    "storage_read": 33,
+    "storage_write": 22,
+    "transient_storage_read": 1120000,
+    "event": 10,
+    "precompile_call": 24,
+    "far_call": 60,
+    "uma_write": 600,
+    "uma_read": 473,
+    "keccak256_cycles": 24,
+    "ec_recover_cycles": 1,
+    "decommit_cycles": 4793,
+    "storage_application": 64,
+    "transaction_count": 1,
+    "near_call_count": 292,
+    "pubdata_bytes": 268,
+    "merkle_leaf_count": 54,
+    "state_diff_count": 11
+   }
+  }
+ },
+ {
+  "batch_number": 900121,
+  "label": "context_flood",
+  "raw_cycles": 2064093426,
+  "effective_cycles": 2274292334,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10135800,
+   "1994": 40914,
+   "1995": 11965613
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 5610115,
+    "arith_shift_op": 454,
+    "arith_mul_op": 32,
+    "arith_div_op": 35,
+    "arith_ptr_op": 296,
+    "average_op": 4721005,
+    "storage_read": 33,
+    "storage_write": 22,
+    "event": 10,
+    "precompile_call": 24,
+    "far_call": 60,
+    "uma_write": 600,
+    "uma_read": 473,
+    "keccak256_cycles": 24,
+    "ec_recover_cycles": 1,
+    "decommit_cycles": 4793,
+    "storage_application": 64,
+    "transaction_count": 1,
+    "near_call_count": 292,
+    "pubdata_bytes": 271,
+    "merkle_leaf_count": 54,
+    "state_diff_count": 11
+   }
+  }
+ },
+ {
+  "batch_number": 900125,
+  "label": "farcall_flood",
+  "raw_cycles": 4186936814,
+  "effective_cycles": 4397085998,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10133230,
+   "1994": 41359,
+   "1995": 11963017
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 2359117,
+    "arith_shift_op": 176454,
+    "arith_mul_op": 32,
+    "arith_div_op": 35,
+    "arith_ptr_op": 296,
+    "average_op": 705005,
+    "storage_read": 33,
+    "storage_write": 22,
+    "event": 10,
+    "precompile_call": 24,
+    "far_call": 176060,
+    "uma_write": 176600,
+    "uma_read": 473,
+    "keccak256_cycles": 24,
+    "ec_recover_cycles": 1,
+    "decommit_cycles": 4793,
+    "storage_application": 64,
+    "transaction_count": 1,
+    "near_call_count": 176292,
+    "pubdata_bytes": 260,
+    "merkle_leaf_count": 54,
+    "state_diff_count": 10
+   }
+  }
+ },
+ {
+  "batch_number": 900129,
+  "label": "nearcall_flood",
+  "raw_cycles": 1708288002,
+  "effective_cycles": 1918488086,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10135800,
+   "1994": 41208,
+   "1995": 11965613
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 5549119,
+    "arith_shift_op": 454,
+    "arith_mul_op": 32,
+    "arith_div_op": 35,
+    "arith_ptr_op": 296,
+    "average_op": 1561005,
+    "storage_read": 33,
+    "storage_write": 22,
+    "event": 10,
+    "precompile_call": 24,
+    "far_call": 60,
+    "uma_write": 600,
+    "uma_read": 473,
+    "keccak256_cycles": 24,
+    "ec_recover_cycles": 1,
+    "decommit_cycles": 4793,
+    "storage_application": 64,
+    "transaction_count": 1,
+    "near_call_count": 780292,
+    "pubdata_bytes": 269,
+    "merkle_leaf_count": 54,
+    "state_diff_count": 11
+   }
+  }
+ },
+ {
+  "batch_number": 900132,
+  "label": "evt_flood",
+  "raw_cycles": 5179528902,
+  "effective_cycles": 5390490642,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10151220,
+   "1994": 122565,
+   "1995": 12012990
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 4152028,
+    "arith_shift_op": 550626,
+    "arith_mul_op": 94,
+    "arith_div_op": 99,
+    "arith_ptr_op": 866,
+    "average_op": 918437,
+    "storage_read": 91,
+    "storage_write": 60,
+    "event": 183122,
+    "precompile_call": 70,
+    "far_call": 183272,
+    "uma_write": 1736,
+    "uma_read": 1379,
+    "keccak256_cycles": 70,
+    "ec_recover_cycles": 3,
+    "decommit_cycles": 4793,
+    "storage_application": 73,
+    "transaction_count": 3,
+    "near_call_count": 183956,
+    "pubdata_bytes": 340,
+    "merkle_leaf_count": 58,
+    "state_diff_count": 13
+   }
+  }
+ },
+ {
+  "batch_number": 900135,
+  "label": "umaread_flood",
+  "raw_cycles": 2974947600,
+  "effective_cycles": 3185097128,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10133230,
+   "1994": 41445,
+   "1995": 11963017
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 6235115,
+    "arith_shift_op": 454,
+    "arith_mul_op": 32,
+    "arith_div_op": 35,
+    "arith_ptr_op": 296,
+    "average_op": 1005,
+    "storage_read": 33,
+    "storage_write": 22,
+    "event": 10,
+    "precompile_call": 24,
+    "far_call": 60,
+    "uma_write": 600,
+    "uma_read": 2848473,
+    "keccak256_cycles": 24,
+    "ec_recover_cycles": 1,
+    "decommit_cycles": 4793,
+    "storage_application": 64,
+    "transaction_count": 1,
+    "near_call_count": 292,
+    "pubdata_bytes": 260,
+    "merkle_leaf_count": 54,
+    "state_diff_count": 10
+   }
+  }
+ },
+ {
+  "batch_number": 900139,
+  "label": "umawrite_flood",
+  "raw_cycles": 1666730337,
+  "effective_cycles": 1876930085,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10135800,
+   "1994": 41124,
+   "1995": 11965613
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 1316117,
+    "arith_shift_op": 454,
+    "arith_mul_op": 32,
+    "arith_div_op": 35,
+    "arith_ptr_op": 296,
+    "average_op": 1005,
+    "storage_read": 33,
+    "storage_write": 22,
+    "event": 10,
+    "precompile_call": 24,
+    "far_call": 60,
+    "uma_write": 1104600,
+    "uma_read": 473,
+    "keccak256_cycles": 24,
+    "ec_recover_cycles": 1,
+    "decommit_cycles": 4793,
+    "storage_application": 64,
+    "transaction_count": 1,
+    "near_call_count": 292,
+    "pubdata_bytes": 269,
+    "merkle_leaf_count": 54,
+    "state_diff_count": 11
+   }
+  }
+ },
+ {
+  "batch_number": 900143,
+  "label": "bitwise_flood",
+  "raw_cycles": 2120971050,
+  "effective_cycles": 2331121478,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10133230,
+   "1994": 41670,
+   "1995": 11963017
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 9545126,
+    "arith_shift_op": 454,
+    "arith_mul_op": 32,
+    "arith_div_op": 35,
+    "arith_ptr_op": 296,
+    "average_op": 1005,
+    "storage_read": 33,
+    "storage_write": 22,
+    "event": 10,
+    "precompile_call": 24,
+    "far_call": 60,
+    "uma_write": 600,
+    "uma_read": 473,
+    "keccak256_cycles": 24,
+    "ec_recover_cycles": 1,
+    "decommit_cycles": 4819,
+    "storage_application": 64,
+    "transaction_count": 1,
+    "near_call_count": 292,
+    "pubdata_bytes": 260,
+    "merkle_leaf_count": 54,
+    "state_diff_count": 10
+   }
+  }
+ },
+ {
+  "batch_number": 900147,
+  "label": "mul_flood",
+  "raw_cycles": 7957459464,
+  "effective_cycles": 8167660732,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10135800,
+   "1994": 40855,
+   "1995": 11966262
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 1505133,
+    "arith_shift_op": 454,
+    "arith_mul_op": 8000032,
+    "arith_div_op": 35,
+    "arith_ptr_op": 296,
+    "average_op": 1005,
+    "storage_read": 33,
+    "storage_write": 22,
+    "event": 10,
+    "precompile_call": 24,
+    "far_call": 60,
+    "uma_write": 600,
+    "uma_read": 473,
+    "keccak256_cycles": 24,
+    "ec_recover_cycles": 1,
+    "decommit_cycles": 4819,
+    "storage_application": 64,
+    "transaction_count": 1,
+    "near_call_count": 292,
+    "pubdata_bytes": 297,
+    "merkle_leaf_count": 54,
+    "state_diff_count": 11
+   }
+  }
+ },
+ {
+  "batch_number": 900152,
+  "label": "shift_flood",
+  "raw_cycles": 2148448396,
+  "effective_cycles": 2358597528,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10133230,
+   "1994": 41346,
+   "1995": 11963017
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 6585126,
+    "arith_shift_op": 3008454,
+    "arith_mul_op": 32,
+    "arith_div_op": 35,
+    "arith_ptr_op": 296,
+    "average_op": 1005,
+    "storage_read": 33,
+    "storage_write": 22,
+    "event": 10,
+    "precompile_call": 24,
+    "far_call": 60,
+    "uma_write": 600,
+    "uma_read": 473,
+    "keccak256_cycles": 24,
+    "ec_recover_cycles": 1,
+    "decommit_cycles": 4819,
+    "storage_application": 64,
+    "transaction_count": 1,
+    "near_call_count": 292,
+    "pubdata_bytes": 260,
+    "merkle_leaf_count": 54,
+    "state_diff_count": 10
+   }
+  }
+ },
+ {
+  "batch_number": 900156,
+  "label": "shift_m_flood",
+  "raw_cycles": 2276550309,
+  "effective_cycles": 2486694901,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10133230,
+   "1994": 40211,
+   "1995": 11963017
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 5230131,
+    "arith_shift_op": 4400454,
+    "arith_mul_op": 32,
+    "arith_div_op": 35,
+    "arith_ptr_op": 296,
+    "average_op": 1005,
+    "storage_read": 33,
+    "storage_write": 22,
+    "event": 10,
+    "precompile_call": 24,
+    "far_call": 60,
+    "uma_write": 600,
+    "uma_read": 473,
+    "keccak256_cycles": 24,
+    "ec_recover_cycles": 1,
+    "decommit_cycles": 4819,
+    "storage_application": 64,
+    "transaction_count": 1,
+    "near_call_count": 292,
+    "pubdata_bytes": 260,
+    "merkle_leaf_count": 54,
+    "state_diff_count": 10
+   }
+  }
+ },
+ {
+  "batch_number": 900160,
+  "label": "rotate_flood",
+  "raw_cycles": 2596855163,
+  "effective_cycles": 2807054215,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10135800,
+   "1994": 40301,
+   "1995": 11966262
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 3577129,
+    "arith_shift_op": 6016454,
+    "arith_mul_op": 32,
+    "arith_div_op": 35,
+    "arith_ptr_op": 296,
+    "average_op": 1005,
+    "storage_read": 33,
+    "storage_write": 22,
+    "event": 10,
+    "precompile_call": 24,
+    "far_call": 60,
+    "uma_write": 600,
+    "uma_read": 473,
+    "keccak256_cycles": 24,
+    "ec_recover_cycles": 1,
+    "decommit_cycles": 4819,
+    "storage_application": 64,
+    "transaction_count": 1,
+    "near_call_count": 292,
+    "pubdata_bytes": 274,
+    "merkle_leaf_count": 54,
+    "state_diff_count": 11
+   }
+  }
+ },
+ {
+  "batch_number": 900168,
+  "label": "div_fast_flood",
+  "raw_cycles": 5754728549,
+  "effective_cycles": 5964878237,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10133230,
+   "1994": 41485,
+   "1995": 11963017
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 755151,
+    "arith_shift_op": 454,
+    "arith_mul_op": 32,
+    "arith_div_op": 4000035,
+    "arith_ptr_op": 296,
+    "average_op": 1005,
+    "storage_read": 33,
+    "storage_write": 22,
+    "event": 10,
+    "precompile_call": 24,
+    "far_call": 60,
+    "uma_write": 619,
+    "uma_read": 473,
+    "keccak256_cycles": 24,
+    "ec_recover_cycles": 1,
+    "decommit_cycles": 4819,
+    "storage_application": 64,
+    "transaction_count": 1,
+    "near_call_count": 292,
+    "pubdata_bytes": 260,
+    "merkle_leaf_count": 54,
+    "state_diff_count": 10
+   }
+  }
+ },
+ {
+  "batch_number": 900172,
+  "label": "jump_flood",
+  "raw_cycles": 1962566513,
+  "effective_cycles": 2172713709,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10133230,
+   "1994": 40862,
+   "1995": 11963017
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 9605131,
+    "arith_shift_op": 454,
+    "arith_mul_op": 32,
+    "arith_div_op": 35,
+    "arith_ptr_op": 296,
+    "average_op": 1005,
+    "storage_read": 33,
+    "storage_write": 22,
+    "event": 10,
+    "precompile_call": 24,
+    "far_call": 60,
+    "uma_write": 600,
+    "uma_read": 473,
+    "keccak256_cycles": 24,
+    "ec_recover_cycles": 1,
+    "decommit_cycles": 4819,
+    "storage_application": 64,
+    "transaction_count": 1,
+    "near_call_count": 292,
+    "pubdata_bytes": 260,
+    "merkle_leaf_count": 54,
+    "state_diff_count": 10
+   }
+  }
+ },
+ {
+  "batch_number": 900176,
+  "label": "div_worst2_flood",
+  "raw_cycles": 21095539533,
+  "effective_cycles": 21305687277,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10133230,
+   "1994": 40999,
+   "1995": 11963017
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 7014132,
+    "arith_shift_op": 454,
+    "arith_mul_op": 32,
+    "arith_div_op": 2608035,
+    "arith_ptr_op": 296,
+    "average_op": 1005,
+    "storage_read": 33,
+    "storage_write": 22,
+    "event": 10,
+    "precompile_call": 24,
+    "far_call": 60,
+    "uma_write": 600,
+    "uma_read": 473,
+    "keccak256_cycles": 24,
+    "ec_recover_cycles": 1,
+    "decommit_cycles": 4819,
+    "storage_application": 64,
+    "transaction_count": 1,
+    "near_call_count": 292,
+    "pubdata_bytes": 260,
+    "merkle_leaf_count": 54,
+    "state_diff_count": 10
+   }
+  }
+ },
+ {
+  "batch_number": 900204,
+  "label": "deploy_t4",
+  "raw_cycles": 1734728247,
+  "effective_cycles": 1971398859,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10143510,
+   "1994": 41299,
+   "1995": 18552314
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 558577,
+    "arith_shift_op": 82930,
+    "arith_mul_op": 50,
+    "arith_div_op": 51,
+    "arith_ptr_op": 130344,
+    "average_op": 1200,
+    "storage_read": 48,
+    "storage_write": 29,
+    "event": 3134,
+    "precompile_call": 42,
+    "far_call": 97,
+    "uma_write": 23398,
+    "uma_read": 153099,
+    "keccak256_cycles": 1505,
+    "sha256_cycles": 5153,
+    "ec_recover_cycles": 1,
+    "decommit_cycles": 10387,
+    "storage_application": 82,
+    "transaction_count": 1,
+    "near_call_count": 335,
+    "pubdata_bytes": 199439,
+    "merkle_leaf_count": 57,
+    "state_diff_count": 11
+   }
+  }
+ },
+ {
+  "batch_number": 900208,
+  "label": "decommit_repeat_cached_24k",
+  "raw_cycles": 2859374098,
+  "effective_cycles": 3069703250,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10143510,
+   "1994": 41337,
+   "1995": 11966911
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 1061146,
+    "arith_shift_op": 160459,
+    "arith_mul_op": 32,
+    "arith_div_op": 35,
+    "arith_ptr_op": 624299,
+    "average_op": 129009,
+    "storage_read": 16033,
+    "storage_write": 22,
+    "event": 10,
+    "precompile_call": 24,
+    "decommit": 16000,
+    "decommit_repeat": 16000,
+    "far_call": 32061,
+    "uma_write": 80606,
+    "uma_read": 80478,
+    "keccak256_cycles": 25,
+    "ec_recover_cycles": 1,
+    "decommit_cycles": 4963,
+    "storage_application": 67,
+    "transaction_count": 1,
+    "near_call_count": 32293,
+    "pubdata_bytes": 267,
+    "merkle_leaf_count": 57,
+    "state_diff_count": 11
+   }
+  }
+ },
+ {
+  "batch_number": 900212,
+  "label": "decommit_repeat_cached_128k",
+  "raw_cycles": 1959135519,
+  "effective_cycles": 2169460755,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10143510,
+   "1994": 40358,
+   "1995": 11966911
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 163546,
+    "arith_shift_op": 24459,
+    "arith_mul_op": 32,
+    "arith_div_op": 35,
+    "arith_ptr_op": 93899,
+    "average_op": 20209,
+    "storage_read": 2433,
+    "storage_write": 22,
+    "event": 10,
+    "precompile_call": 24,
+    "decommit": 2400,
+    "decommit_repeat": 2400,
+    "far_call": 4861,
+    "uma_write": 12606,
+    "uma_read": 12478,
+    "keccak256_cycles": 25,
+    "ec_recover_cycles": 1,
+    "decommit_cycles": 6821,
+    "storage_application": 67,
+    "transaction_count": 1,
+    "near_call_count": 5093,
+    "pubdata_bytes": 267,
+    "merkle_leaf_count": 57,
+    "state_diff_count": 11
+   }
+  }
+ },
+ {
+  "batch_number": 900216,
+  "label": "decommit_repeat_raw_256k",
+  "raw_cycles": 1280643147,
+  "effective_cycles": 1490928479,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10140940,
+   "1994": 40662,
+   "1995": 11966911
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 68481,
+    "arith_shift_op": 10055,
+    "arith_mul_op": 32,
+    "arith_div_op": 35,
+    "arith_ptr_op": 37738,
+    "average_op": 8685,
+    "storage_read": 993,
+    "storage_write": 22,
+    "event": 10,
+    "precompile_call": 24,
+    "decommit": 960,
+    "decommit_repeat": 959,
+    "far_call": 1980,
+    "uma_write": 5404,
+    "uma_read": 5277,
+    "keccak256_cycles": 25,
+    "ec_recover_cycles": 1,
+    "decommit_cycles": 9893,
+    "storage_application": 66,
+    "transaction_count": 1,
+    "near_call_count": 2212,
+    "pubdata_bytes": 265,
+    "merkle_leaf_count": 56,
+    "state_diff_count": 11
+   }
+  }
+ },
+ {
+  "batch_number": 900221,
+  "label": "decommit_fresh_4blobs",
+  "raw_cycles": 1044697393,
+  "effective_cycles": 1255110497,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10148650,
+   "1994": 40467,
+   "1995": 11968209
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 5417,
+    "arith_shift_op": 500,
+    "arith_mul_op": 32,
+    "arith_div_op": 35,
+    "arith_ptr_op": 457,
+    "average_op": 1037,
+    "storage_read": 37,
+    "storage_write": 22,
+    "event": 10,
+    "precompile_call": 24,
+    "decommit": 4,
+    "far_call": 68,
+    "uma_write": 633,
+    "uma_read": 506,
+    "keccak256_cycles": 26,
+    "ec_recover_cycles": 1,
+    "decommit_cycles": 12742,
+    "storage_application": 69,
+    "transaction_count": 1,
+    "near_call_count": 300,
+    "pubdata_bytes": 264,
+    "merkle_leaf_count": 59,
+    "state_diff_count": 11
+   }
+  }
+ },
+ {
+  "batch_number": 900305,
+  "label": "modexp_exp32b",
+  "raw_cycles": 4091973508,
+  "effective_cycles": 4504716396,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10133230,
+   "1994": 50681348,
+   "1995": 11971454
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 1025321,
+    "arith_shift_op": 60498,
+    "arith_mul_op": 35,
+    "arith_div_op": 37,
+    "arith_ptr_op": 132303,
+    "average_op": 49031,
+    "storage_read": 35,
+    "storage_write": 23,
+    "event": 13,
+    "precompile_call": 12027,
+    "far_call": 12065,
+    "uma_write": 72662,
+    "uma_read": 108519,
+    "keccak256_cycles": 31,
+    "ec_recover_cycles": 1,
+    "mod_exp_cycles": 12000,
+    "decommit_cycles": 4804,
+    "storage_application": 63,
+    "transaction_count": 1,
+    "near_call_count": 12297,
+    "pubdata_bytes": 260,
+    "merkle_leaf_count": 54,
+    "state_diff_count": 10
+   }
+  }
+ },
+ {
+  "batch_number": 900311,
+  "label": "ecmul_smax",
+  "raw_cycles": 5613591815,
+  "effective_cycles": 7013785563,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10133230,
+   "1994": 297545361,
+   "1995": 11970156
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 421303,
+    "arith_shift_op": 24498,
+    "arith_mul_op": 35,
+    "arith_div_op": 37,
+    "arith_ptr_op": 8303,
+    "average_op": 33031,
+    "storage_read": 35,
+    "storage_write": 23,
+    "event": 13,
+    "precompile_call": 8027,
+    "far_call": 8065,
+    "uma_write": 56653,
+    "uma_read": 64510,
+    "keccak256_cycles": 30,
+    "ec_recover_cycles": 1,
+    "ec_mul_cycles": 8000,
+    "decommit_cycles": 4791,
+    "storage_application": 63,
+    "transaction_count": 1,
+    "near_call_count": 8297,
+    "pubdata_bytes": 260,
+    "merkle_leaf_count": 54,
+    "state_diff_count": 10
+   }
+  }
+ },
+ {
+  "batch_number": 900312,
+  "label": "ecadd_double",
+  "raw_cycles": 6207923346,
+  "effective_cycles": 6843139058,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10133230,
+   "1994": 106300852,
+   "1995": 11970156
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 3245309,
+    "arith_shift_op": 180498,
+    "arith_mul_op": 35,
+    "arith_div_op": 37,
+    "arith_ptr_op": 60303,
+    "average_op": 241031,
+    "storage_read": 35,
+    "storage_write": 23,
+    "event": 13,
+    "precompile_call": 60027,
+    "far_call": 60065,
+    "uma_write": 480656,
+    "uma_read": 540513,
+    "keccak256_cycles": 30,
+    "ec_recover_cycles": 1,
+    "ec_add_cycles": 60000,
+    "decommit_cycles": 4791,
+    "storage_application": 63,
+    "transaction_count": 1,
+    "near_call_count": 60297,
+    "pubdata_bytes": 260,
+    "merkle_leaf_count": 54,
+    "state_diff_count": 10
+   }
+  }
+ },
+ {
+  "batch_number": 900316,
+  "label": "ecrecover_v28",
+  "raw_cycles": 3743473651,
+  "effective_cycles": 5281610991,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10130660,
+   "1994": 332041539,
+   "1995": 11970156
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 429309,
+    "arith_shift_op": 24498,
+    "arith_mul_op": 35,
+    "arith_div_op": 37,
+    "arith_ptr_op": 32303,
+    "average_op": 33031,
+    "storage_read": 35,
+    "storage_write": 23,
+    "event": 13,
+    "precompile_call": 8027,
+    "far_call": 8065,
+    "uma_write": 56656,
+    "uma_read": 64513,
+    "keccak256_cycles": 30,
+    "ec_recover_cycles": 8001,
+    "decommit_cycles": 4785,
+    "storage_application": 62,
+    "transaction_count": 1,
+    "near_call_count": 8297,
+    "pubdata_bytes": 260,
+    "merkle_leaf_count": 53,
+    "state_diff_count": 10
+   }
+  }
+ },
+ {
+  "batch_number": 900318,
+  "label": "secp256r1_r248",
+  "raw_cycles": 3536618493,
+  "effective_cycles": 5135415229,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10133230,
+   "1994": 347196108,
+   "1995": 11970156
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 300316,
+    "arith_shift_op": 15498,
+    "arith_mul_op": 35,
+    "arith_div_op": 37,
+    "arith_ptr_op": 5303,
+    "average_op": 21031,
+    "storage_read": 35,
+    "storage_write": 23,
+    "event": 13,
+    "precompile_call": 5027,
+    "far_call": 5065,
+    "uma_write": 40659,
+    "uma_read": 50516,
+    "keccak256_cycles": 30,
+    "ec_recover_cycles": 1,
+    "secp256r1_verify_cycles": 5000,
+    "decommit_cycles": 4793,
+    "storage_application": 63,
+    "transaction_count": 1,
+    "near_call_count": 5297,
+    "pubdata_bytes": 260,
+    "merkle_leaf_count": 54,
+    "state_diff_count": 10
+   }
+  }
+ },
+ {
+  "batch_number": 900375,
+  "label": "ecpair_p8",
+  "raw_cycles": 8948213421,
+  "effective_cycles": 11169201117,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10133230,
+   "1994": 502716590,
+   "1995": 11997414
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 20873,
+    "arith_shift_op": 898,
+    "arith_mul_op": 335,
+    "arith_div_op": 137,
+    "arith_ptr_op": 603,
+    "average_op": 1431,
+    "storage_read": 35,
+    "storage_write": 23,
+    "event": 13,
+    "precompile_call": 127,
+    "far_call": 165,
+    "uma_write": 5888,
+    "uma_read": 5845,
+    "keccak256_cycles": 51,
+    "ec_recover_cycles": 1,
+    "ec_pairing_cycles": 800,
+    "decommit_cycles": 4798,
+    "storage_application": 63,
+    "transaction_count": 1,
+    "near_call_count": 397,
+    "pubdata_bytes": 260,
+    "merkle_leaf_count": 54,
+    "state_diff_count": 10
+   }
+  }
+ },
+ {
+  "batch_number": 900380,
+  "label": "ecpair_900pairs_1call",
+  "raw_cycles": 10030560592,
+  "effective_cycles": 12515965216,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10133230,
+   "1994": 565552458,
+   "1995": 15265778
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 48538,
+    "arith_shift_op": 506,
+    "arith_mul_op": 38,
+    "arith_div_op": 38,
+    "arith_ptr_op": 306,
+    "average_op": 1035,
+    "storage_read": 35,
+    "storage_write": 23,
+    "event": 13,
+    "precompile_call": 28,
+    "far_call": 66,
+    "uma_write": 22247,
+    "uma_read": 22105,
+    "keccak256_cycles": 2569,
+    "ec_recover_cycles": 1,
+    "ec_pairing_cycles": 900,
+    "decommit_cycles": 4798,
+    "storage_application": 63,
+    "transaction_count": 1,
+    "near_call_count": 298,
+    "pubdata_bytes": 260,
+    "merkle_leaf_count": 54,
+    "state_diff_count": 10
+   }
+  }
+ },
+ {
+  "batch_number": 900388,
+  "label": "bytecode_size_26208b",
+  "raw_cycles": 1025250868,
+  "effective_cycles": 1235720636,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10151220,
+   "1994": 41108,
+   "1995": 11971454
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 5827,
+    "arith_shift_op": 555,
+    "arith_mul_op": 35,
+    "arith_div_op": 37,
+    "arith_ptr_op": 316,
+    "average_op": 1071,
+    "storage_read": 34,
+    "storage_write": 23,
+    "event": 13,
+    "precompile_call": 27,
+    "far_call": 73,
+    "uma_write": 717,
+    "uma_read": 575,
+    "keccak256_cycles": 31,
+    "ec_recover_cycles": 1,
+    "decommit_cycles": 7981,
+    "storage_application": 69,
+    "transaction_count": 1,
+    "near_call_count": 305,
+    "pubdata_bytes": 259,
+    "merkle_leaf_count": 61,
+    "state_diff_count": 10
+   }
+  }
+ },
+ {
+  "batch_number": 900395,
+  "label": "div_lead3_2limb_t3",
+  "raw_cycles": 21102625431,
+  "effective_cycles": 21312846627,
+  "guest": "delegation guest, app.bin sha256 8b9436a8\u2026, vm2 be1e50b, measured 2026-08-21",
+  "delegations": {
+   "1991": 10135800,
+   "1994": 41294,
+   "1995": 11970805
+  },
+  "delegation_weights": {
+   "1991": 16,
+   "1994": 4,
+   "1995": 4
+  },
+  "features": {
+   "counts": {
+    "arith_cheap_op": 10405255,
+    "arith_shift_op": 498,
+    "arith_mul_op": 35,
+    "arith_div_op": 1300037,
+    "arith_ptr_op": 300,
+    "average_op": 1031,
+    "storage_read": 34,
+    "storage_write": 24,
+    "event": 13,
+    "precompile_call": 27,
+    "far_call": 65,
+    "uma_write": 639,
+    "uma_read": 498,
+    "keccak256_cycles": 28,
+    "ec_recover_cycles": 1,
+    "decommit_cycles": 4683,
+    "storage_application": 63,
+    "transaction_count": 1,
+    "near_call_count": 297,
+    "pubdata_bytes": 294,
+    "merkle_leaf_count": 54,
+    "state_diff_count": 11
+   }
+  }
+ }
+]

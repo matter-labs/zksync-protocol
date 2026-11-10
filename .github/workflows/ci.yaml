@@ -1,5 +1,21 @@
 name: "Rust CI"
 
+# The orchestrator. Every job that actually drives cargo lives in a per-workspace
+# `ci-<workspace>.yaml`, called from here once the path filter below says a diff
+# can reach that workspace. Keeping the trigger, the filter and the mandatory
+# status check in one file is what makes "one PR gets one verdict" hold while the
+# individual workspaces are free to be skipped.
+#
+# Called workflows are addressed as `./.github/workflows/...` with no ref, so on a
+# pull request they are taken from the merge commit -- a PR that changes one of
+# them tests the version it is proposing.
+#
+# A release-please pull request is the one case where the path filter is not the
+# whole answer: a version bump rewrites the manifests and every lockfile that
+# records those versions, so it looks like it reaches almost everything, while
+# changing no source at all. Those get `ci-release-check.yaml` instead of the six
+# calls below -- see the top of that file.
+
 on:
   pull_request:
 
@@ -11,113 +27,91 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    name: cargo build
-    runs-on: matterlabs-ci-runner-high-performance
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
-        with:
-          rustflags: ""
-      - name: Setup rust
-        run: |
-          rustup set profile minimal
-          rustup toolchain install 1.81.0
-          rustup toolchain install nightly-2026-08-09
-          rustup default nightly-2026-08-09
-          cargo install cargo-nextest@0.9.108 --locked
-      - name: Compile
-        run: cargo build
-
-      # `circuit_sequencer_api` *MUST* be compilable with stable.
-      - name: Compile circuit_sequencer_api on stable
-        run: cargo +1.81.0 build -p circuit_sequencer_api
-
-  test:
-    name: cargo test
-    if: ${{ !contains(github.head_ref, 'release-please--branches') }}
-    runs-on: matterlabs-ci-runner-high-performance
-    needs: build
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
-        with:
-          rustflags: ""
-      - name: Setup rust
-        run: |
-          rustup set profile minimal
-          rustup toolchain install nightly-2026-08-09
-          rustup default nightly-2026-08-09
-          cargo install cargo-nextest@0.9.108 --locked
-      - name: zkevm_test_harness - Main test
-        run: cargo nextest run --release --manifest-path crates/zkevm_test_harness/Cargo.toml --test-threads 2
-      - name: Encodings test
-        run: cargo nextest run --release --manifest-path crates/circuit_encodings/Cargo.toml
-      - name: Api tests
-        run: cargo nextest run --release --manifest-path crates/circuit_sequencer_api/Cargo.toml
-      - name: Definitions test
-        run: cargo nextest run --release --no-tests=pass --manifest-path crates/circuit_definitions/Cargo.toml
-      - name: Kzg tests
-        run: cargo nextest run --release --manifest-path crates/kzg/Cargo.toml
-      - name: Circuit tests
-        run: cargo nextest run --release --manifest-path crates/zkevm_circuits/Cargo.toml --test-threads 2
-      - name: ZKEVM tests
-        run: cargo nextest run --release --manifest-path crates/zk_evm/Cargo.toml
-      - name: ZKEVM abstractions tests
-        run: cargo nextest run --release --manifest-path crates/zk_evm_abstractions/Cargo.toml
-      - name: ZKEVM assembly tests
-        run: cargo nextest run --release --manifest-path crates/zkEVM-assembly/Cargo.toml
-      - name: ZKEVM opcode
-        run: cargo nextest run --release --manifest-path crates/zkevm_opcode_defs/Cargo.toml
-
-  test-zkevm-abstractions-airbender:
-    name: zk_evm_abstractions airbender delegations
-    if: ${{ !contains(github.head_ref, 'release-please--branches') }}
-    runs-on: matterlabs-ci-runner-high-performance
-    needs: build
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
-        with:
-          rustflags: ""
-      - name: Setup rust
-        run: |
-          rustup set profile minimal
-          rustup toolchain install nightly-2026-08-09
-          rustup default nightly-2026-08-09
-          cargo install cargo-nextest@0.9.108 --locked
-      - name: ZKEVM abstractions airbender delegation tests
-        run: cargo nextest run --release --manifest-path crates/zk_evm_abstractions/Cargo.toml --features airbender-precompile-delegations
-
-  formatting:
-    name: cargo fmt
+  # Which workspaces this pull request can affect; every job
+  # below is gated on the answer. A job rather than a top-level `paths:` filter:
+  # a workflow filtered away never reports at all, leaving a mandatory status
+  # check pending forever, whereas a skipped job still reports.
+  changes:
+    name: changed workspaces
     runs-on: ubuntu-latest
+    outputs:
+      protocol: ${{ steps.changes.outputs.protocol }}
+      vm2: ${{ steps.changes.outputs.vm2 }}
+      crypto: ${{ steps.changes.outputs.crypto }}
+      crypto_gpu: ${{ steps.changes.outputs.crypto_gpu }}
+      verifier: ${{ steps.changes.outputs.verifier }}
+      zkos_wrapper: ${{ steps.changes.outputs.zkos_wrapper }}
+      any: ${{ steps.changes.outputs.any }}
+      dirs: ${{ steps.changes.outputs.dirs }}
+      release_pr: ${{ steps.changes.outputs.release_pr }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
         with:
-          components: rustfmt
-      - name: Rustfmt Check
-        uses: actions-rust-lang/rustfmt@4066006ec54a31931b9b1fddfd38f2fdf2d27143 # v1.1.2
+          # Enough to reach the merge commit's first parent.
+          fetch-depth: 2
+      - uses: ./.github/actions/changed-workspaces
+        id: changes
 
+  # The per-workspace calls. A called workflow's jobs show up as
+  # `<job id here> / <job name there>`, so these ids are what prefixes every
+  # check name -- `protocol / cargo build`, `crypto / test (macos-15-xlarge)`.
+  protocol:
+    needs: changes
+    if: ${{ needs.changes.outputs.protocol == 'true' && needs.changes.outputs.release_pr != 'true' }}
+    uses: ./.github/workflows/ci-protocol.yaml
 
-  # Mandatory CI status check
+  vm2:
+    needs: changes
+    if: ${{ needs.changes.outputs.vm2 == 'true' && needs.changes.outputs.release_pr != 'true' }}
+    uses: ./.github/workflows/ci-vm2.yaml
+
+  crypto:
+    needs: changes
+    if: ${{ needs.changes.outputs.crypto == 'true' && needs.changes.outputs.release_pr != 'true' }}
+    uses: ./.github/workflows/ci-crypto.yaml
+
+  crypto-gpu:
+    needs: changes
+    if: ${{ needs.changes.outputs.crypto_gpu == 'true' && needs.changes.outputs.release_pr != 'true' }}
+    uses: ./.github/workflows/ci-crypto-gpu.yaml
+
+  verifier:
+    needs: changes
+    if: ${{ needs.changes.outputs.verifier == 'true' && needs.changes.outputs.release_pr != 'true' }}
+    # Granted here as well as declared there: a called workflow's token cannot
+    # hold more than its caller's, and `vk-filter` inside reads the PR Files API.
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: ./.github/workflows/ci-verifier.yaml
+
+  zkos-wrapper:
+    needs: changes
+    if: ${{ needs.changes.outputs.zkos_wrapper == 'true' && needs.changes.outputs.release_pr != 'true' }}
+    uses: ./.github/workflows/ci-zkos-wrapper.yaml
+
+  # What a release-please pull request gets instead of the six calls above.
+  release-check:
+    needs: changes
+    # `any` as well: an empty `dirs` is an empty matrix, which GitHub rejects
+    # rather than skipping.
+    if: ${{ needs.changes.outputs.release_pr == 'true' && needs.changes.outputs.any == 'true' }}
+    with:
+      workspaces: ${{ needs.changes.outputs.dirs }}
+    uses: ./.github/workflows/ci-release-check.yaml
+
+  # Mandatory CI status check. A caller job's `result` is the aggregate of the
+  # workflow it called, so this covers every job in every called file.
   ci-success:
     name: Github Status Check
     runs-on: ubuntu-latest
     if: always() && !cancelled()
-    needs:
-      [
-        build,
-        test,
-        test-zkevm-abstractions-airbender,
-        formatting,
-      ]
+    needs: [changes, protocol, vm2, crypto, crypto-gpu, verifier, zkos-wrapper, release-check]
     steps:
       - name: Status
         run: |
-          # This will check all jobs status in the `needs` list, and fail job if one is failed.
-          # Since we split prover and core to different flows, this job will be only as Required Status Check in the Pull Request.
+          # Fails if any job in the `needs` list failed. A workspace the path
+          # filter skipped reports `skipped`, not `failure`, so it does not block.
           if [[ ${{ contains(join(needs.*.result, ','), 'failure') }} == "true" ]]; then
             echo "Intentionally failing to block PR from merging"
             exit 1

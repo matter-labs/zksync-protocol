@@ -1,0 +1,17 @@
+[package]
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+repository.workspace = true
+version.workspace = true
+name = "zksync-wrapper-prover"
+description = "ZKsync GPU wrapper prover"
+exclude = [ "test_proofs" ]
+
+[dependencies]
+gpu-prover.workspace = true
+zkevm_test_harness.workspace = true
+circuit_definitions.workspace = true

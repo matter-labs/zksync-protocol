@@ -1,0 +1,10 @@
+fixture,family,tier,intended_axis,input_param,unit_count,n_txs,l1_batch,gas_used,pubdata,ok
+900381,bytecode_count,n5,used_bytecode_bytes,distinct_codes=5_x2656B,13280,1,1333,135509,291,ok
+900382,bytecode_count,n20,used_bytecode_bytes,distinct_codes=20_x2656B,53120,1,1334,154050,259,ok
+900383,bytecode_count,n60,used_bytecode_bytes,distinct_codes=60_x2656B,159360,1,1335,208076,259,ok
+900384,bytecode_count,n150,used_bytecode_bytes,distinct_codes=150_x2656B,398400,1,1336,332916,259,ok
+900385,bytecode_size,s2656,used_bytecode_bytes,codes=8_x2656B,21248,1,1337,138911,258,ok
+900386,bytecode_size,s5728,used_bytecode_bytes,codes=8_x5728B,45824,1,1338,142002,259,ok
+900387,bytecode_size,s13920,used_bytecode_bytes,codes=8_x13920B,111360,1,1339,150194,259,ok
+900388,bytecode_size,s26208,used_bytecode_bytes,codes=8_x26208B,209664,1,1340,162476,259,ok
+900389,bytecode_ctrl,none,used_bytecode_bytes,distinct_codes=0,0,1,1341,128800,257,ok

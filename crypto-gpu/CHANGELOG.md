@@ -1,0 +1,461 @@
+# Changelog
+
+## [0.156.7](https://github.com/matter-labs/zksync-protocol/compare/698c5a98dde73edfe75930c001d2ce02fdd6d4fb...b52b679ef18b33343263f85df2393c0dfd750348) (2026-10-14)
+
+
+### Features
+
+* **boojum:** make the 20% FRI query increase a ProofConfig knob ([400987e](https://github.com/matter-labs/zksync-protocol/commit/400987ea14eb5b19de29c14a05db6b37e84e6c64))
+
+
+### Bug Fixes
+
+* **crypto:** v33 VK parity for the vendored zkos-wrapper + the wrapper optimization PRs ([892cd63](https://github.com/matter-labs/zksync-protocol/commit/892cd63e85aa7c37929b8ed50970601b8fe60d9f))
+
+
+### Performance Improvements
+
+* **zkos-wrapper:** shrink SNARK compression to PLONK 2^22 ([48bcf8b](https://github.com/matter-labs/zksync-protocol/commit/48bcf8b6e1d439f4c4f6e3853dbf15a795ccb02c))
+
+## 0.156.6 (2026-08-26)
+
+Version-line correction, no source change. This tree is the content of
+upstream `v0.156.6`, but upstream tagged `v0.156.6` without a release commit, so the manifest it
+carried still said `0.156.5` -- the same thing that had happened to `crypto/`
+at `v0.32.13`. `0.156.6` is the number this code has been shipping under.
+
+The GPU crates also now build against `protocol/` at 0.153.16 and `crypto/` at
+0.32.13 by path rather than against the tags they were pinned to upstream; that
+rewiring is #16, and the lockfile move here is its bookkeeping.
+
+## [0.156.5](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.156.4...v0.156.5) (2026-08-24)
+
+
+### Bug Fixes
+
+* build with nightly-2026-08-09 and move to zksync-protocol v0.153.15 ([#159](https://github.com/matter-labs/zksync-crypto-gpu/issues/159)) ([6f45d41](https://github.com/matter-labs/zksync-crypto-gpu/commit/6f45d419c0c41ba5c1eedde27748d2c8ff64fbd9))
+
+## [0.156.4](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.156.3...v0.156.4) (2026-08-04)
+
+
+### Bug Fixes
+
+* automated protocol upgrade for 0.29.5 ([#155](https://github.com/matter-labs/zksync-crypto-gpu/issues/155)) ([c08bae6](https://github.com/matter-labs/zksync-crypto-gpu/commit/c08bae67fbffdd1a6c29527ec179e0af84297951))
+
+## [0.156.3](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.156.2...v0.156.3) (2026-07-21)
+
+
+### Features
+
+* Support airbender ([#153](https://github.com/matter-labs/zksync-crypto-gpu/issues/153)) ([36c2971](https://github.com/matter-labs/zksync-crypto-gpu/commit/36c29716c108fe3896aac75758f9a38a53d150e5))
+
+## [0.156.2](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.156.1...v0.156.2) (2026-07-02)
+
+
+### Bug Fixes
+
+* automated protocol upgrade for next-upgrade ([#149](https://github.com/matter-labs/zksync-crypto-gpu/issues/149)) ([81ddf29](https://github.com/matter-labs/zksync-crypto-gpu/commit/81ddf291464d9fcf42898e527ebc341a16ec4586))
+
+## [0.156.1](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.156.0...v0.156.1) (2026-05-19)
+
+
+### Bug Fixes
+
+* automated protocol upgrade for upgrade-circuit-divergency-before-v31 ([#147](https://github.com/matter-labs/zksync-crypto-gpu/issues/147)) ([533ae0a](https://github.com/matter-labs/zksync-crypto-gpu/commit/533ae0a24e0d2da7ec970c4e10d36bad607bbe19))
+
+## [0.156.0](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.155.11...v0.156.0) (2026-04-23)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove UB in DeviceSlice::empty() that miscompiled shivini prover ([#145](https://github.com/matter-labs/zksync-crypto-gpu/issues/145))
+
+### Bug Fixes
+
+* remove UB in DeviceSlice::empty() that miscompiled shivini prover ([#145](https://github.com/matter-labs/zksync-crypto-gpu/issues/145)) ([303aba3](https://github.com/matter-labs/zksync-crypto-gpu/commit/303aba347ccea13bf726ba2634306272308f4a17))
+
+## [0.155.11](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.155.10...v0.155.11) (2026-04-23)
+
+
+### Bug Fixes
+
+* add operator+= to offset_iterator for CUDA 13.2 / CCCL 3.x ([#143](https://github.com/matter-labs/zksync-crypto-gpu/issues/143)) ([651ddf9](https://github.com/matter-labs/zksync-crypto-gpu/commit/651ddf987fe53fc67f58e701023f881db85dd2ee))
+
+## [0.155.10](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.155.9...v0.155.10) (2026-03-13)
+
+
+### Bug Fixes
+
+* automated protocol upgrade for zksync-era-next ([#140](https://github.com/matter-labs/zksync-crypto-gpu/issues/140)) ([8d91a95](https://github.com/matter-labs/zksync-crypto-gpu/commit/8d91a95e68b6dffc9986bb162383b17fea27c959))
+
+## [0.155.9](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.155.8...v0.155.9) (2026-02-20)
+
+
+### Features
+
+* Update to rand 0.8 ([#138](https://github.com/matter-labs/zksync-crypto-gpu/issues/138)) ([fa67ae5](https://github.com/matter-labs/zksync-crypto-gpu/commit/fa67ae58e8e1f076aab04a1f8a94ef1717505ba5))
+
+## [0.155.8](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.155.7...v0.155.8) (2026-02-12)
+
+
+### Performance Improvements
+
+* Update crypto deps ([#136](https://github.com/matter-labs/zksync-crypto-gpu/issues/136)) ([25cc316](https://github.com/matter-labs/zksync-crypto-gpu/commit/25cc3165ec916aed892d049551cb5832437fe2db))
+
+## [0.155.7](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.155.6...v0.155.7) (2026-02-10)
+
+
+### Performance Improvements
+
+* Update crypto deps ([#134](https://github.com/matter-labs/zksync-crypto-gpu/issues/134)) ([642fce8](https://github.com/matter-labs/zksync-crypto-gpu/commit/642fce836e3143958abf542977a14a2ab5c9b379))
+
+## [0.155.6](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.155.5...v0.155.6) (2026-01-20)
+
+
+### Features
+
+* Bump dependencies & update cargo deny ([#132](https://github.com/matter-labs/zksync-crypto-gpu/issues/132)) ([113e76a](https://github.com/matter-labs/zksync-crypto-gpu/commit/113e76ad895b1e61b23e0d1b5825e92f367c6dee))
+
+## [0.155.5](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.155.4...v0.155.5) (2025-12-16)
+
+
+### Bug Fixes
+
+* **deps:** zksync_protocol deps ([#130](https://github.com/matter-labs/zksync-crypto-gpu/issues/130)) ([06ad63f](https://github.com/matter-labs/zksync-crypto-gpu/commit/06ad63fadba231a9cdedbdd7c1fce97c9df572f3))
+
+## [0.155.4](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.155.3...v0.155.4) (2025-10-29)
+
+
+### Features
+
+* Bump dependencies ([#127](https://github.com/matter-labs/zksync-crypto-gpu/issues/127)) ([4154691](https://github.com/matter-labs/zksync-crypto-gpu/commit/4154691fbd35578385fe4f0e08310fe1874a460f))
+
+## [0.155.3](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.155.2...v0.155.3) (2025-10-20)
+
+
+### Bug Fixes
+
+* **shivini:** bump device allocator free memory slack ([#125](https://github.com/matter-labs/zksync-crypto-gpu/issues/125)) ([35a8c1a](https://github.com/matter-labs/zksync-crypto-gpu/commit/35a8c1a4068c0b04adf9c1398d41b76352c34ea9))
+
+## [0.155.2](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.155.1...v0.155.2) (2025-10-17)
+
+
+### Features
+
+* Allow zk for SNARKs ([#123](https://github.com/matter-labs/zksync-crypto-gpu/issues/123)) ([cf7629a](https://github.com/matter-labs/zksync-crypto-gpu/commit/cf7629ada7c5661416bb594f0bb76e4482cc4354))
+
+## [0.155.1](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.155.0...v0.155.1) (2025-09-22)
+
+
+### Features
+
+* Bump zksync-protocol dependencies ([#120](https://github.com/matter-labs/zksync-crypto-gpu/issues/120)) ([39cb48c](https://github.com/matter-labs/zksync-crypto-gpu/commit/39cb48c5f48c56bc3f3e8c0094eacb5bb0b9350c))
+
+## [0.155.0](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.154.10...v0.155.0) (2025-09-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* Bump zksync-protocol dependencies ([#119](https://github.com/matter-labs/zksync-crypto-gpu/issues/119))
+
+### Features
+
+* Bump zksync-protocol dependencies ([#119](https://github.com/matter-labs/zksync-crypto-gpu/issues/119)) ([83ecaa2](https://github.com/matter-labs/zksync-crypto-gpu/commit/83ecaa26f47b723d9bad90162c6df93514f977ea))
+
+
+### Bug Fixes
+
+* avoid mut reference in proof and fixed Clone impl ([#117](https://github.com/matter-labs/zksync-crypto-gpu/issues/117)) ([27e12c0](https://github.com/matter-labs/zksync-crypto-gpu/commit/27e12c0a7acd9c1b901d2265f498c9edda2be600))
+
+## [0.154.10](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.154.9...v0.154.10) (2025-09-18)
+
+
+### Features
+
+* Make setup_data cloneable ([#115](https://github.com/matter-labs/zksync-crypto-gpu/issues/115)) ([60e56cc](https://github.com/matter-labs/zksync-crypto-gpu/commit/60e56cc12c14a302c96ed7d6120cb582f71684ca))
+
+## [0.154.9](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.154.8...v0.154.9) (2025-09-09)
+
+
+### Bug Fixes
+
+* Update zksync-protocol to 0.152.7 ([#113](https://github.com/matter-labs/zksync-crypto-gpu/issues/113)) ([dc709e4](https://github.com/matter-labs/zksync-crypto-gpu/commit/dc709e4ba814dde05e36aa6270d7ee39329e49aa))
+
+## [0.154.8](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.154.7...v0.154.8) (2025-08-22)
+
+
+### Features
+
+* bumping deps for crypto & protocol ([#111](https://github.com/matter-labs/zksync-crypto-gpu/issues/111)) ([f8a4604](https://github.com/matter-labs/zksync-crypto-gpu/commit/f8a4604b25a45928314c894e9b02a52dcb8606b8))
+
+## [0.154.7](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.154.6...v0.154.7) (2025-08-21)
+
+
+### Features
+
+* updating to most recent booju,m, and making more public ([#109](https://github.com/matter-labs/zksync-crypto-gpu/issues/109)) ([c4d579b](https://github.com/matter-labs/zksync-crypto-gpu/commit/c4d579b682c6306b4bebf86c909d639c38cde9ea))
+
+## [0.154.6](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.154.5...v0.154.6) (2025-08-11)
+
+
+### Bug Fixes
+
+* **cudart:** recreate CUDA runtime bindings based on CUDA 13.0 ([#106](https://github.com/matter-labs/zksync-crypto-gpu/issues/106)) ([aec514d](https://github.com/matter-labs/zksync-crypto-gpu/commit/aec514d75c3b7596c7990292a653a90742dec4a5))
+
+## [0.154.5](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.154.4...v0.154.5) (2025-07-30)
+
+
+### Features
+
+* Bump protocol dependencies ([#104](https://github.com/matter-labs/zksync-crypto-gpu/issues/104)) ([3d3b3da](https://github.com/matter-labs/zksync-crypto-gpu/commit/3d3b3daaadd99e3f1b20885ee510d527f0e059b4))
+
+## [0.154.4](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.154.3...v0.154.4) (2025-06-04)
+
+
+### Features
+
+* Matching versions after manual publishing crate ([#102](https://github.com/matter-labs/zksync-crypto-gpu/issues/102)) ([87efd2e](https://github.com/matter-labs/zksync-crypto-gpu/commit/87efd2e0c677c6bd0b8f501450a626bf7eb1b4e4))
+
+## [0.154.3](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.154.2...v0.154.3) (2025-06-04)
+
+
+### Features
+
+* Loading setup for proving network ([#100](https://github.com/matter-labs/zksync-crypto-gpu/issues/100)) ([31b4967](https://github.com/matter-labs/zksync-crypto-gpu/commit/31b4967beb715bd6cf3674f891a8835b5f87bc76))
+
+## [0.154.2](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.154.1...v0.154.2) (2025-05-02)
+
+
+### Features
+
+* Bump protocol deps ([#97](https://github.com/matter-labs/zksync-crypto-gpu/issues/97)) ([c7ff550](https://github.com/matter-labs/zksync-crypto-gpu/commit/c7ff5502338457f757bbd54133753c8f4a810cf4))
+
+## [0.154.1](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.154.0...v0.154.1) (2025-04-22)
+
+
+### Features
+
+* bumping deps for zksync-crypto & zksync-protocol ([#94](https://github.com/matter-labs/zksync-crypto-gpu/issues/94)) ([38b2b32](https://github.com/matter-labs/zksync-crypto-gpu/commit/38b2b3226f99ef95765654aad7c3342efa7e8651))
+
+## [0.154.0](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.153.3...v0.154.0) (2025-04-15)
+
+
+### Features
+
+* **shivini:** add circuit types for ec precompiles ([#85](https://github.com/matter-labs/zksync-crypto-gpu/issues/85)) ([6f90744](https://github.com/matter-labs/zksync-crypto-gpu/commit/6f90744b53323caf7cc1ada2c23c9e6edcfd27c7))
+
+
+### Miscellaneous Chores
+
+* release 0.154.0 ([#93](https://github.com/matter-labs/zksync-crypto-gpu/issues/93)) ([7e1c6da](https://github.com/matter-labs/zksync-crypto-gpu/commit/7e1c6da34a69cdf456c96620b6ebd42c70ad1189))
+
+## [0.153.3](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.153.2...v0.153.3) (2025-04-02)
+
+
+### Features
+
+* Update protocol deps to 0.151.5 ([#90](https://github.com/matter-labs/zksync-crypto-gpu/issues/90)) ([250315d](https://github.com/matter-labs/zksync-crypto-gpu/commit/250315d9792526078c9d5595c7c5790024592b6e))
+
+## [0.153.2](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.153.1...v0.153.2) (2025-03-21)
+
+
+### Features
+
+* release 0.153.2 ([#87](https://github.com/matter-labs/zksync-crypto-gpu/issues/87)) ([8268c66](https://github.com/matter-labs/zksync-crypto-gpu/commit/8268c66a3d3b4c835da0d4f7b2235e1165d3eef2))
+
+## [0.153.1](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.153.0...v0.153.1) (2025-02-20)
+
+
+### Features
+
+* Release 0.153.1 ([#81](https://github.com/matter-labs/zksync-crypto-gpu/issues/81)) ([6e8a0c0](https://github.com/matter-labs/zksync-crypto-gpu/commit/6e8a0c04adf613a2480ff9cc11b80f7d3590f4e4))
+
+## [0.153.0](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.152.12...v0.153.0) (2025-02-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* Update zksync-protocol deps ([#77](https://github.com/matter-labs/zksync-crypto-gpu/issues/77))
+
+### Features
+
+* Update zksync-protocol deps ([#77](https://github.com/matter-labs/zksync-crypto-gpu/issues/77)) ([3a55169](https://github.com/matter-labs/zksync-crypto-gpu/commit/3a5516926ae2e7031257ad0bf0c6afea78e699d6))
+
+## [0.152.12](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.152.11...v0.152.12) (2025-02-07)
+
+
+### Features
+
+* Bump crypto versions ([#76](https://github.com/matter-labs/zksync-crypto-gpu/issues/76)) ([b8cec04](https://github.com/matter-labs/zksync-crypto-gpu/commit/b8cec04e0266fb60f83f95f350c9e711f6acf75b))
+* **cudart:** refactor allocations and stream ([#75](https://github.com/matter-labs/zksync-crypto-gpu/issues/75)) ([9c0bedc](https://github.com/matter-labs/zksync-crypto-gpu/commit/9c0bedc1fe29afcf7fcef03af7a0611e5611dcde))
+
+
+### Bug Fixes
+
+* **ci:** bump deprecated actions/download-artifact and actions/upload-artifact v3 to v4 ([#74](https://github.com/matter-labs/zksync-crypto-gpu/issues/74)) ([5727c7c](https://github.com/matter-labs/zksync-crypto-gpu/commit/5727c7c37a10a1be555cb9dac5685245491ae9fa))
+* **ci:** Update github-hosted runner label ([#70](https://github.com/matter-labs/zksync-crypto-gpu/issues/70)) ([822c276](https://github.com/matter-labs/zksync-crypto-gpu/commit/822c276de858d69188ef8874aa8a00208fadc6a4))
+* **cudart-sys:** strip the "V" from the version string ([#73](https://github.com/matter-labs/zksync-crypto-gpu/issues/73)) ([76cfc1c](https://github.com/matter-labs/zksync-crypto-gpu/commit/76cfc1c8f6fb5e0042b78bf675b6a6a1f52373e8))
+
+## [0.152.11](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.152.10...v0.152.11) (2025-01-17)
+
+
+### Features
+
+* **proof-compression:** better proof compression ([#67](https://github.com/matter-labs/zksync-crypto-gpu/issues/67)) ([f4eac96](https://github.com/matter-labs/zksync-crypto-gpu/commit/f4eac96459a344bc9759f52f38bb26d81b931b6b))
+
+
+### Bug Fixes
+
+* better CUDA detection ([#61](https://github.com/matter-labs/zksync-crypto-gpu/issues/61)) ([e902ca4](https://github.com/matter-labs/zksync-crypto-gpu/commit/e902ca4a0e2688b2e2ebc69adbaae06d39dafc40))
+
+## [0.152.10](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.152.9...v0.152.10) (2024-12-20)
+
+
+### Features
+
+* FFLONK ([#64](https://github.com/matter-labs/zksync-crypto-gpu/issues/64)) ([7c955dd](https://github.com/matter-labs/zksync-crypto-gpu/commit/7c955dd132b5b2a4e8a11d5bc33708a1cbd5bd88))
+
+## [0.152.9](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.152.8...v0.152.9) (2024-12-18)
+
+
+### Features
+
+* Bump dependencies ([#62](https://github.com/matter-labs/zksync-crypto-gpu/issues/62)) ([f930ea5](https://github.com/matter-labs/zksync-crypto-gpu/commit/f930ea556c37570e7a33a6e71f729194897909ef))
+
+## [0.152.8](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.152.7...v0.152.8) (2024-11-22)
+
+
+### Miscellaneous Chores
+
+* release 0.152.8 ([#59](https://github.com/matter-labs/zksync-crypto-gpu/issues/59)) ([4cc3905](https://github.com/matter-labs/zksync-crypto-gpu/commit/4cc3905d914de4335049c0ae5e81dafc0f9885d3))
+
+## [0.152.7](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.152.6...v0.152.7) (2024-11-20)
+
+
+### Features
+
+* **boojum-cuda,shivini:** implement GPU PoW ([#54](https://github.com/matter-labs/zksync-crypto-gpu/issues/54)) ([67f4c46](https://github.com/matter-labs/zksync-crypto-gpu/commit/67f4c46b762ee82672b6298416c5815e700561c8))
+
+## [0.152.6](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.152.5...v0.152.6) (2024-11-19)
+
+
+### Miscellaneous Chores
+
+* bump crypto crates to 0.30.8 and protocol crates to 0.150.14 ([#55](https://github.com/matter-labs/zksync-crypto-gpu/issues/55)) ([9eff2ac](https://github.com/matter-labs/zksync-crypto-gpu/commit/9eff2ac658376e85c2fa333b168b699885b9cda5))
+
+## [0.152.5](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.152.4...v0.152.5) (2024-11-18)
+
+
+### Miscellaneous Chores
+
+* bump crypto and protocol crates ([#52](https://github.com/matter-labs/zksync-crypto-gpu/issues/52)) ([b05515a](https://github.com/matter-labs/zksync-crypto-gpu/commit/b05515af18e38961051a1bf6e40de9d45bd2049c))
+
+## [0.152.4](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.152.3...v0.152.4) (2024-11-06)
+
+
+### Features
+
+* Bump protocol versions ([#49](https://github.com/matter-labs/zksync-crypto-gpu/issues/49)) ([cb24eb6](https://github.com/matter-labs/zksync-crypto-gpu/commit/cb24eb60958d0950d5ff7c772562d92930fa2577))
+
+## [0.152.3](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.152.2...v0.152.3) (2024-10-31)
+
+
+### Bug Fixes
+
+* **proof-compression:** add missing crate description ([#46](https://github.com/matter-labs/zksync-crypto-gpu/issues/46)) ([ba077db](https://github.com/matter-labs/zksync-crypto-gpu/commit/ba077dbd497310c14bfb574888813e372d0b693a))
+
+## [0.152.2](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.152.1...v0.152.2) (2024-10-31)
+
+
+### Features
+
+* **proof-compression:** release ([#44](https://github.com/matter-labs/zksync-crypto-gpu/issues/44)) ([00ba9a1](https://github.com/matter-labs/zksync-crypto-gpu/commit/00ba9a1ede62e71aa20a3e37870725adad89ba0b))
+
+## [0.152.1](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.152.0...v0.152.1) (2024-10-31)
+
+
+### Features
+
+* fflonk gpu implementation ([#26](https://github.com/matter-labs/zksync-crypto-gpu/issues/26)) ([9d11084](https://github.com/matter-labs/zksync-crypto-gpu/commit/9d11084cec1bd1b88de9a28524923a5217ebd0ad))
+
+## [0.152.0](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.151.1...v0.152.0) (2024-10-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* fflonk ([#38](https://github.com/matter-labs/zksync-crypto-gpu/issues/38))
+
+### Features
+
+* fflonk ([#38](https://github.com/matter-labs/zksync-crypto-gpu/issues/38)) ([33ed62a](https://github.com/matter-labs/zksync-crypto-gpu/commit/33ed62afab7bb3606f7e428c354cfee4af03de49))
+
+## [0.151.1](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.151.0...v0.151.1) (2024-10-25)
+
+
+### Bug Fixes
+
+* bump `zksync-protocol` to 0.150.7 ([#39](https://github.com/matter-labs/zksync-crypto-gpu/issues/39)) ([9df8ec0](https://github.com/matter-labs/zksync-crypto-gpu/commit/9df8ec04001e6d09a0465aaf957895aefefe122d))
+
+## [0.151.0](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.150.9...v0.151.0) (2024-10-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* fflonk ([#28](https://github.com/matter-labs/zksync-crypto-gpu/issues/28))
+
+### Features
+
+* Bump `zksync-protocol` to 0.150.6 ([#34](https://github.com/matter-labs/zksync-crypto-gpu/issues/34)) ([43704f3](https://github.com/matter-labs/zksync-crypto-gpu/commit/43704f3e3caa25bbe11780b0530c65e93c035c8e))
+* enable compilation without Bellman CUDA ([#31](https://github.com/matter-labs/zksync-crypto-gpu/issues/31)) ([39860f5](https://github.com/matter-labs/zksync-crypto-gpu/commit/39860f574def8fdb547099afb341019afe8bdf47))
+* fflonk ([#28](https://github.com/matter-labs/zksync-crypto-gpu/issues/28)) ([acd71d8](https://github.com/matter-labs/zksync-crypto-gpu/commit/acd71d80584fa6099180ed4257811783e5dc46f1))
+
+
+### Bug Fixes
+
+* Attempt to pin github runner to 22.04.1 ([#36](https://github.com/matter-labs/zksync-crypto-gpu/issues/36)) ([ddb7311](https://github.com/matter-labs/zksync-crypto-gpu/commit/ddb7311af01aff8430a7657c24eb1d2576a8c51d))
+
+
+### Reverts
+
+* "feat!: fflonk" ([#33](https://github.com/matter-labs/zksync-crypto-gpu/issues/33)) ([dccaaa6](https://github.com/matter-labs/zksync-crypto-gpu/commit/dccaaa6103950b242c3bfc548ca77a3cb1d2af37))
+
+## [0.150.9](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.150.8...v0.150.9) (2024-09-24)
+
+
+### Features
+
+* enable compilation with CUDA stubs via the `ZKSYNC_USE_CUDA_STUBS` environment variable ([#29](https://github.com/matter-labs/zksync-crypto-gpu/issues/29)) ([f77ff80](https://github.com/matter-labs/zksync-crypto-gpu/commit/f77ff80ee4bbe6d83ffab9b9915fc922ef87c1ad))
+
+## [0.150.8](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.150.7...v0.150.8) (2024-09-10)
+
+
+### Features
+
+* **gpu-ffi:** add bindings for the distribute function in bellman-cuda ([#22](https://github.com/matter-labs/zksync-crypto-gpu/issues/22)) ([a099924](https://github.com/matter-labs/zksync-crypto-gpu/commit/a099924566592ea0587c27ff26ea2e0f742f775f))
+
+
+### Bug Fixes
+
+* **boojum-cuda:** "un-swap" coarse and fine count for powers_data_g_i ([#27](https://github.com/matter-labs/zksync-crypto-gpu/issues/27)) ([95b29da](https://github.com/matter-labs/zksync-crypto-gpu/commit/95b29da7581121b1e2ffc068d90725a9616f7123))
+
+## [0.150.7](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.150.6...v0.150.7) (2024-09-06)
+
+
+### Features
+
+* Bump protocol and crypto deps ([#23](https://github.com/matter-labs/zksync-crypto-gpu/issues/23)) ([e15fdd2](https://github.com/matter-labs/zksync-crypto-gpu/commit/e15fdd2720827e45cfb895debc078c6514b9cbaa))
+
+## [0.150.6](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.150.5...v0.150.6) (2024-09-04)
+
+
+### Bug Fixes
+
+* **shivini:** pub use ProverContextConfig ([#20](https://github.com/matter-labs/zksync-crypto-gpu/issues/20)) ([fb3c8e7](https://github.com/matter-labs/zksync-crypto-gpu/commit/fb3c8e7f36998fe3ab37a67dc808d7b4624e87a4))
+
+## [0.150.5](https://github.com/matter-labs/zksync-crypto-gpu/compare/v0.150.4...v0.150.5) (2024-09-04)
+
+
+### Features
+
+* **ci:** Introduce CI for automatic releases ([#11](https://github.com/matter-labs/zksync-crypto-gpu/issues/11)) ([847059a](https://github.com/matter-labs/zksync-crypto-gpu/commit/847059a4222b44de109eec4856d2ea70fd9ab8d3))
+* implement ProverContextConfig ([#10](https://github.com/matter-labs/zksync-crypto-gpu/issues/10)) ([0c6ba4b](https://github.com/matter-labs/zksync-crypto-gpu/commit/0c6ba4bd2bf759f4d3b594b26854a10ef69d5c68))

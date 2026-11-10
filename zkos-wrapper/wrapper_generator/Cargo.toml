@@ -1,0 +1,27 @@
+[package]
+name = "wrapper_generator"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "wrapper_generator"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+zkos_verifier_generator.workspace = true
+prover.workspace = true
+execution_utils = {workspace = true}
+setups.workspace = true
+serde_json.workspace = true
+serde.workspace = true
+
+
+syn = { version = "2", features = ["extra-traits", "printing", "full"]}
+quote = { version = "1" }
+proc-macro2 = "1"
+proc-macro-error = "1"

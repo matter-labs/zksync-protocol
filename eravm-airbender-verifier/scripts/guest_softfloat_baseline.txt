@@ -1,0 +1,2 @@
+# Soft-float intrinsics linked into the guest (see check_guest_riscv_code.sh).
+# Regenerate with: scripts/check_guest_riscv_code.sh <app.elf> --baseline <this file> --update-baseline

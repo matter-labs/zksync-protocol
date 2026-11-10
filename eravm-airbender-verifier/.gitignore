@@ -1,0 +1,20 @@
+target/
+SESSION.md
+# The guest binary (app.bin) and its text section (app.text) are build outputs,
+# no longer committed: they're built reproducibly and published as GitHub release
+# assets (see .github/workflows/release-artifacts.yaml). Locally they land here
+# from `cargo airbender build`.
+guest/dist/
+# Verification keys (fri_vk.bin, snark_vk.json) are likewise release-only assets,
+# regenerated from the guest binary + trusted setup at release time.
+vks/*.bin
+vks/*.json
+testdata/era_mainnet_batches/binary/*.bin
+.DS_Store
+# Cycle-cost calibration outputs (datasets, extracted test batches, cost tables)
+artifacts/
+
+# Python caches (cycle_model scripts)
+__pycache__/
+.pytest_cache/
+*.pyc

@@ -1,0 +1,27 @@
+[package]
+name = "zksync-era-airbender-cycles-estimator"
+description = "Airbender guest cycle-count model (feature schema + measured cost table)"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+# Deliberately lean and VM-agnostic: the feature schema, measured cost table, and
+# the pure estimator only — serde/serde_json, no `zksync_vm2`. This is the
+# single source of truth for the calibrated constants (`EMBEDDED_COST_TABLE`), so
+# a sequencer (zksync-era) can depend on it to price batches without pulling the
+# fast-VM / proving stack. The vm2 tracer that feeds it lives in the sibling
+# `zksync-era-airbender-cycles-tracer` crate; the offline calibration crate
+# (`zksync_cycle_model`) builds on both.
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+# Only for `FeatureId::iter()`. Worth a proc-macro dependency in an otherwise lean
+# crate because the alternative is a hand-maintained list of every variant, and the
+# thing that iterates it decides whether a batch is declined for an unpriced axis — a
+# variant missing from that list is a feature the gate silently prices at zero.
+strum = { workspace = true, features = ["derive"] }

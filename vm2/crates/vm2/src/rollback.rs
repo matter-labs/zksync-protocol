@@ -1,0 +1,242 @@
+use std::collections::{BTreeMap, BTreeSet};
+
+/// A trait for things that can be rolled back to snapshots
+pub(crate) trait Rollback {
+    type Snapshot;
+    fn snapshot(&self) -> Self::Snapshot;
+    fn rollback(&mut self, snapshot: Self::Snapshot);
+    fn delete_history(&mut self);
+}
+
+#[derive(Debug)]
+pub(crate) struct RollbackableMap<K: Ord, V> {
+    map: BTreeMap<K, V>,
+    old_entries: Vec<(K, Option<V>)>,
+}
+
+// Manual impls: derives would also demand `V: Default` / `K: Clone` from the map.
+impl<K: Ord, V> Default for RollbackableMap<K, V> {
+    fn default() -> Self {
+        Self {
+            map: BTreeMap::new(),
+            old_entries: Vec::new(),
+        }
+    }
+}
+
+impl<K: Ord + Clone, V: Clone> Clone for RollbackableMap<K, V> {
+    fn clone(&self) -> Self {
+        Self {
+            map: self.map.clone(),
+            old_entries: self.old_entries.clone(),
+        }
+    }
+}
+
+impl<K: Ord + Clone, V: Clone> RollbackableMap<K, V> {
+    pub(crate) fn insert(&mut self, key: K, value: V) -> Option<V> {
+        let old_value = self.map.insert(key.clone(), value);
+        self.old_entries.push((key, old_value.clone()));
+        old_value
+    }
+
+    /// Inserts or updates the entry for `key` in a single map traversal,
+    /// journaling the prior value for rollback. `compute` receives the current
+    /// value (`None` if absent) and returns the new value. Saves the separate
+    /// `get` a read-modify-write would otherwise need.
+    pub(crate) fn update(&mut self, key: K, compute: impl FnOnce(Option<&V>) -> V) {
+        use std::collections::btree_map::Entry;
+        match self.map.entry(key) {
+            Entry::Occupied(mut entry) => {
+                let new = compute(Some(entry.get()));
+                let old = std::mem::replace(entry.get_mut(), new);
+                self.old_entries.push((entry.key().clone(), Some(old)));
+            }
+            Entry::Vacant(entry) => {
+                let new = compute(None);
+                self.old_entries.push((entry.key().clone(), None));
+                entry.insert(new);
+            }
+        }
+    }
+
+    pub(crate) fn changes_after(
+        &self,
+        snapshot: <Self as Rollback>::Snapshot,
+    ) -> BTreeMap<K, (Option<V>, V)> {
+        let mut changes = BTreeMap::new();
+        for (key, old_value) in self.old_entries[snapshot..].iter().rev() {
+            changes
+                .entry(key.clone())
+                .and_modify(|(old, _): &mut (Option<V>, V)| old.clone_from(old_value))
+                .or_insert((old_value.clone(), self.map.get(key).unwrap().clone()));
+        }
+        changes
+    }
+}
+
+impl<K: Ord + Clone> RollbackableMap<K, u8> {
+    /// OR `flags` into the entry for `key` (an absent entry counts as `0`) in a
+    /// single map traversal, journaling the prior value so the change rolls
+    /// back. Returns `true` iff at least one previously-unset bit was set.
+    ///
+    /// Equivalent to a `get` followed by a conditional `insert`, but with one
+    /// traversal instead of two, and no journal entry when no bit changes.
+    pub(crate) fn add_flags(&mut self, key: K, flags: u8) -> bool {
+        use std::collections::btree_map::Entry;
+        match self.map.entry(key) {
+            Entry::Occupied(mut entry) => {
+                let old = *entry.get();
+                let new = old | flags;
+                if new == old {
+                    return false;
+                }
+                entry.insert(new);
+                self.old_entries.push((entry.key().clone(), Some(old)));
+                true
+            }
+            Entry::Vacant(entry) => {
+                self.old_entries.push((entry.key().clone(), None));
+                entry.insert(flags);
+                true
+            }
+        }
+    }
+}
+
+impl<K: Ord, V> Rollback for RollbackableMap<K, V> {
+    type Snapshot = usize;
+
+    fn snapshot(&self) -> Self::Snapshot {
+        self.old_entries.len()
+    }
+
+    fn rollback(&mut self, snapshot: Self::Snapshot) {
+        for (k, v) in self.old_entries.drain(snapshot..).rev() {
+            if let Some(old_value) = v {
+                self.map.insert(k, old_value);
+            } else {
+                self.map.remove(&k);
+            }
+        }
+    }
+
+    fn delete_history(&mut self) {
+        self.old_entries.clear();
+    }
+}
+
+impl<K: Ord, V> AsRef<BTreeMap<K, V>> for RollbackableMap<K, V> {
+    fn as_ref(&self) -> &BTreeMap<K, V> {
+        &self.map
+    }
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct RollbackableSet<K: Ord> {
+    map: BTreeSet<K>,
+    old_entries: Vec<K>,
+}
+
+impl<T: Ord + Clone> RollbackableSet<T> {
+    /// Adds `key` to the set and returns if it was added (not present earlier).
+    pub(crate) fn add(&mut self, key: T) -> bool {
+        let is_new = self.map.insert(key.clone());
+        if is_new {
+            self.old_entries.push(key);
+        }
+        is_new
+    }
+}
+
+impl<K: Ord> Rollback for RollbackableSet<K> {
+    type Snapshot = usize;
+
+    fn snapshot(&self) -> Self::Snapshot {
+        self.old_entries.len()
+    }
+
+    fn rollback(&mut self, snapshot: Self::Snapshot) {
+        for k in self.old_entries.drain(snapshot..) {
+            self.map.remove(&k);
+        }
+    }
+
+    fn delete_history(&mut self) {
+        self.old_entries.clear();
+    }
+}
+
+impl<K: Ord> AsRef<BTreeSet<K>> for RollbackableSet<K> {
+    fn as_ref(&self) -> &BTreeSet<K> {
+        &self.map
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct RollbackableLog<T> {
+    entries: Vec<T>,
+}
+
+impl<T> Default for RollbackableLog<T> {
+    fn default() -> Self {
+        Self {
+            entries: Vec::default(),
+        }
+    }
+}
+
+impl<T> Rollback for RollbackableLog<T> {
+    type Snapshot = usize;
+
+    fn snapshot(&self) -> Self::Snapshot {
+        self.entries.len()
+    }
+
+    fn rollback(&mut self, snapshot: Self::Snapshot) {
+        self.entries.truncate(snapshot);
+    }
+
+    fn delete_history(&mut self) {}
+}
+
+impl<T> RollbackableLog<T> {
+    pub(crate) fn push(&mut self, entry: T) {
+        self.entries.push(entry);
+    }
+
+    pub(crate) fn reserve(&mut self, n: usize) {
+        let extra = n.saturating_sub(self.entries.len());
+        if extra > 0 {
+            self.entries.reserve_exact(extra);
+        }
+    }
+
+    pub(crate) fn logs_after(&self, snapshot: <RollbackableLog<T> as Rollback>::Snapshot) -> &[T] {
+        &self.entries[snapshot..]
+    }
+}
+
+impl<T> AsRef<[T]> for RollbackableLog<T> {
+    fn as_ref(&self) -> &[T] {
+        &self.entries
+    }
+}
+
+/// Rollbackable Plain Old Data simply stores copies of itself in snapshots.
+#[derive(Debug, Default, Copy, Clone)]
+pub(crate) struct RollbackablePod<T: Copy>(pub(crate) T);
+
+impl<T: Copy> Rollback for RollbackablePod<T> {
+    type Snapshot = T;
+
+    fn snapshot(&self) -> Self::Snapshot {
+        self.0
+    }
+
+    fn rollback(&mut self, snapshot: Self::Snapshot) {
+        self.0 = snapshot;
+    }
+
+    fn delete_history(&mut self) {}
+}

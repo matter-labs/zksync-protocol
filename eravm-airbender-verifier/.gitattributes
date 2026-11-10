@@ -1,0 +1,2 @@
+# Keep each mainnet batch as an independently fetchable Git LFS object.
+testdata/era_mainnet_batches/binary/*.bin.gz filter=lfs diff=lfs merge=lfs -text

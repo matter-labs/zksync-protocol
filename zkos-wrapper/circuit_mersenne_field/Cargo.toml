@@ -1,0 +1,10 @@
+[package]
+name = "circuit_mersenne_field"
+version = "0.1.0"
+edition = "2021"
+license  = "MIT OR Apache-2.0"
+
+[dependencies]
+boojum.workspace = true
+mersenne_field.workspace = true
+rand.workspace = true

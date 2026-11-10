@@ -1,0 +1,26 @@
+{
+ "hashin_32": {
+  "bytes": 32,
+  "keccak_rounds": 1,
+  "sha256_rounds": 1,
+  "sha256_digest": "0x8e889f10b21cdd1b3ad72f740317a827d76e1b5b3f721e33c566f06d1deff8ea"
+ },
+ "hashin_1024": {
+  "bytes": 1024,
+  "keccak_rounds": 8,
+  "sha256_rounds": 17,
+  "sha256_digest": "0x8d7e566766f6bd1bb4cac87cadfde681197f9243f4d2692a0fd12674092212a7"
+ },
+ "hashin_8192": {
+  "bytes": 8192,
+  "keccak_rounds": 61,
+  "sha256_rounds": 129,
+  "sha256_digest": "0x3faac63d133ee546e983a131136bc44c9d3c0910d1c6b143d60509ef90a386e7"
+ },
+ "hashin_65536": {
+  "bytes": 65536,
+  "keccak_rounds": 482,
+  "sha256_rounds": 1025,
+  "sha256_digest": "0xef4636928161808e87035fa51983821677527ccd9661991c5d0126a778b2268a"
+ }
+}

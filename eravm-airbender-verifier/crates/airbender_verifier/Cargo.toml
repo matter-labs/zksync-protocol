@@ -1,0 +1,66 @@
+[package]
+name = "zksync_airbender_verifier"
+description = "ZKsync library for Airbender verification"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[features]
+default = ["circuit_tracer"]
+# Forwards to `zksync_multivm/circuit_tracer`. Enabled by default; the guest
+# (proving) build sets `default-features = false` to compile out the
+# sequencer-only circuit tracer the verifier never reads.
+circuit_tracer = ["zksync_multivm/circuit_tracer"]
+# Emit Airbender cycle markers around verify() phases for offline cycle-cost
+# calibration. OFF by default and must NEVER ship in a proved guest (see the
+# airbender guest `cycle` docs) — enabled only for the calibration bench guest
+# build. Markers are no-ops off the riscv32 target.
+#
+# Also adds a `version` field to `SystemEnvInput` (the host↔guest channel) so
+# the calibration guest can replay older corpus minors under their own
+# semantics. Production builds have no such field — the type cannot express a
+# version — so the two flavours' channels differ and a guest must be driven by
+# a matching host. (The on-disk corpus is flavour-independent: see
+# `zksync_cli_utils::labeled`.) Forwards to the `zksync_cli_utils` dev-dep,
+# which also constructs `SystemEnvInput`, so this crate's own
+# `--features cycle-markers` (the CI clippy run) stays coherent.
+cycle-markers = ["dep:airbender", "zksync_cli_utils/cycle-markers"]
+# `*_legacy_unproven_gaps` entries that serve unproven slots as empty, for
+# fixtures without read proofs. Implies `cycle-markers`: calibration builds only.
+legacy-unproven-gaps = ["cycle-markers"]
+
+[dependencies]
+# Only pulled in under the `cycle-markers` feature (guest bench build).
+airbender = { workspace = true, optional = true }
+zksync_contracts.workspace = true
+zksync_crypto_primitives.workspace = true
+zksync_merkle_tree = { workspace = true, default-features = false }
+# Explicit path dep (not `workspace = true`) so `default-features = false` is
+# honored — Cargo ignores that override on workspace-inherited deps. Disabling
+# it lets this crate's own `circuit_tracer` feature control multivm's, so the
+# guest build (which turns this crate's feature off) compiles out the tracer.
+zksync_multivm = { path = "../multivm", default-features = false }
+zksync_system_constants.workspace = true
+zksync_types.workspace = true
+zksync_vm_interface.workspace = true
+
+anyhow.workspace = true
+ark-ff.workspace = true
+ark-bls12-381.workspace = true
+serde.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+airbender-codec.workspace = true
+zksync_cli_utils.workspace = true
+
+bincode.workspace = true
+
+serde_json.workspace = true
+flate2.workspace = true
+tempfile.workspace = true

@@ -1,0 +1,28 @@
+{
+  "cases": {
+    "mixed": {
+      "bootloader_hash": "0x010009873ba868c774ea7ec5261e5e885a6c2d8e2b9acd8dc75c77323958c1f2",
+      "commitment": "0xb4d07f2670f7fa0bfbddde1fcc2280c4be779583e9285f8fbe8324e0297ba3ee",
+      "sha256": "7beea94c3a463b105a46f16d9c2413af70f510ba238726e82c800a2aa1fdde0c",
+      "state_root": "0xd1515bc70482678f7e5d51cb4c8100b5d23f1cfe10b7fa667f5f19b58b147798"
+    },
+    "normal": {
+      "bootloader_hash": "0x010009873ba868c774ea7ec5261e5e885a6c2d8e2b9acd8dc75c77323958c1f2",
+      "commitment": "0x769bf1598a8dd55688014fa38a65a6d3032a592f8e932f76b5b1caea11f47197",
+      "sha256": "bcf2591fc933324cccc5c30441b536de12ee50743ee23c9445443fb650c6e7db",
+      "state_root": "0xab0b43eaa09e89e7bd5bc8227e03d5c1ae12a81b2c24b60484eb50059b0c543d"
+    }
+  },
+  "provenance": {
+    "contracts_artifacts_sha256": "f4419a1aa6800d5afa20f32c5fdcb3933e2aa8ff459baaf62b6fbd160b4b88b0",
+    "contracts_revision": "4ab4a0ef3366e5fea80345d4fd91d7b996099020",
+    "era_cargo_lock_sha256": "06dcd53fcda99d26e3514bd170703d4c6a05a504b1a042badc8f94b1ab2e06ab",
+    "era_revision": "dd9f819a46b807aa93884126f4a5ae3d0568283a",
+    "generator_sha256": {
+      "era_export.rs": "24f8afc8456d7d49450b580d84ae57c2bf60c0bb9cc544bcb93bb0ecc8cacfd8",
+      "generate.py": "4a039c8d98d9d9d86f5fcbf3add9b77bf4975477d99eaebb0967ae176f782a8d",
+      "prepare.py": "ef81eddecc411fc072b15da2813f3c3c20872ed5cbd85cb1d58281ed20460e35"
+    },
+    "protocol_version": 34
+  }
+}

@@ -1,0 +1,33 @@
+[package]
+name = "zksync_types"
+description = "Shared ZKsync types"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+# **IMPORTANT.** Please do not add dependency on `zksync_config` etc. This crate has a heavy dependency graph as is.
+zksync_system_constants.workspace = true
+zksync_basic_types.workspace = true
+zksync_contracts.workspace = true
+zksync_mini_merkle_tree.workspace = true
+zksync_crypto_primitives.workspace = true
+
+async-trait.workspace = true
+anyhow.workspace = true
+chrono = { workspace = true, default-features = false, features = ["now", "serde"] }
+once_cell.workspace = true
+rlp.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+num_enum.workspace = true
+hex.workspace = true
+tracing.workspace = true
+
+# Crypto stuff
+blake2.workspace = true

@@ -22,6 +22,18 @@ ignore = [
     # aliases with no checked/strict/saturating/overflowing shifts and no
     # to_base_be formatting. Revisit when the pinned toolchain reaches 1.90.
     "RUSTSEC-2026-0220",
+    # DoS advisories in quick-xml < 0.41 (RUSTSEC-2026-0194: quadratic time on
+    # duplicate start-tag attribute names; RUSTSEC-2026-0195: unbounded
+    # namespace-declaration allocation in `NsReader`), carried over from
+    # `eravm-airbender-verifier/`'s own policy when that workspace was vendored.
+    # Reached only from there, and only transitively: `riscv_transpiler` ->
+    # `inferno` (the flamegraph/profiling tooling in the Airbender build
+    # toolchain), which is neither on the verifier's runtime path nor ever fed
+    # untrusted XML. No fix is selectable yet -- the latest `inferno` (0.12.x)
+    # still pins `quick-xml` below 0.40, so the patched `>= 0.41` cannot be
+    # picked. Revisit once `inferno` upgrades.
+    "RUSTSEC-2026-0194",
+    "RUSTSEC-2026-0195",
 ]
 
 [licenses]
@@ -38,6 +50,13 @@ allow = [
     "BSD-3-Clause",
     "Zlib",
     "Unicode-3.0",
+    # Both reached only from `eravm-airbender-verifier/`, and both carried over
+    # from that workspace's own policy when it was vendored: `CDDL-1.0` for
+    # `inferno` (via `riscv_transpiler`, the Airbender build toolchain) and
+    # `CDLA-Permissive-2.0` for `webpki-roots` (via `reqwest`'s rustls stack,
+    # which the host CLI names explicitly for the SNARK trusted-setup download).
+    "CDDL-1.0",
+    "CDLA-Permissive-2.0",
 ]
 confidence-threshold = 0.8
 

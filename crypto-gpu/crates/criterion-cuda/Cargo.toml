@@ -1,0 +1,16 @@
+[package]
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+repository.workspace = true
+version.workspace = true
+name = "era_criterion_cuda"
+description = "Criterion benchmarks support for CUDA event-based timings for ZKsync"
+publish = false
+
+[dependencies]
+criterion = "0.5"
+era_cudart.workspace = true

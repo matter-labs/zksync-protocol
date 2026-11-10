@@ -1,0 +1,193 @@
+{
+  "base": {
+    "cycles": 1154667710.0,
+    "raw_cycles": 949321655.0
+  },
+  "ops": {
+    "arith_cheap_op": {
+      "cycles_per_unit": 145.0,
+      "kind": "measured",
+      "domain_max": 6185264,
+      "raw_cycles_per_unit": 145.0
+    },
+    "arith_div_op": {
+      "cycles_per_unit": 15474.0,
+      "kind": "bounded",
+      "raw_cycles_per_unit": 7711.0
+    },
+    "arith_mul_op": {
+      "cycles_per_unit": 852.0,
+      "kind": "measured",
+      "domain_max": 113126,
+      "raw_cycles_per_unit": 852.0
+    },
+    "arith_ptr_op": {
+      "cycles_per_unit": 1680.0,
+      "kind": "measured",
+      "domain_max": 471949,
+      "raw_cycles_per_unit": 1680.0
+    },
+    "arith_shift_op": {
+      "cycles_per_unit": 207.0,
+      "kind": "measured",
+      "domain_max": 675748,
+      "raw_cycles_per_unit": 207.0
+    },
+    "average_op": {
+      "cycles_per_unit": 107.0,
+      "kind": "measured",
+      "domain_max": 603130,
+      "raw_cycles_per_unit": 107.0
+    },
+    "decommit_cycles": {
+      "cycles_per_unit": 7123.0,
+      "kind": "measured",
+      "domain_max": 168682,
+      "raw_cycles_per_unit": 7123.0
+    },
+    "decommit_repeat": {
+      "cycles_per_unit": 2013801.2847999998,
+      "kind": "bounded",
+      "raw_cycles_per_unit": 2013801.0
+    },
+    "ec_add_cycles": {
+      "cycles_per_unit": 58916.0,
+      "kind": "bounded",
+      "raw_cycles_per_unit": 51670.0
+    },
+    "ec_mul_cycles": {
+      "cycles_per_unit": 683591.0,
+      "kind": "bounded",
+      "raw_cycles_per_unit": 542836.0
+    },
+    "ec_pairing_cycles": {
+      "cycles_per_unit": 12452078.0,
+      "kind": "measured",
+      "domain_max": 900,
+      "raw_cycles_per_unit": 9921775.0
+    },
+    "ec_recover_cycles": {
+      "cycles_per_unit": 513649.0,
+      "kind": "bounded",
+      "raw_cycles_per_unit": 303871.0
+    },
+    "event": {
+      "cycles_per_unit": 3788.0,
+      "kind": "measured",
+      "domain_max": 9138,
+      "raw_cycles_per_unit": 3788.0
+    },
+    "far_call": {
+      "cycles_per_unit": 14877.0,
+      "kind": "measured",
+      "domain_max": 62464,
+      "raw_cycles_per_unit": 14877.0
+    },
+    "keccak256_cycles": {
+      "cycles_per_unit": 6153.0,
+      "kind": "measured",
+      "domain_max": 30282,
+      "raw_cycles_per_unit": 3556.0
+    },
+    "mod_exp_cycles": {
+      "cycles_per_unit": 228241.0,
+      "kind": "bounded",
+      "raw_cycles_per_unit": 201820.0
+    },
+    "near_call_count": {
+      "cycles_per_unit": 926.0,
+      "kind": "measured",
+      "domain_max": 174463,
+      "raw_cycles_per_unit": 926.0
+    },
+    "precompile_call": {
+      "cycles_per_unit": 484.0,
+      "kind": "measured",
+      "domain_max": 28735,
+      "raw_cycles_per_unit": 484.0
+    },
+    "pubdata_bytes": {
+      "cycles_per_unit": 735.0,
+      "kind": "measured",
+      "domain_max": 500000,
+      "raw_cycles_per_unit": 482.0
+    },
+    "secp256r1_verify_cycles": {
+      "cycles_per_unit": 811847.0,
+      "kind": "bounded",
+      "raw_cycles_per_unit": 470991.0
+    },
+    "sha256_cycles": {
+      "cycles_per_unit": 5602.0,
+      "kind": "measured",
+      "domain_max": 2654,
+      "raw_cycles_per_unit": 5599.0
+    },
+    "state_diff_count": {
+      "cycles_per_unit": 90208.0,
+      "kind": "measured",
+      "domain_max": 13513,
+      "raw_cycles_per_unit": 81495.0
+    },
+    "storage_application": {
+      "cycles_per_unit": 183168.0,
+      "kind": "measured",
+      "domain_max": 9009,
+      "raw_cycles_per_unit": 142048.0
+    },
+    "storage_read": {
+      "cycles_per_unit": 4996.0,
+      "kind": "measured",
+      "domain_max": 47425,
+      "raw_cycles_per_unit": 4996.0
+    },
+    "storage_write": {
+      "cycles_per_unit": 17615.0,
+      "kind": "measured",
+      "domain_max": 15274,
+      "raw_cycles_per_unit": 17612.0
+    },
+    "transaction_count": {
+      "cycles_per_unit": 251376.0,
+      "kind": "measured",
+      "domain_max": 10000,
+      "raw_cycles_per_unit": 70446.0
+    },
+    "transient_storage_read": {
+      "cycles_per_unit": 414.0,
+      "kind": "measured",
+      "domain_max": 3289,
+      "raw_cycles_per_unit": 414.0
+    },
+    "transient_storage_write": {
+      "cycles_per_unit": 11911.0,
+      "kind": "measured",
+      "domain_max": 1693,
+      "raw_cycles_per_unit": 11911.0
+    },
+    "uma_read": {
+      "cycles_per_unit": 475.0,
+      "kind": "measured",
+      "domain_max": 774780,
+      "raw_cycles_per_unit": 475.0
+    },
+    "uma_write": {
+      "cycles_per_unit": 507.0,
+      "kind": "measured",
+      "domain_max": 546812,
+      "raw_cycles_per_unit": 507.0
+    }
+  },
+  "unpriced": [
+    "decommit",
+    "merkle_leaf_count"
+  ],
+  "margin": 1.3,
+  "provenance": {
+    "guest_sha256": "8b9436a80e7a1d8378bfe77601622a5851ef3c89bf860c654cc1886f8ba7c9cc",
+    "verifier_commit": "4abd7ee",
+    "vm2_rev": "be1e50b59b3ba1a5e4eda2ca7e01f33cf373d779",
+    "measured_on": "2026-08-21",
+    "corpus": "52 organic batches (3 v31, 49 v29); rates from 197 v31 isolation fixtures; base is v31-derived"
+  }
+}

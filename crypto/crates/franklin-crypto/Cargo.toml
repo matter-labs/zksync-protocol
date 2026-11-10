@@ -1,0 +1,53 @@
+[package]
+name = "franklin-crypto"
+version.workspace = true
+edition = "2015"
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Cryptographic library for SNARK gadgets, based on sapling-crypto"
+
+[lib]
+crate-type = ["lib", "staticlib"]
+
+[features]
+default = ["multicore", "plonk"]
+multicore = ["bellman/multicore"]
+plonk = ["bellman/plonk"]
+allocator = ["bellman/allocator"]
+
+[dependencies]
+boojum.workspace = true
+bellman.workspace = true
+
+derivative = "2"
+rand = "0.8"
+rand_chacha = "0.3"
+rand_xorshift = "0.3"
+digest = "0.9"
+byteorder = "1"
+tiny-keccak = "1.4.2"
+bit-vec = "0.6"
+num-bigint = {version = "0.4", features = ["serde"]}
+sha2 = "0.9"
+sha3 = "0.9"
+num-integer = "0.1"
+num-traits = "0.2"
+itertools = "0.10"
+splitmut = "0.2"
+blake2 = "0.9"
+lazy_static = "1.4"
+serde = {version = "1", features = ["derive"]}
+num-derive = "0.2"
+indexmap = "1.9"
+smallvec = "1.10"
+blake2-rfc_bellman_edition = "0.0.1"
+blake2s_simd = { version = "0.5" }
+hex = "0.4"
+arr_macro = { version = "0.1" }
+
+[dev-dependencies]
+hex-literal = "0.3"

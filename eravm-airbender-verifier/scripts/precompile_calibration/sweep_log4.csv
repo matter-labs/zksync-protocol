@@ -1,0 +1,8 @@
+fixture,family,tier,intended_axis,input_param,unit_count,n_txs,l1_batch,gas_used,pubdata,ok
+900357,arith_ptr_op,slice_100k,arith_ptr_op,"slices=100000,data=256B",100000,1,1289,6830211,,ok
+900360,arith_ptr_op,slice_800k,arith_ptr_op,"slices=800000,data=256B",800000,1,1290,53729847,,ok
+900358,arith_ptr_op,slice_300k,arith_ptr_op,"slices=300000,data=256B",300000,1,1291,20229847,291,ok
+900359,arith_ptr_op,slice_550k,arith_ptr_op,"slices=550000,data=256B",550000,1,1292,36979847,291,ok
+900361,arith_ptr_op_nest,nest_100k,arith_ptr_op,"nested_slices=100000,data=256B",100000,1,1293,7329512,263,ok
+900362,arith_ptr_op_nest,nest_350k,arith_ptr_op,"nested_slices=350000,data=256B",350000,1,1294,25329506,263,ok
+900363,arith_ptr_op_nest,nest_700k,arith_ptr_op,"nested_slices=700000,data=256B",700000,1,1295,50529512,263,ok

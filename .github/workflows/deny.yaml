@@ -1,8 +1,82 @@
 name: Cargo deny check
 on: pull_request
 jobs:
-  cargo-deny:
+  # Each workspace (see the comment at the top of `protocol/Cargo.toml`) needs
+  # its own cargo-deny pass -- none of them is visible from another's manifest --
+  # but a change confined to `crypto-gpu/` cannot move `crypto/`'s dependency
+  # graph, so it should not pay for every pass.
+  changes:
+    name: changed workspaces
     runs-on: ubuntu-latest
+    outputs:
+      manifests: ${{ steps.manifests.outputs.manifests }}
+      any: ${{ steps.changes.outputs.any }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # Enough to reach the merge commit's first parent.
+          fetch-depth: 2
+          persist-credentials: false
+
+      - uses: ./.github/actions/changed-workspaces
+        id: changes
+
+      # `jobs.<id>.if` is evaluated before the strategy expands and cannot see
+      # the `matrix` context, so a single leg cannot be skipped; the list is
+      # narrowed here instead, before it becomes a matrix.
+      - id: manifests
+        shell: bash
+        env:
+          PROTOCOL: ${{ steps.changes.outputs.protocol }}
+          VM2: ${{ steps.changes.outputs.vm2 }}
+          CRYPTO: ${{ steps.changes.outputs.crypto }}
+          CRYPTO_GPU: ${{ steps.changes.outputs.crypto_gpu }}
+          VERIFIER: ${{ steps.changes.outputs.verifier }}
+          ZKOS_WRAPPER: ${{ steps.changes.outputs.zkos_wrapper }}
+        run: |
+          set -euo pipefail
+
+          # A string, not an array: expanding an empty array under `set -u` is
+          # an error before bash 4.4, and the empty case has to work.
+          manifests=""
+          add() { manifests="${manifests:+$manifests,}\"$1\""; }
+
+          if [ "$PROTOCOL" = true ]; then add ./protocol/Cargo.toml; fi
+          if [ "$VM2" = true ]; then add ./vm2/Cargo.toml; fi
+          if [ "$CRYPTO" = true ]; then add ./crypto/Cargo.toml; fi
+          if [ "$CRYPTO_GPU" = true ]; then add ./crypto-gpu/Cargo.toml; fi
+          if [ "$VERIFIER" = true ]; then add ./eravm-airbender-verifier/Cargo.toml; fi
+          if [ "$ZKOS_WRAPPER" = true ]; then add ./zkos-wrapper/Cargo.toml; fi
+
+          echo "manifests=[$manifests]"
+          echo "manifests=[$manifests]" >> "$GITHUB_OUTPUT"
+
+  cargo-deny:
+    needs: changes
+    # `fromJSON([])` is a hard error ("matrix must define at least one vector"),
+    # so drop the job rather than expand it to nothing.
+    if: ${{ needs.changes.outputs.any == 'true' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # They share the root `deny.toml`: one advisory/licence policy for
+        # the whole repository, one copy of it, and no `--config` to pass -- this
+        # job runs cargo-deny from the repository root, where it sits, and a
+        # local `cd <workspace> && cargo deny check` finds it by walking up.
+        # (The advisories the vendored copies ignored on top of the root list --
+        # paste, serde-cbor, structopt from crypto's, paste and structopt from
+        # the GPU one -- are all `unmaintained`, which the root policy switches
+        # off wholesale. The verifier's two quick-xml advisories are not, so they
+        # are named in the root file, together with the two licences only its
+        # graph needs. `zkos-wrapper/`'s graph needed nothing added.)
+        manifest: ${{ fromJSON(needs.changes.outputs.manifests) }}
+    name: cargo deny (${{ matrix.manifest }})
     steps:
       - uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+
       - uses: EmbarkStudios/cargo-deny-action@3fd3802e88374d3fe9159b834c7714ec57d6c979 # v2.0.15
+        with:
+          manifest-path: ${{ matrix.manifest }}

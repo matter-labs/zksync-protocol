@@ -1,0 +1,34 @@
+[package]
+name = "zksync_cli_utils"
+description = "Shared command-line helpers for repository-owned batch input workflows"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[features]
+# Calibration flavour: `load_batch` keeps each batch's own protocol version
+# (instead of gating on and stripping to the pinned one), and the guest-channel
+# wire of the underlying types carries the labels. Must match the flavour of
+# the guest being driven. See `labeled::LabeledVerifierInput`.
+cycle-markers = ["zksync_airbender_verifier/cycle-markers"]
+
+[dependencies]
+anyhow.workspace = true
+bincode = { version = "2", features = ["serde"] }
+flate2.workspace = true
+serde.workspace = true
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
+zksync_airbender_verifier.workspace = true
+zksync_contracts.workspace = true
+zksync_types.workspace = true
+zksync_vm_interface.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+tempfile.workspace = true

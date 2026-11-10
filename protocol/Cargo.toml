@@ -1,0 +1,78 @@
+[workspace]
+members = ["crates/*"]
+# A self-contained workspace with its own version line, lockfile and lint policy.
+# The repository holds several, none nested under another. The path dependencies
+# between them:
+#
+#   - `../vm2/` (0.x) and `../crypto-gpu/` (0.156.x) depend on the crates here.
+#   - `../crypto/` (0.32.x) is depended on by the crates here.
+#   - `../eravm-airbender-verifier/` (31.x) depends on
+#     `crates/circuit_sequencer_api` and `crates/zk_evm` here, plus `../vm2/` and
+#     `../zkos-wrapper/` -- so a change here moves its guest binary and keys.
+#   - `../zkos-wrapper/` (0.1.x) depends on `../crypto/` and, under `gpu`,
+#     `../crypto-gpu/`.
+#
+# `.cargo/config.toml`, `deny.toml` and `rust-toolchain` live at the repository
+# root, one copy each; the only file shadowing them is the verifier's
+# `guest/rust-toolchain.toml`.
+resolver = "2"
+
+[workspace.package]
+# All the packages in the workspace should have the same version
+version = "0.153.17"                                            # x-release-please-version
+edition = "2021"
+authors = ["The Matter Labs Team <hello@matterlabs.dev>"]
+homepage = "https://zksync.io/"
+repository = "https://github.com/matter-labs/zksync-protocol/"
+license = "MIT OR Apache-2.0"
+keywords = ["blockchain", "zksync"]
+categories = ["cryptography"]
+
+[workspace.dependencies]
+circuit_definitions = { version = "=0.153.17", path = "crates/circuit_definitions" }
+circuit_encodings = { version = "=0.153.17", path = "crates/circuit_encodings" }
+circuit_sequencer_api = { version = "=0.153.17", path = "crates/circuit_sequencer_api" }
+cfg-if = "1"
+kzg = { version = "=0.153.17", path = "crates/kzg", package = "zksync_kzg" }
+quickcheck = "1"
+tiny-keccak = "2"
+zk_evm = { version = "=0.153.17", path = "crates/zk_evm" }
+zk_evm_abstractions = { version = "=0.153.17", path = "crates/zk_evm_abstractions" }
+zkevm_circuits = { version = "=0.153.17", path = "crates/zkevm_circuits" }
+zkevm_opcode_defs = { version = "=0.153.17", path = "crates/zkevm_opcode_defs" }
+zkevm_test_harness = { version = "=0.153.17", path = "crates/zkevm_test_harness" }
+zkevm-assembly = { version = "=0.153.17", path = "crates/zkEVM-assembly" }
+
+# The same revision `../eravm-airbender-verifier/` pins, and it has to be: the
+# guest links this crate through `zk_evm_abstractions`' precompile delegations
+# and through the verifier's own crates, and two copies would put two blake2s
+# implementations and two sets of delegation CSR call sites in one binary.
+airbender-crypto = { git = "https://github.com/matter-labs/airbender-platform", rev = "b6ce3dd1252bfbda8e42b77fdd868e81c54b7bdc" }
+
+# `zksync-crypto` workspace dependencies
+#
+# Vendored into this repository, so these resolve through the `crypto/` tree
+# rather than through a git tag. That is the point of keeping crypto here: a
+# crypto change and the protocol change it forces now land in one commit, and CI
+# builds the protocol crates against the working tree instead of the last
+# published tag.
+#
+# Still not the registry, and still not `[patch.crates-io]`. A patch would
+# replace the crates.io source *globally* for every consumer -- which breaks
+# consumers such as zksync-era that also build historical protocol crates from
+# crates.io against the published crypto crates. Semver-compatible versions can
+# never coexist as two registry deps -- but a registry source and a path/git
+# source can. Consumers that need *this* copy of boojum, rather than the
+# published one, point a git dependency at this repository: cargo finds the
+# package under `crypto/crates/` and unifies it with what the protocol crates use.
+#
+# No `version` is given on purpose, exactly as the git dependencies before it
+# carried none. These crates are not published from here (see the note above
+# `publish-to-crates-io` in `.github/workflows/release.yaml`), and a bare path
+# keeps the two workspaces' version numbers independent: crypto stays on its own
+# 0.32.x line while the protocol crates move with the 0.153.x release train.
+snark_wrapper = { path = "../crypto/crates/snark-wrapper" }
+bellman = { package = "zksync_bellman", path = "../crypto/crates/bellman" }
+boojum = { path = "../crypto/crates/boojum" }
+cs_derive = { package = "zksync_cs_derive", path = "../crypto/crates/cs_derive" }
+zksync_pairing = { path = "../crypto/crates/pairing" }

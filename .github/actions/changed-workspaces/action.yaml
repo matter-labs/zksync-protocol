@@ -1,0 +1,229 @@
+name: Changed workspaces
+description: >-
+  Which cargo workspaces a pull request can affect, given the dependency edges
+  between them. The caller has to check out
+  the repository with `fetch-depth: 2` or more first.
+
+outputs:
+  protocol:
+    description: "'true' if the jobs driving cargo over `protocol/` have to run."
+    value: ${{ steps.filter.outputs.protocol }}
+  vm2:
+    description: "'true' if the jobs driving cargo over `vm2/` have to run."
+    value: ${{ steps.filter.outputs.vm2 }}
+  crypto:
+    description: "'true' if the jobs driving cargo over `crypto/` have to run."
+    value: ${{ steps.filter.outputs.crypto }}
+  crypto_gpu:
+    description: "'true' if the jobs driving cargo over `crypto-gpu/` have to run."
+    value: ${{ steps.filter.outputs.crypto_gpu }}
+  verifier:
+    description: "'true' if the jobs driving cargo over `eravm-airbender-verifier/` have to run."
+    value: ${{ steps.filter.outputs.verifier }}
+  zkos_wrapper:
+    description: "'true' if the jobs driving cargo over `zkos-wrapper/` have to run."
+    value: ${{ steps.filter.outputs.zkos_wrapper }}
+  any:
+    description: "'true' if any of them has to run."
+    value: ${{ steps.filter.outputs.any }}
+  dirs:
+    description: >-
+      JSON array of the directories of the workspaces that have to run, for use
+      as a matrix. `[]` when none do.
+    value: ${{ steps.filter.outputs.dirs }}
+  release_pr:
+    description: >-
+      'true' if this is a release-please pull request and its diff is still
+      nothing but the version bump, in which case the workspaces above need
+      `ci-release-check.yaml` rather than their own jobs.
+    value: ${{ steps.filter.outputs.release_pr }}
+
+runs:
+  using: composite
+  steps:
+    - id: filter
+      shell: bash
+      env:
+        HEAD_REF: ${{ github.head_ref }}
+      run: |
+        set -euo pipefail
+
+        # `actions/checkout` leaves the pull request's *merge* commit at HEAD, so
+        # HEAD^1 is the base branch tip. Anything else -- too shallow a clone, a
+        # `ref:` override, a PR that no longer merges -- means we do not know
+        # what changed, so run everything rather than guess.
+        # The list goes to a file, and `matches` greps that file rather than a
+        # pipeline. `grep -q` exits at the first match, which under `pipefail`
+        # leaves the writer to die of SIGPIPE and makes the whole pipeline return
+        # 141 -- indistinguishable from "no match" once the list outgrows the
+        # 64 KB pipe buffer, at roughly a thousand paths. That failed *open*: a
+        # big diff would silently skip the workspaces it touched. A file has no
+        # writer to kill, so `-q` can still stop early.
+        changed_files="${RUNNER_TEMP:-/tmp}/changed-workspaces.txt"
+        : > "$changed_files"
+
+        fallback=false
+        if [ "$(git rev-list --parents -n 1 HEAD | wc -w)" -ne 3 ]; then
+          echo "::warning title=changed-workspaces::HEAD is not a two-parent merge commit," \
+               "so the changed-file list is not trustworthy -- running every workspace's jobs."
+          fallback=true
+        else
+          # `-z` for the same reason the records are NUL-separated everywhere
+          # else here: without it git C-quotes any path holding a non-ASCII byte,
+          # a quote, a backslash or a control character -- `"protocol/na\303\257ve.rs"`
+          # -- and every `^`-anchored pattern below then misses it. `core.quotePath`
+          # is belt and braces, in case someone ever drops the `-z`.
+          #
+          # `--no-renames` because `--name-only` otherwise reports only a rename's
+          # destination, so moving a file *out* of a workspace would not re-run it.
+          git -c core.quotePath=false diff -z --no-renames --name-only HEAD^1 HEAD > "$changed_files"
+          echo "Changed files ($(tr -cd '\0' < "$changed_files" | wc -c | tr -d ' ')):"
+          tr '\0' '\n' < "$changed_files" | sed 's/^/  /'
+        fi
+
+        matches() {
+          [ "$fallback" = true ] && return 0
+          grep -zqE "$1" "$changed_files"
+        }
+
+        # Everything this action knows how to classify. A path matching none of
+        # it is something the filter has never been told about -- a seventh
+        # workspace, a new top-level file -- and attributing it to no workspace
+        # is a guess in the unsafe direction. Run everything and say why.
+        known='^(protocol|crypto|crypto-gpu|vm2|eravm-airbender-verifier|zkos-wrapper)/'
+        known="$known"'|^(rust-toolchain|deny\.toml|\.lfsconfig|\.gitignore)$'
+        known="$known"'|^(README|RELEASE)\.md$|^LICENSE-|^release-plz\.toml$'
+        known="$known"'|^\.cargo/|^audits/|^\.github/'
+        if [ "$fallback" != true ] && grep -zqvE "$known" "$changed_files"; then
+          echo "::warning title=changed-workspaces::the diff holds paths this filter does not" \
+               "classify (listed below) -- running every workspace's jobs."
+          grep -zvE "$known" "$changed_files" | tr '\0' '\n' | sed 's/^/  unclassified: /'
+          fallback=true
+        fi
+
+        # Shared by all of them: the toolchain and cargo config each resolves by
+        # walking up from its own directory, the deny policy they all symlink to,
+        # and the CI definitions that decide what runs at all. The per-workspace
+        # `ci-<workspace>.yaml` files are handled separately below -- each of them
+        # only governs its own workspace.
+        global='^(rust-toolchain|deny\.toml)$|^\.cargo/|^\.github/actions/|^\.github/workflows/(ci|deny|vk_divergence)\.yaml$'
+
+        # The dependency edges, straight off the path dependencies in the
+        # manifests:
+        #
+        #   crypto  <--  protocol  <--  vm2
+        #      ^             ^           ^
+        #      |             |           |
+        #      +- crypto-gpu +           |
+        #      |       ^     |           |
+        #      +-- wrapper   +-- verifier+
+        #              ^                 |
+        #              +-----------------+
+        #
+        # `protocol/` pulls five crates out of `crypto/`; `vm2/` pulls three out
+        # of `protocol/`; `crypto-gpu/` pulls from `protocol/` and `crypto/`;
+        # `eravm-airbender-verifier/` pulls from `protocol/`, `vm2/` and
+        # `zkos-wrapper/`; and `zkos-wrapper/` pulls `boojum` and friends out of
+        # `crypto/` and, under its `gpu` feature, `shivini` and friends out of
+        # `crypto-gpu/` -- so `protocol/` reaches it too, through those. Nothing
+        # points back, so a change only flows downstream: `crypto/` re-runs
+        # everything, while the verifier re-runs itself alone.
+        crypto=false
+        protocol=false
+        vm2=false
+        crypto_gpu=false
+        verifier=false
+        zkos_wrapper=false
+        if matches "$global";      then crypto=true; protocol=true; vm2=true; crypto_gpu=true; verifier=true; zkos_wrapper=true; fi
+        if matches '^crypto/';     then crypto=true; protocol=true; vm2=true; crypto_gpu=true; verifier=true; zkos_wrapper=true; fi
+        if matches '^protocol/';   then                protocol=true; vm2=true; crypto_gpu=true; verifier=true; zkos_wrapper=true; fi
+        if matches '^vm2/';        then                               vm2=true;                 verifier=true; fi
+        if matches '^crypto-gpu/'; then                                         crypto_gpu=true; verifier=true; zkos_wrapper=true; fi
+        if matches '^eravm-airbender-verifier/'; then                                           verifier=true; fi
+        if matches '^zkos-wrapper/';             then                            verifier=true; zkos_wrapper=true; fi
+
+        # `.lfsconfig` serves exactly one workspace: it is what keeps the
+        # verifier's mainnet batch corpus out of a default clone.
+        if matches '^\.lfsconfig$'; then verifier=true; fi
+
+        # A workspace's own CI definition re-runs that workspace and nothing
+        # else: it cannot change what the other three compile.
+        if matches '^\.github/workflows/ci-crypto\.yaml$';     then crypto=true;     fi
+        if matches '^\.github/workflows/ci-protocol\.yaml$';   then protocol=true;   fi
+        if matches '^\.github/workflows/ci-vm2\.yaml$';        then vm2=true;        fi
+        if matches '^\.github/workflows/ci-crypto-gpu\.yaml$'; then crypto_gpu=true; fi
+        if matches '^\.github/workflows/ci-verifier\.yaml$';    then verifier=true;   fi
+        if matches '^\.github/workflows/ci-zkos-wrapper\.yaml$'; then zkos_wrapper=true; fi
+
+        any=false
+        dirs=''
+        add() { [ "$2" = true ] && dirs="${dirs:+$dirs, }\"$1\"" && any=true; return 0; }
+        add crypto                    "$crypto"
+        add protocol                  "$protocol"
+        add vm2                       "$vm2"
+        add crypto-gpu                "$crypto_gpu"
+        add eravm-airbender-verifier  "$verifier"
+        add zkos-wrapper              "$zkos_wrapper"
+        dirs="[$dirs]"
+
+        # A release-please pull request bumps versions: the workspace manifests,
+        # the lockfiles the path dependencies record those versions in, the
+        # changelogs and the release-please manifest. No code, so nothing can
+        # compile differently -- what the version bump *can* break is resolution,
+        # and `ci-release-check.yaml` is what the caller runs instead of the
+        # per-workspace jobs.
+        #
+        # Both halves are needed. The branch name says release-please produced
+        # the pull request; the path check says nobody has pushed source onto
+        # that branch since -- fixing up a bad release PR by hand is a real thing
+        # to do, and it has to get the full CI back.
+        #
+        # The check is by path, not by hunk, so it does not reach a push that
+        # stays inside these files: a `Cargo.toml` edited on a release branch to
+        # move a dependency still reads as the bump. That is the case the release
+        # check itself has to cover -- it resolves and compiles the graph the
+        # edit produces.
+        release_pr=false
+        release_files='^\.github/release-please/manifest\.json$'
+        release_files="$release_files"'|^(protocol|crypto|crypto-gpu|vm2'
+        release_files="$release_files"'|eravm-airbender-verifier|zkos-wrapper)/'
+        release_files="$release_files"'(.*/)?(Cargo\.(toml|lock)|CHANGELOG\.md)$'
+        case "${HEAD_REF:-}" in
+          release-please--branches--*)
+            # `fallback` means the file list is not trustworthy, so it cannot be
+            # used to rule out a stray change either.
+            if [ "$fallback" != true ] && ! grep -zqvE "$release_files" "$changed_files"; then
+              release_pr=true
+            fi
+            ;;
+        esac
+
+        {
+          echo "protocol=$protocol"
+          echo "vm2=$vm2"
+          echo "crypto=$crypto"
+          echo "crypto_gpu=$crypto_gpu"
+          echo "verifier=$verifier"
+          echo "zkos_wrapper=$zkos_wrapper"
+          echo "any=$any"
+          echo "dirs=$dirs"
+          echo "release_pr=$release_pr"
+        } >> "$GITHUB_OUTPUT"
+
+        {
+          echo "### Workspaces this pull request can affect"
+          echo
+          echo "| workspace | jobs run |"
+          echo "| --------- | -------- |"
+          echo "| \`protocol/\` | $protocol |"
+          echo "| \`vm2/\` | $vm2 |"
+          echo "| \`crypto/\` | $crypto |"
+          echo "| \`crypto-gpu/\` | $crypto_gpu |"
+          echo "| \`eravm-airbender-verifier/\` | $verifier |"
+          echo "| \`zkos-wrapper/\` | $zkos_wrapper |"
+          if [ "$release_pr" = true ]; then
+            echo
+            echo "Version-bump-only release-please pull request: the workspaces above get"
+            echo "\`cargo check\` instead of their own jobs."
+          fi
+        } >> "$GITHUB_STEP_SUMMARY"

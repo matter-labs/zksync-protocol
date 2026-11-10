@@ -1,0 +1,35 @@
+{
+  "row_finalization_hints": [
+    [
+      7,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  ],
+  "column_finalization_hints": [],
+  "nop_gates_to_add": 171,
+  "final_trace_len": 4096,
+  "public_inputs": [
+    [
+      0,
+      3924
+    ],
+    [
+      1,
+      3924
+    ],
+    [
+      2,
+      3924
+    ],
+    [
+      3,
+      3924
+    ]
+  ]
+}

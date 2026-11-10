@@ -1,0 +1,55 @@
+[package]
+name = "zksync_multivm"
+description = "ZKsync out-of-circuit VM"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[features]
+default = ["circuit_tracer"]
+# The sequencer-only `CircuitsTracer` (it drives batch sealing by circuit
+# capacity). Enabled by default. The re-execution verifier drops
+# `circuit_statistic`, so proving (guest) builds turn this off
+# (`default-features = false`) to skip per-opcode circuit accounting and the f32
+# ratio math in-circuit.
+circuit_tracer = []
+
+[dependencies]
+zk_evm_1_5_2.workspace = true
+# zk_evm_1_5_0.workspace = true
+# zk_evm_1_4_1.workspace = true
+# zk_evm_1_4_0.workspace = true
+# zk_evm_1_3_3.workspace = true
+# zk_evm_1_3_1.workspace = true
+zksync_vm2.workspace = true
+
+circuit_sequencer_api.workspace = true
+
+zksync_types.workspace = true
+zksync_contracts.workspace = true
+zksync_system_constants.workspace = true
+zksync_vm_interface.workspace = true
+zksync_mini_merkle_tree.workspace = true
+
+anyhow.workspace = true
+hex.workspace = true
+itertools.workspace = true
+once_cell.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+# vise.workspace = true
+ethabi.workspace = true
+
+[dev-dependencies]
+assert_matches.workspace = true
+pretty_assertions.workspace = true
+rand.workspace = true
+serde_json.workspace = true
+test-casing.workspace = true
+# TODO(eravm-airbender-verifier): Restore `zksync_eth_signer` and `zksync_test_contracts`
+# once test-only dependency crates are brought into this workspace.

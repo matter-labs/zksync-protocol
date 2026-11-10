@@ -1,0 +1,35 @@
+[package]
+name = "zksync_vm_compare"
+description = "Cross-VM execution comparison harness"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[features]
+# Replay each batch under its own protocol version instead of the pin, so
+# native feature extraction matches what the calibration guest measures. This
+# crate has no `#[cfg]` of its own (it asks `stf_protocol_version`); the feature
+# exists to put both listed crates — which construct the flavour-dependent
+# `SystemEnvInput` — into the matching flavour when this one is selected.
+cycle-markers = [
+    "zksync_airbender_verifier/cycle-markers",
+    "zksync_cli_utils/cycle-markers",
+]
+
+[dependencies]
+zk_evm_1_5_2.workspace = true
+zksync_multivm.workspace = true
+zksync_airbender_verifier.workspace = true
+zksync_types.workspace = true
+zksync_vm2.workspace = true
+zksync_cli_utils.workspace = true
+zksync_vm_interface.workspace = true
+
+anyhow.workspace = true
+clap = { workspace = true, features = ["derive"] }
+bincode.workspace = true

@@ -1,0 +1,48 @@
+[package]
+name = "zkos-wrapper"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "wrapper"
+path = "src/main.rs"
+
+[dependencies]
+boojum.workspace = true
+bellman.workspace = true
+rescue_poseidon.workspace = true
+snark_wrapper.workspace = true
+unified_reduced_machine_verifier.workspace = true
+blake_verifier.workspace = true
+execution_utils.workspace = true
+setups.workspace = true
+circuit_mersenne_field.workspace = true
+serde_json.workspace = true
+serde.workspace = true
+bincode.workspace = true
+clap.workspace = true
+sha3.workspace = true
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+anyhow.workspace = true
+
+shivini = { workspace = true, optional = true } 
+proof-compression = {workspace = true, optional = true}
+zksync-gpu-prover = {workspace = true, optional = true}
+
+[dev-dependencies]
+rand.workspace = true
+hex = "0.4.3"
+libc = "0.2.175"
+tempfile = "3"
+
+[features]
+gpu = ["shivini", "proof-compression", "zksync-gpu-prover"]
+security_80 = ["unified_reduced_machine_verifier/security_80", "blake_verifier/security_80"]
+security_100 = ["unified_reduced_machine_verifier/security_100", "blake_verifier/security_100"]
+# v32 ships at 100-bit; `security_80` stays selectable via `default-features = false`.
+default = ["security_100"]

@@ -1,0 +1,165 @@
+name: "CI - protocol"
+
+# The `protocol/` half of the Rust CI, called from `ci.yaml` when the path filter
+# says a diff can reach this workspace. No `on: pull_request` here -- the caller
+# owns the trigger, the concurrency group and the mandatory status check.
+#
+# `protocol/` is a cargo workspace of its own (see the comment at the top of
+# `protocol/Cargo.toml`), so every job below runs with
+# `working-directory: protocol` -- there is no manifest at the repository root
+# any more. `cache-workspaces` has to be passed separately: `defaults.run` does
+# not reach inside an action.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: cargo build
+    runs-on: matterlabs-ci-runner-high-performance
+    defaults:
+      run:
+        working-directory: protocol
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
+        with:
+          rustflags: ""
+          cache-workspaces: protocol
+      - name: Setup rust
+        run: |
+          rustup set profile minimal
+          rustup toolchain install 1.81.0
+          rustup toolchain install nightly-2026-08-09
+          rustup default nightly-2026-08-09
+          cargo install cargo-nextest@0.9.108 --locked
+      - name: Compile
+        run: cargo build
+
+      # `circuit_sequencer_api` *MUST* be compilable with stable.
+      - name: Compile circuit_sequencer_api on stable
+        run: cargo +1.81.0 build -p circuit_sequencer_api
+
+  # The test jobs do not `needs: build`. They run on their own runner and
+  # rebuild from the shared rust-cache regardless, so waiting on `build` only
+  # pushed their start back by its full duration; `build` still gates the merge
+  # through the mandatory status check.
+  #
+  # `zkevm_test_harness` is the long pole of the whole CI run. Every test in it
+  # synthesises or proves real circuits with a multi-threaded boojum worker, so
+  # `--test-threads 2` is already close to saturating a runner, and the total is
+  # spread over several runners instead: nextest's `--partition hash:N/M`
+  # assigns each test to one shard by a stable hash of its name, so the union
+  # of the shards is exactly the full suite. Adding a shard means bumping both
+  # the matrix and the `/M` denominator.
+  test-harness:
+    name: cargo test (zkevm_test_harness ${{ matrix.shard }}/3)
+    runs-on: matterlabs-ci-runner-high-performance
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    defaults:
+      run:
+        working-directory: protocol
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
+        with:
+          rustflags: ""
+          cache-workspaces: protocol
+      - name: Setup rust
+        run: |
+          rustup set profile minimal
+          rustup toolchain install nightly-2026-08-09
+          rustup default nightly-2026-08-09
+          cargo install cargo-nextest@0.9.108 --locked
+      - name: zkevm_test_harness - Main test
+        run: cargo nextest run --release --manifest-path crates/zkevm_test_harness/Cargo.toml --test-threads 2 --partition hash:${{ matrix.shard }}/3
+
+  test:
+    name: cargo test
+    runs-on: matterlabs-ci-runner-high-performance
+    defaults:
+      run:
+        working-directory: protocol
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
+        with:
+          rustflags: ""
+          cache-workspaces: protocol
+      - name: Setup rust
+        run: |
+          rustup set profile minimal
+          rustup toolchain install nightly-2026-08-09
+          rustup default nightly-2026-08-09
+          cargo install cargo-nextest@0.9.108 --locked
+      - name: Encodings test
+        run: cargo nextest run --release --manifest-path crates/circuit_encodings/Cargo.toml
+      - name: Api tests
+        run: cargo nextest run --release --manifest-path crates/circuit_sequencer_api/Cargo.toml
+      - name: Definitions test
+        run: cargo nextest run --release --no-tests=pass --manifest-path crates/circuit_definitions/Cargo.toml
+      - name: Kzg tests
+        run: cargo nextest run --release --manifest-path crates/kzg/Cargo.toml
+      - name: Circuit tests
+        run: cargo nextest run --release --manifest-path crates/zkevm_circuits/Cargo.toml --test-threads 2
+      - name: ZKEVM tests
+        run: cargo nextest run --release --manifest-path crates/zk_evm/Cargo.toml
+      - name: ZKEVM abstractions tests
+        run: cargo nextest run --release --manifest-path crates/zk_evm_abstractions/Cargo.toml
+      - name: ZKEVM assembly tests
+        run: cargo nextest run --release --manifest-path crates/zkEVM-assembly/Cargo.toml
+      - name: ZKEVM opcode
+        run: cargo nextest run --release --manifest-path crates/zkevm_opcode_defs/Cargo.toml
+
+  test-zkevm-abstractions-airbender:
+    name: zk_evm_abstractions airbender delegations
+    runs-on: matterlabs-ci-runner-high-performance
+    defaults:
+      run:
+        working-directory: protocol
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
+        with:
+          rustflags: ""
+          cache-workspaces: protocol
+      - name: Setup rust
+        run: |
+          rustup set profile minimal
+          rustup toolchain install nightly-2026-08-09
+          rustup default nightly-2026-08-09
+          cargo install cargo-nextest@0.9.108 --locked
+      - name: ZKEVM abstractions airbender delegation tests
+        run: cargo nextest run --release --manifest-path crates/zk_evm_abstractions/Cargo.toml --features airbender-precompile-delegations
+
+  # ---------------------------------------------------------------------------
+  # None of the jobs above touch `vm2/`: they run cargo in `protocol/`, which
+  # neither builds vm2's crates nor formats them. The two below are the vendored
+  # port of what matter-labs/vm2 ran on its own PRs, rebased onto this repo's
+  # toolchain.
+  #
+  # They are filtered on `vm2/` *plus* `protocol/` plus `crypto/`, never `vm2/`
+  # alone: vm2 depends on `protocol/crates/zk_evm`,
+  # `protocol/crates/zk_evm_abstractions` and `protocol/crates/zkevm_opcode_defs`
+  # by path, and those on `crypto/`, so a change to either can break vm2 -- which
+  # is exactly the breakage vendoring exists to catch.
+  formatting:
+    name: cargo fmt
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: protocol
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
+        with:
+          components: rustfmt
+          cache-workspaces: protocol
+      - name: Rustfmt Check
+        run: cargo fmt --all --check

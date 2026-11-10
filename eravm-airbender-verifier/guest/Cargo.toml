@@ -1,0 +1,24 @@
+[package]
+name = "eravm-prover-guest"
+version = "31.5.0"
+edition = "2021"
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[features]
+# Build the guest with verify() phase cycle markers, for offline cycle-cost
+# calibration ONLY. Never enable for a proved guest build.
+cycle-markers = ["zksync_airbender_verifier/cycle-markers"]
+# Bench guest only: serve unproven slots as empty, for fixtures without read
+# proofs. Implies `cycle-markers`, so the RV32IM scan rejects the binary.
+legacy-unproven-gaps = ["cycle-markers", "zksync_airbender_verifier/legacy-unproven-gaps"]
+
+[dependencies]
+airbender = { workspace = true, features = ["std"] }
+# Explicit path dep (not `workspace = true`) so `default-features = false` is
+# honored — Cargo ignores that override on workspace-inherited deps. This drops
+# the sequencer-only circuit tracer: the proving guest never reads
+# `circuit_statistic`, so it saves in-circuit cycles.
+zksync_airbender_verifier = { path = "../crates/airbender_verifier", default-features = false }

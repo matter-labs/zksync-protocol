@@ -8,18 +8,47 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The verification keys are a function of the circuits in `protocol/` and the
+  # `crypto/` crates they are built out of, so this 32-core job only runs when a
+  # diff can reach either. A job-level `if` rather than a top-level `paths:`
+  # filter, for the reason given in `ci.yaml`.
+  changes:
+    name: changed workspaces
+    runs-on: ubuntu-latest
+    outputs:
+      protocol: ${{ steps.changes.outputs.protocol }}
+      release_pr: ${{ steps.changes.outputs.release_pr }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # Enough to reach the merge commit's first parent.
+          fetch-depth: 2
+      - uses: ./.github/actions/changed-workspaces
+        id: changes
+
   check-vk-divergence:
     name: check VK divergence
+    needs: changes
+    # The keys are a function of the circuits, which a version bump does not
+    # touch; `ci.yaml` explains what a release-please pull request runs instead.
+    if: ${{ needs.changes.outputs.protocol == 'true' && needs.changes.outputs.release_pr != 'true' }}
     runs-on: [ubuntu-24.04-github-hosted-32core]
     permissions:
       contents: read
       pull-requests: write
+    # `vk_regression_checker` lives in `protocol/`, so cargo and the binary it
+    # builds are driven from there; only `actions/upload-artifact` below needs
+    # the path spelled out from the repository root, since `defaults.run` does
+    # not reach inside an action.
+    defaults:
+      run:
+        working-directory: protocol
     steps:
       - uses: actions/checkout@v3
-
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           rustflags: ""
+          cache-workspaces: protocol
 
       - name: Setup rust
         run: |
@@ -44,7 +73,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: generated-vks
-          path: generated/vk_regression_checker
+          path: protocol/generated/vk_regression_checker
           if-no-files-found: warn
           retention-days: 14
 
@@ -64,7 +93,7 @@ jobs:
 
             ```bash
             gh run download ${{ github.run_id }} -R ${{ github.repository }} \
-              -n generated-vks -D crates/vk_regression_checker/reference
+              -n generated-vks -D protocol/crates/vk_regression_checker/reference
             ```
 
             Then review the diff, commit the updated keys and push.

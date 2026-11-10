@@ -1,0 +1,62 @@
+name: "CI - release check"
+
+# What a release-please pull request gets instead of the per-workspace jobs,
+# called from `ci.yaml` when `changed-workspaces` says the diff is a version
+# bump and nothing else.
+#
+# Such a diff is manifests, lockfiles and changelogs -- no source, so no test,
+# lint or proving run can come out differently than it did on the commit being
+# released. What it *can* break is resolution: the workspaces pin each other with
+# `=<version>` over path dependencies, so a pin `cargo workspaces version` failed
+# to rewrite, or a lockfile the release job left stale, makes the dependent
+# workspace stop resolving. This is that check, mechanised -- `RELEASE.md` asks
+# for it by hand on a manual release.
+#
+# One leg per workspace the path filter says the bump reaches.
+
+on:
+  workflow_call:
+    inputs:
+      workspaces:
+        description: "JSON array of workspace directories to check, from `changed-workspaces`."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: cargo check (${{ matrix.workspace }})
+    # `ci-verifier.yaml`'s `lints` job already clippies the heaviest of these
+    # graphs on this runner. A *release* build of it would not fit -- see the disk
+    # note in `test-gpu.yaml` -- but nothing here codegens.
+    runs-on: ubuntu-latest
+    strategy:
+      # Every workspace's verdict, not just the first one to break.
+      fail-fast: false
+      matrix:
+        workspace: ${{ fromJSON(inputs.workspaces) }}
+    defaults:
+      run:
+        working-directory: ${{ matrix.workspace }}
+    env:
+      # Lets the CUDA crates in `crypto-gpu/`'s graph -- which `zkos-wrapper/`
+      # and the verifier also pull in -- type-check without a CUDA toolkit, as
+      # `ci-zkos-wrapper.yaml` and `ci-verifier.yaml` already do.
+      ZKSYNC_USE_CUDA_STUBS: true
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
+        with:
+          rustflags: ""
+          cache-workspaces: ${{ matrix.workspace }}
+
+      # `--locked` catches the stale lockfile; compiling catches the unrewritten
+      # pin. Default members, so the verifier's guest and CUDA host stay out of
+      # it -- the guest is built by `cargo airbender build`, not by Cargo.
+      - name: Check
+        run: cargo check --locked

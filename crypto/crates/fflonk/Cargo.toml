@@ -1,0 +1,28 @@
+[package]
+name = "fflonk"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Reference implementation of fflonk prover and verifier"
+
+[dependencies]
+franklin-crypto = { workspace = true, optional = true, default-features = true}
+num-bigint = { version = "0.4", features = ["serde"] }
+num-traits = "0.2"
+rand = "0.8"
+rand_xorshift = "0.3"
+serde = { version = "1", features = ["derive", "rc"] }
+serde_json = "1"
+serde_derive = "1"
+bincode = "1.3"
+byteorder = "1"
+
+[features]
+default = ["franklin-crypto"]
+sanity = []
+allocator  = ["franklin-crypto/allocator"]

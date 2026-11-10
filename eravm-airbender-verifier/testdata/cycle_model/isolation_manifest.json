@@ -1,0 +1,502 @@
+[
+ {
+  "batch_number": 900103,
+  "label": "add_flood",
+  "family": "add",
+  "tier": "t3",
+  "adversarial": true
+ },
+ {
+  "batch_number": 900107,
+  "label": "sub_flood",
+  "family": "sub",
+  "tier": "t3",
+  "adversarial": true
+ },
+ {
+  "batch_number": 900113,
+  "label": "twrite_flood",
+  "family": "twrite",
+  "tier": "t3",
+  "adversarial": true
+ },
+ {
+  "batch_number": 900117,
+  "label": "tread_flood",
+  "family": "tread",
+  "tier": "t3",
+  "adversarial": true
+ },
+ {
+  "batch_number": 900121,
+  "label": "context_flood",
+  "family": "context",
+  "tier": "t3",
+  "adversarial": true
+ },
+ {
+  "batch_number": 900125,
+  "label": "farcall_flood",
+  "family": "farcall",
+  "tier": "t3",
+  "adversarial": true
+ },
+ {
+  "batch_number": 900129,
+  "label": "nearcall_flood",
+  "family": "nearcall",
+  "tier": "t3",
+  "adversarial": true
+ },
+ {
+  "batch_number": 900132,
+  "label": "evt_flood",
+  "family": "evt",
+  "tier": "ctrl",
+  "adversarial": true
+ },
+ {
+  "batch_number": 900135,
+  "label": "umaread_flood",
+  "family": "umaread",
+  "tier": "t3",
+  "adversarial": true
+ },
+ {
+  "batch_number": 900139,
+  "label": "umawrite_flood",
+  "family": "umawrite",
+  "tier": "t3",
+  "adversarial": true
+ },
+ {
+  "batch_number": 900143,
+  "label": "bitwise_flood",
+  "family": "bitwise",
+  "tier": "t3",
+  "adversarial": true
+ },
+ {
+  "batch_number": 900147,
+  "label": "mul_flood",
+  "family": "mul",
+  "tier": "t3",
+  "adversarial": true
+ },
+ {
+  "batch_number": 900152,
+  "label": "shift_flood",
+  "family": "shift",
+  "tier": "t3",
+  "adversarial": true
+ },
+ {
+  "batch_number": 900156,
+  "label": "shift_m_flood",
+  "family": "shift_m",
+  "tier": "t3",
+  "adversarial": true
+ },
+ {
+  "batch_number": 900160,
+  "label": "rotate_flood",
+  "family": "rotate",
+  "tier": "t3",
+  "adversarial": true
+ },
+ {
+  "batch_number": 900168,
+  "label": "div_fast_flood",
+  "family": "div_fast",
+  "tier": "t3",
+  "adversarial": true
+ },
+ {
+  "batch_number": 900172,
+  "label": "jump_flood",
+  "family": "jump",
+  "tier": "t3",
+  "adversarial": true
+ },
+ {
+  "batch_number": 900176,
+  "label": "div_worst2_flood",
+  "family": "div_worst2",
+  "tier": "t3",
+  "adversarial": true
+ },
+ {
+  "batch_number": 900201,
+  "label": "deploy_t1",
+  "family": "deploy",
+  "adversarial": false
+ },
+ {
+  "batch_number": 900202,
+  "label": "deploy_t2",
+  "family": "deploy",
+  "adversarial": false
+ },
+ {
+  "batch_number": 900203,
+  "label": "deploy_t3",
+  "family": "deploy",
+  "adversarial": false
+ },
+ {
+  "batch_number": 900204,
+  "label": "deploy_t4",
+  "family": "deploy",
+  "adversarial": true,
+  "input": "largest deployment \u2014 the batch that caught `arith_ptr_op = 0`, which under-predicted it by 23.5%. Deployment copies bytecode through fat pointers with a companion mix unlike any pointer-arithmetic family, so this row is the only guard against a netted rate that does not transfer."
+ },
+ {
+  "batch_number": 900205,
+  "label": "deploy_t0",
+  "family": "deploy",
+  "adversarial": false,
+  "input": "smallest deployment"
+ },
+ {
+  "batch_number": 900208,
+  "label": "decommit_repeat_cached_24k",
+  "family": "decommit",
+  "tier": "max",
+  "adversarial": true
+ },
+ {
+  "batch_number": 900212,
+  "label": "decommit_repeat_cached_128k",
+  "family": "decommit",
+  "tier": "max",
+  "adversarial": true
+ },
+ {
+  "batch_number": 900216,
+  "label": "decommit_repeat_raw_256k",
+  "family": "decommit",
+  "tier": "max",
+  "adversarial": true
+ },
+ {
+  "batch_number": 900221,
+  "label": "decommit_fresh_4blobs",
+  "family": "decommit",
+  "tier": "max",
+  "adversarial": true
+ },
+ {
+  "batch_number": 900301,
+  "label": "modexp_exp1b",
+  "family": "modexp",
+  "adversarial": false,
+  "input": "exponent 1 B 0xff (8 bits)"
+ },
+ {
+  "batch_number": 900302,
+  "label": "modexp_exp4b",
+  "family": "modexp",
+  "adversarial": false,
+  "input": "exponent 4 B 0xff (32 bits)"
+ },
+ {
+  "batch_number": 900303,
+  "label": "modexp_exp8b",
+  "family": "modexp",
+  "adversarial": false,
+  "input": "exponent 8 B 0xff (64 bits)"
+ },
+ {
+  "batch_number": 900304,
+  "label": "modexp_exp16b",
+  "family": "modexp",
+  "adversarial": false,
+  "input": "exponent 16 B 0xff (128 bits)"
+ },
+ {
+  "batch_number": 900305,
+  "label": "modexp_exp32b",
+  "family": "modexp",
+  "adversarial": true,
+  "input": "exponent 32 B 0xff (256 bits) \u2014 WORST, and the maximum the precompile accepts"
+ },
+ {
+  "batch_number": 900306,
+  "label": "modexp_exp0x03",
+  "family": "modexp",
+  "adversarial": false,
+  "input": "exponent 0x00000003 \u2014 the vector the previous rate was taken at, 9.77x cheaper"
+ },
+ {
+  "batch_number": 900307,
+  "label": "ecmul_s3",
+  "family": "ecmul",
+  "adversarial": false,
+  "input": "scalar 7 \u2014 the vector the previous rate was taken at, 2.49x cheaper"
+ },
+ {
+  "batch_number": 900308,
+  "label": "ecmul_s32",
+  "family": "ecmul",
+  "adversarial": false,
+  "input": "scalar 2^32-1"
+ },
+ {
+  "batch_number": 900309,
+  "label": "ecmul_s64",
+  "family": "ecmul",
+  "adversarial": false,
+  "input": "scalar 2^64-1"
+ },
+ {
+  "batch_number": 900310,
+  "label": "ecmul_s128",
+  "family": "ecmul",
+  "adversarial": false,
+  "input": "scalar 2^128-1"
+ },
+ {
+  "batch_number": 900311,
+  "label": "ecmul_smax",
+  "family": "ecmul",
+  "adversarial": true,
+  "input": "scalar r-1 (254 bits) \u2014 WORST"
+ },
+ {
+  "batch_number": 900312,
+  "label": "ecadd_double",
+  "family": "ecadd",
+  "adversarial": true,
+  "input": "G+G doubling \u2014 WORST of three classes, which span 1.5% among non-degenerate inputs"
+ },
+ {
+  "batch_number": 900313,
+  "label": "ecadd_distinct",
+  "family": "ecadd",
+  "adversarial": false,
+  "input": "2G+3G distinct points"
+ },
+ {
+  "batch_number": 900314,
+  "label": "ecadd_identity",
+  "family": "ecadd",
+  "adversarial": false,
+  "input": "2G+O identity \u2014 12x CHEAPER, and it does not short-circuit the counter"
+ },
+ {
+  "batch_number": 900315,
+  "label": "ecrecover_v27",
+  "family": "ecrecover",
+  "adversarial": false,
+  "input": "v=27, 254-bit r"
+ },
+ {
+  "batch_number": 900316,
+  "label": "ecrecover_v28",
+  "family": "ecrecover",
+  "adversarial": true,
+  "input": "v=28, 248-bit r \u2014 WORST of two, 1.01x spread"
+ },
+ {
+  "batch_number": 900317,
+  "label": "secp256r1_r255",
+  "family": "secp256r1",
+  "adversarial": false,
+  "input": "255-bit r"
+ },
+ {
+  "batch_number": 900318,
+  "label": "secp256r1_r248",
+  "family": "secp256r1",
+  "adversarial": true,
+  "input": "248-bit r \u2014 WORST of two, 1.02x spread"
+ },
+ {
+  "batch_number": 900372,
+  "label": "ecpair_p1",
+  "family": "ecpairing",
+  "adversarial": false,
+  "input": "100 calls x 1 pair"
+ },
+ {
+  "batch_number": 900373,
+  "label": "ecpair_p2",
+  "family": "ecpairing",
+  "adversarial": false,
+  "input": "100 calls x 2 pairs"
+ },
+ {
+  "batch_number": 900374,
+  "label": "ecpair_p4",
+  "family": "ecpairing",
+  "adversarial": false,
+  "input": "100 calls x 4 pairs"
+ },
+ {
+  "batch_number": 900375,
+  "label": "ecpair_p8",
+  "family": "ecpairing",
+  "adversarial": true,
+  "input": "100 calls x 8 pairs \u2014 top of the pair sweep, calls pinned"
+ },
+ {
+  "batch_number": 900376,
+  "label": "ecpair_c300",
+  "family": "ecpairing",
+  "adversarial": false,
+  "input": "300 calls x 1 pair"
+ },
+ {
+  "batch_number": 900377,
+  "label": "ecpair_c600",
+  "family": "ecpairing",
+  "adversarial": false,
+  "input": "600 calls x 1 pair"
+ },
+ {
+  "batch_number": 900378,
+  "label": "ecpair_c880",
+  "family": "ecpairing",
+  "adversarial": false,
+  "input": "880 calls x 1 pair \u2014 top of the call sweep"
+ },
+ {
+  "batch_number": 900379,
+  "label": "ecpair_infinity",
+  "family": "ecpairing",
+  "adversarial": false,
+  "input": "G1 = point at infinity: 19% cheaper yet still counted, so over-charged (safe). The opposite of ecadd, whose identity case is cheap AND charged per call."
+ },
+ {
+  "batch_number": 900380,
+  "label": "ecpair_900pairs_1call",
+  "family": "ecpairing",
+  "adversarial": true,
+  "input": "900 pairs in ONE call \u2014 near the ~951-pair gas limit. Holds total pairs nearly equal to 900378 while precompile_call differs 28 vs 907, which is what separates per-pair from per-call cost."
+ },
+ {
+  "batch_number": 900385,
+  "label": "bytecode_size_2656b",
+  "family": "bytecode_size",
+  "adversarial": false,
+  "input": "8 contracts x 2,656 B \u2014 bottom of the size sweep, contract count pinned"
+ },
+ {
+  "batch_number": 900386,
+  "label": "bytecode_size_5728b",
+  "family": "bytecode_size",
+  "adversarial": false,
+  "input": "8 contracts x 5,728 B"
+ },
+ {
+  "batch_number": 900387,
+  "label": "bytecode_size_13920b",
+  "family": "bytecode_size",
+  "adversarial": false,
+  "input": "8 contracts x 13,920 B"
+ },
+ {
+  "batch_number": 900388,
+  "label": "bytecode_size_26208b",
+  "family": "bytecode_size",
+  "adversarial": true,
+  "input": "8 contracts x 26,208 B \u2014 top of the size sweep, and the only fixture whose `decommit_cycles` comes ENTIRELY from the far-call producer (`pay_for_decommit`): its DECOMMIT-opcode count is zero, while the `dc_*` rows drive the axis through the opcode. The two producers differ 1.56x on the marginal and share one rate priced at the cheaper of them, so without this row nothing holds the dearer path \u2014 `farcall_flood` looks like it should, but its callees are already decommitted and it moves the axis by 92 units. The point estimate here is already 0.4% under with only the margin covering it, which is what makes it the row that notices if the spread widens."
+ },
+ {
+  "batch_number": 900390,
+  "label": "div_lead1_2limb_t1",
+  "family": "div_shape",
+  "adversarial": false
+ },
+ {
+  "batch_number": 900391,
+  "label": "div_lead1_2limb_t2",
+  "family": "div_shape",
+  "adversarial": false
+ },
+ {
+  "batch_number": 900392,
+  "label": "div_lead1_2limb_t3",
+  "family": "div_shape",
+  "adversarial": false
+ },
+ {
+  "batch_number": 900393,
+  "label": "div_lead3_2limb_t1",
+  "family": "div_shape",
+  "adversarial": false
+ },
+ {
+  "batch_number": 900394,
+  "label": "div_lead3_2limb_t2",
+  "family": "div_shape",
+  "adversarial": false
+ },
+ {
+  "batch_number": 900395,
+  "label": "div_lead3_2limb_t3",
+  "family": "div_shape",
+  "adversarial": true,
+  "input": "worst divisor shape measured (4/2-limb, leading limb 3, shift 62) \u2014 the fixture that showed the previous bound was 1.90x too low"
+ },
+ {
+  "batch_number": 900396,
+  "label": "div_lead1_3limb_t1",
+  "family": "div_shape",
+  "adversarial": false
+ },
+ {
+  "batch_number": 900397,
+  "label": "div_lead1_3limb_t2",
+  "family": "div_shape",
+  "adversarial": false
+ },
+ {
+  "batch_number": 900398,
+  "label": "div_lead1_3limb_t3",
+  "family": "div_shape",
+  "adversarial": false
+ },
+ {
+  "batch_number": 900399,
+  "label": "div_lead1_4limb_t1",
+  "family": "div_shape",
+  "adversarial": false
+ },
+ {
+  "batch_number": 900400,
+  "label": "div_lead1_4limb_t2",
+  "family": "div_shape",
+  "adversarial": false
+ },
+ {
+  "batch_number": 900401,
+  "label": "div_lead1_4limb_t3",
+  "family": "div_shape",
+  "adversarial": false
+ },
+ {
+  "batch_number": 900402,
+  "label": "div_small_1limb_t1",
+  "family": "div_shape",
+  "adversarial": false
+ },
+ {
+  "batch_number": 900403,
+  "label": "div_small_1limb_t2",
+  "family": "div_shape",
+  "adversarial": false
+ },
+ {
+  "batch_number": 900404,
+  "label": "div_small_1limb_t3",
+  "family": "div_shape",
+  "adversarial": false
+ },
+ {
+  "batch_number": 900405,
+  "label": "div_control",
+  "family": "div_shape",
+  "adversarial": false
+ }
+]
