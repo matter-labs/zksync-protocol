@@ -1,0 +1,125 @@
+# The `zkos-wrapper` workspace, vendored.
+#
+# A workspace of its own, with its own `0.1.x` version line and lockfile. `boojum`
+# and `shivini` and friends are path dependencies on `../crypto/` and
+# `../crypto-gpu/`, like every other cross-workspace edge here: the
+# `(1 + beta*x)` FRI batch degree lift the upstream branches were cut for is on
+# both trunks (crypto #11, crypto-gpu #3), and `PlonkSnarkWrapperLogN` was ported
+# into `../crypto-gpu/` with this rewiring.
+#
+# The 20% FRI query increase from those branches now lives in boojum as
+# `ProofConfig::extra_fri_queries`, and this workspace proves with it on -- EraVM keeps
+# it off. The `security_level_calculator` module upstream shipped alongside it has not
+# been ported.
+#
+# The airbender crates stay git pins -- there is no airbender workspace here.
+# They are built for nightly-2026-08-09, so this workspace shares the
+# repository-root `rust-toolchain` and keeps no pin of its own.
+
+[workspace]
+resolver = "2"
+
+members = ["circuit_mersenne_field", "wrapper", "wrapper_generator"]
+
+
+[workspace.package]
+version = "0.1.0" # x-release-please-version
+edition = "2024"
+authors = ["The Matter Labs Team <hello@matterlabs.dev>"]
+homepage = "https://zksync.io/"
+repository = "https://github.com/matter-labs/zkos-wrapper/"
+license = "MIT OR Apache-2.0"
+keywords = ["blockchain", "zksync", "zk", "risc-v"]
+categories = ["cryptography"]
+
+
+[workspace.dependencies]
+
+circuit_mersenne_field = { path = "circuit_mersenne_field" }
+
+# Path dependencies on `../crypto/`: the `(1 + beta*x)` FRI
+# batch degree lift these were pinned to a branch for is on the crypto
+# trunk (#11) and so in that tree.
+boojum = { path = "../crypto/crates/boojum" }
+bellman = { package = "zksync_bellman", path = "../crypto/crates/bellman" }
+rescue_poseidon = { path = "../crypto/crates/rescue-poseidon" }
+snark_wrapper = { path = "../crypto/crates/snark-wrapper" }
+
+# Airbender is pinned to `0decdcdb`.
+# The ref spec (not just the commit it resolves to) must match what every other
+# consumer of these crates in one dependency graph uses -- `airbender-platform`,
+# `../eravm-airbender-verifier/` and zksync-airbender-prover -- or cargo builds two
+# copies of the airbender crates whose types cross the wrapper's API
+# (`UnrolledProgramProof`). Move them together, and spell the rev the same way.
+unified_reduced_machine_verifier = { git = "https://github.com/matter-labs/zksync-airbender", package = "unified_reduced_machine_verifier", features = [
+  "proof_utils",
+  "blake2_with_compression",
+], default-features = false, rev = "0decdcdb" }
+blake_verifier = { git = "https://github.com/matter-labs/zksync-airbender", package = "blake2_with_compression_verifier", features = [
+  "proof_utils",
+  "blake2_with_compression",
+], default-features = false, rev = "0decdcdb" }
+execution_utils = { git = "https://github.com/matter-labs/zksync-airbender", package = "execution_utils", features = [
+  "prover",
+  "verifier_binaries",
+], default-features = false, rev = "0decdcdb" }
+setups = { git = "https://github.com/matter-labs/zksync-airbender", package = "setups", rev = "0decdcdb" }
+mersenne_field = { git = "https://github.com/matter-labs/zksync-airbender", package = "field", rev = "0decdcdb", features = [
+  "no_inline",
+] }
+zkos_verifier_generator = { git = "https://github.com/matter-labs/zksync-airbender", package = "verifier_generator", rev = "0decdcdb" }
+prover = { git = "https://github.com/matter-labs/zksync-airbender", package = "prover", rev = "0decdcdb" }
+
+# unified_reduced_machine_verifier = { path = "../zksync-airbender/circuit_defs/unrolled_circuits/unified_reduced_machine/verifier", features = [
+#     "proof_utils", "blake2_with_compression"
+# ], default-features = false}
+# blake_verifier = { path = "../zksync-airbender/circuit_defs/blake2_with_compression/verifier", package = "blake2_with_compression_verifier", features = [
+#     "proof_utils", "blake2_with_compression"
+# ], default-features = false}
+# execution_utils = { path = "../zksync-airbender/execution_utils", package = "execution_utils", features = [
+#     "prover"
+# ], default-features = false}
+# setups = { path = "../zksync-airbender/circuit_defs/setups", package = "setups"}
+# mersenne_field = { path = "../zksync-airbender/field", package = "field"}
+# zkos_verifier_generator = { path = "../zksync-airbender/verifier_generator", package = "verifier_generator"}
+# prover = { path = "../zksync-airbender/prover", package = "prover"}
+
+serde_json = { version = "*" }
+serde = { version = "1", default-features = false, features = [
+  "derive",
+  "alloc",
+] }
+bincode = { version = "2", features = ["serde"] }
+clap = { version = "4.5.21", features = ["derive"] }
+sha3 = "*"
+rand = "0.8"
+
+# Used for GPU proving. Paths into `../crypto-gpu/` for the same reason: the
+# shivini FRI lift is on the GPU trunk (#3), and `PlonkSnarkWrapperLogN` -- the
+# domain-size-generic snark wrapper this workspace instantiates at
+# `L1_VERIFIER_DOMAIN_SIZE_LOG` -- is now in `proof-compression` there.
+shivini = { path = "../crypto-gpu/crates/shivini" }
+proof-compression = { path = "../crypto-gpu/crates/proof-compression" }
+zksync-gpu-prover = { package = "zksync-gpu-prover", path = "../crypto-gpu/crates/gpu-prover" }
+
+# shivini = { path = "../zksync-crypto-gpu/crates/shivini", package = "shivini" }
+# proof-compression = { path = "../zksync-crypto-gpu/crates/proof-compression", package = "proof-compression" }
+# zksync-gpu-prover = { path = "../zksync-crypto-gpu/crates/gpu-prover", package = "zksync-gpu-prover" }
+
+tracing = "0.1"
+tracing-subscriber = "0.3"
+anyhow = "1"
+
+[profile.release.package."blake2_with_compression_verifier"]
+opt-level = 1
+codegen-units = 256
+overflow-checks = true
+
+[profile.release.package."zkos-wrapper"]
+opt-level = 2
+
+[profile.release]
+lto = false
+# This is needed for zksync-airbender crates to compile in a reasonable time for x86-64-unknown-linux-gnu
+overflow-checks = true
+

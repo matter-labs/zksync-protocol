@@ -1,3 +1,8 @@
 {
-  ".": "0.153.15"
+  "protocol": "0.153.17",
+  "crypto": "0.32.13",
+  "crypto-gpu": "0.156.7",
+  "vm2": "0.7.0",
+  "eravm-airbender-verifier": "31.5.0",
+  "zkos-wrapper": "0.1.0"
 }

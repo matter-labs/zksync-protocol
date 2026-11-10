@@ -1,0 +1,728 @@
+name: "CI - eravm-airbender-verifier"
+
+# The `eravm-airbender-verifier/` half of the Rust CI, called from `ci.yaml` when
+# the path filter says a diff can reach this workspace. No `on: pull_request`
+# here -- the caller owns the trigger, the concurrency group and the mandatory
+# status check.
+#
+# The workspace (see the comment at the top of `protocol/Cargo.toml`) holding
+# the EraVM verifier libraries, the Airbender guest that
+# runs them, and the `eravm-prover-host` CLI that proves the guest's execution.
+# The jobs below are the vendored port of what matter-labs/eravm-airbender-verifier
+# ran on its own PRs (its `ci-check.yaml`), rebased onto this layout.
+#
+# Three things about them are unlike the other four workspaces:
+#
+#  1. **The guest keeps its own toolchain.** `guest/rust-toolchain.toml` names
+#     the repository nightly again, with the components the guest build needs,
+#     because the guest binary is a release artifact and is only reproducible for
+#     a fixed toolchain. rustup finds it by walking up from the working
+#     directory, so no job below passes a toolchain input; doing so would
+#     duplicate the pin.
+#  2. **Two of them need a GPU, and one needs CUDA to build.** Those two are
+#     gated behind `vk-filter` below, exactly as upstream gated them, so most
+#     pull requests skip the CUDA build and the proving run.
+#  3. **They fetch Git LFS objects.** The mainnet batch corpus lives in LFS and
+#     is excluded from clones by the root `.lfsconfig`, which also points LFS at
+#     the upstream repository's store -- so these fetches need no credentials.
+#
+# The caller filters this workflow on `eravm-airbender-verifier/` *plus*
+# `protocol/`, `vm2/` and `zkos-wrapper/` (and `crypto/` and `crypto-gpu/`,
+# upstream of those): the verifier depends on `protocol/crates/zk_evm`,
+# `protocol/crates/circuit_sequencer_api`, `vm2/crates/vm2` and
+# `zkos-wrapper/wrapper` by path, so a change to any of them compiles straight
+# into the guest or the host -- which is exactly the breakage vendoring exists to
+# catch.
+#
+# `vk-filter` is a second, narrower filter *inside* that one, kept as upstream
+# wrote it: it decides whether the two expensive GPU/CUDA jobs run at all. Note
+# it does not list `crypto/`, so a crypto-only change runs the cheap verifier
+# jobs but not the proving run.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  # `vk-filter` below reads the PR Files API through `dorny/paths-filter`, which
+  # `contents: read` alone does not cover. The calling job in `ci.yaml` has to
+  # grant this too: a called workflow cannot hold more than its caller's token.
+  pull-requests: read
+
+env:
+  # The curated mainnet-batch subset that the jobs below fetch from Git LFS and
+  # run against, as upstream's own `ci-check.yaml` kept it. Workflow-level so the
+  # three jobs that need the list cannot drift apart.
+  CI_BATCHES: 84730.bin.gz,84731.bin.gz,84732.bin.gz
+
+jobs:
+  lints:
+    name: fmt and clippy
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: eravm-airbender-verifier
+    env:
+      # Lets the CUDA crates in the graph compile without a CUDA toolkit; the
+      # stubs are link-time only, and nothing here runs them.
+      ZKSYNC_USE_CUDA_STUBS: true
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Rust toolchain
+        uses: moonrepo/setup-rust@ede6de059f8046a5e236c94046823e2af11ca670 # v1.2.2
+        with:
+          inherit-toolchain: true
+
+      # The action above sets up rustup against the repository-root pin, which
+      # governs this workspace too; the components it does not install are added
+      # here.
+      - name: Install the toolchain components
+        run: |
+          cargo --version
+          rustup component add rustfmt clippy
+
+      - name: Rustfmt
+        run: cargo fmt --all --check
+
+      # The Airbender guest is built via `cargo-airbender`, not plain Cargo targets.
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --exclude eravm-prover-guest --locked -- -D warnings
+
+      # `cycle-markers` is the offline calibration build: non-default, never
+      # shipped, and it compiles a DIFFERENT `execute()`. The feature ADDS a
+      # `version` field to `SystemEnvInput` (a protocol version on the host↔guest
+      # wire, which the production build cannot express) so a v29 batch can be
+      # measured under v29 semantics, and it emits CSR 0x7ff phase markers. That
+      # path is invisible to CI unless asked for, and it has drifted unnoticed
+      # upstream.
+      #
+      # `--all-targets` is the point -- it compiles the `#[cfg(feature =
+      # "cycle-markers")]` tests, the only place that flavour's behaviour is
+      # asserted. Every crate that reads the flavour must be named explicitly:
+      # `zksync_cli_utils` constructs the flavour-dependent `SystemEnvInput`,
+      # `zksync_cycle_model` carries its own cfg'd code, and `zksync_vm_compare`
+      # must still typecheck against the calibration `SystemEnvInput`. The
+      # verifier's feature forwards only to `zksync_cli_utils` (its
+      # dev-dependency), so the other two would otherwise never be compiled in
+      # this flavour by any PR-triggered job.
+      - name: Clippy (cycle-markers calibration build)
+        run: |
+          cargo clippy -p zksync_airbender_verifier -p zksync_cli_utils \
+                       -p zksync_vm_compare -p zksync_cycle_model \
+                       --features cycle-markers --all-targets --locked -- -D warnings
+
+      # `legacy-unproven-gaps` adds calibration-only entries that no default
+      # build compiles. Its guest branch is built by the calibration-guest step.
+      - name: Clippy (legacy-unproven-gaps)
+        run: |
+          cargo clippy -p zksync_airbender_verifier -p eravm-prover-host \
+                       --features zksync_airbender_verifier/legacy-unproven-gaps,eravm-prover-host/legacy-unproven-gaps \
+                       --all-targets --locked -- -D warnings
+
+  tests:
+    name: test
+    runs-on: matterlabs-ci-runner-large
+    defaults:
+      run:
+        working-directory: eravm-airbender-verifier
+    env:
+      ZKSYNC_USE_CUDA_STUBS: true
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # The batch corpus is fetched from the *upstream* repository's public
+          # LFS store, which answers an anonymous request but not necessarily one
+          # carrying this repository's installation token -- and checkout leaves
+          # that token in `http.https://github.com/.extraheader`, which git-lfs
+          # would then send.
+          persist-credentials: false
+
+      # Fetch the LFS batch fixtures the storage-soundness regressions
+      # (crates/airbender_verifier/tests/fail_closed.rs) run against. A clean
+      # checkout only has LFS pointers, and those tests fail closed under CI
+      # rather than silently skip, so this job must materialize them.
+      - name: Install linux packages
+        shell: 'bash -ex {0}'
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          if command -v sudo >/dev/null 2>&1; then
+            SUDO=sudo
+          fi
+          ${SUDO} apt update && ${SUDO} apt install -y git-lfs
+
+      - name: Install Git LFS
+        run: git lfs install --local
+
+      - name: Pull CI mainnet batches
+        run: ./scripts/fetch_lfs_batches.sh "$CI_BATCHES"
+
+      - name: Install Rust toolchain
+        uses: moonrepo/setup-rust@ede6de059f8046a5e236c94046823e2af11ca670 # v1.2.2
+        with:
+          inherit-toolchain: true
+
+      # The Airbender guest is built via `cargo-airbender`, not plain Cargo targets.
+      - name: Run tests
+        run: cargo test --workspace --exclude eravm-prover-guest --locked
+
+      # Compiling the calibration build is not enough -- the version handling is
+      # `#[cfg]`-split between the flavours (the guest-channel wire keeps or
+      # drops the label fields, `load_batch` keeps or pins each batch's
+      # version), and a mis-gated branch fails only when RUN. `--lib` keeps
+      # this off the LFS fixtures; `zksync_cli_utils` carries the calibration
+      # label-gate tests.
+      - name: Run tests (cycle-markers calibration build)
+        run: cargo test -p zksync_airbender_verifier -p zksync_cli_utils --features cycle-markers --lib --locked
+
+      - name: Run tests (legacy-unproven-gaps)
+        run: cargo test -p zksync_airbender_verifier --features legacy-unproven-gaps --test fail_closed --locked
+
+  vm-compare-batches:
+    name: compare legacy and fast VM on mainnet batches
+    runs-on: matterlabs-ci-runner-large
+    defaults:
+      run:
+        working-directory: eravm-airbender-verifier
+    env:
+      ZKSYNC_USE_CUDA_STUBS: true
+      BATCHES_DIR: testdata/era_mainnet_batches/binary
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # The batch corpus is fetched from the *upstream* repository's public
+          # LFS store, which answers an anonymous request but not necessarily one
+          # carrying this repository's installation token -- and checkout leaves
+          # that token in `http.https://github.com/.extraheader`, which git-lfs
+          # would then send.
+          persist-credentials: false
+
+      - name: Install linux packages
+        shell: 'bash -ex {0}'
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          if command -v sudo >/dev/null 2>&1; then
+            SUDO=sudo
+          fi
+          ${SUDO} apt update && ${SUDO} apt install -y git-lfs
+
+      - name: Install Git LFS
+        run: git lfs install --local
+
+      - name: Pull CI mainnet batches
+        run: ./scripts/fetch_lfs_batches.sh "$CI_BATCHES"
+
+      - name: Install Rust toolchain
+        uses: moonrepo/setup-rust@ede6de059f8046a5e236c94046823e2af11ca670 # v1.2.2
+        with:
+          inherit-toolchain: true
+
+      - name: Compare CI batches
+        run: |
+          cargo run --release -p zksync_vm_compare --locked --bin vm_compare -- \
+            --batches-dir "$BATCHES_DIR" \
+            --batch-files "$CI_BATCHES"
+
+  # Build the guest in the pinned cargo-airbender image and publish it as a
+  # workflow artifact. A fixed toolchain + CARGO_HOME at a fixed workspace path
+  # yields a reproducible app.bin -- the same image + invocation
+  # `release-artifacts.yaml` uses -- so this also catches a guest that fails to
+  # build. The guest dist is not committed; it is a release asset.
+  # `host-run-batches` and `host-integration-run` consume the
+  # artifact this job uploads.
+  guest-build:
+    name: build the Airbender guest
+    runs-on: matterlabs-ci-runner-medium
+    timeout-minutes: 60
+    container:
+      image: ghcr.io/matter-labs/cargo-airbender:v0.3.0
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # The container runs as root but the runner-mounted workspace is owned by
+      # a different uid, so git refuses to touch it ("dubious ownership").
+      - name: Mark workspace as safe for git
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Build guest
+        working-directory: eravm-airbender-verifier/guest
+        run: cargo airbender build
+
+      # The Airbender circuit proves RV32IM only: fail on any instruction
+      # outside that set in the built guest, and on any soft-float arithmetic
+      # intrinsic beyond the (empty) committed baseline. See the script header.
+      # Scans the build ELF (the source of dist's app.bin/app.text objcopies) --
+      # dist/app/app.elf has .text stripped (-R .text) and holds no code.
+      - name: Check guest instruction set
+        # keep in sync with the identical 'Check guest instruction set' step in release-artifacts.yaml
+        working-directory: eravm-airbender-verifier/guest
+        run: |
+          bash ../scripts/check_guest_riscv_code.sh \
+            ../target/riscv32im-risc0-zkvm-elf/release/eravm-prover-guest \
+            --baseline ../scripts/guest_softfloat_baseline.txt \
+            --min-insns 500000
+
+      # The heap arena is a link-time constant (`--defsym=_heap_size` in
+      # guest/.cargo/config.toml) and is baked into both VKs, so a guest built
+      # with an unintended arena matches no registered VK. See the script header
+      # for the drift paths this catches.
+      - name: Check guest memory layout
+        # keep in sync with the identical 'Check guest memory layout' step in release-artifacts.yaml
+        working-directory: eravm-airbender-verifier/guest
+        run: |
+          bash ../scripts/check_guest_memory_layout.sh \
+            ../target/riscv32im-risc0-zkvm-elf/release/eravm-prover-guest \
+            --expect-heap-mib 4022
+
+      - name: Upload guest dist
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f3 # v6.0.0
+        with:
+          name: guest-dist
+          path: eravm-airbender-verifier/guest/dist/app
+          if-no-files-found: error
+          retention-days: 1
+
+      # `cycle-markers` changes the guest's INPUT STRUCT (`SystemEnvInput` gains
+      # `version`), not just the CSR markers, and the workspace lints run for the
+      # host target while the guest only builds for riscv32 -- so a cfg mistake
+      # here surfaced only on the next `cycle-model-drift` run, which is not
+      # PR-triggered. Same invocation as that workflow; +30 s per flavour on the
+      # ~210 s above, since the dependency tree and build-std are
+      # feature-independent.
+      #
+      # The CSR allowlist is what actually keeps this flavour unshippable, so
+      # assert it rather than assume it. ONE step, so nothing can be inserted
+      # between build and scan; LAST, because it overwrites the already-uploaded
+      # dist with a binary that must never ship.
+      - name: Calibration guests build, and the RV32IM scan rejects them
+        working-directory: eravm-airbender-verifier/guest
+        run: |
+          # `legacy-unproven-gaps` implies `cycle-markers`, so the scan must
+          # reject it too.
+          for features in cycle-markers legacy-unproven-gaps; do
+            cargo airbender build -- --features "$features"
+            # Only exit 1 is the expected rejection; as an `if` condition, the
+            # scanner's exit 2 (broken scan) would also have passed the step.
+            status=0
+            bash ../scripts/check_guest_riscv_code.sh \
+              ../target/riscv32im-risc0-zkvm-elf/release/eravm-prover-guest \
+              --baseline ../scripts/guest_softfloat_baseline.txt \
+              --min-insns 500000 || status=$?
+            case "$status" in
+              1) ;;
+              0)
+                echo "::error::the RV32IM scan ACCEPTED the $features guest -- CSR 0x7ff is no longer rejected, so nothing stops a calibration guest being proved"
+                exit 1 ;;
+              *)
+                echo "::error::the RV32IM scan did not run (exit $status); it asserted nothing"
+                exit "$status" ;;
+            esac
+          done
+
+  host-run-batches:
+    name: run the guest over mainnet batches
+    needs: guest-build
+    runs-on: matterlabs-ci-runner-high-performance
+    # Prebuilt cargo-airbender image (CPU) published by airbender-platform's
+    # ci-release pipeline. Ships nightly Rust + cargo-binutils + cargo-airbender.
+    container:
+      image: ghcr.io/matter-labs/cargo-airbender:v0.3.0
+    env:
+      ZKSYNC_USE_CUDA_STUBS: true
+      BATCHES_DIR: testdata/era_mainnet_batches/binary
+    defaults:
+      run:
+        working-directory: eravm-airbender-verifier
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # The batch corpus is fetched from the *upstream* repository's public
+          # LFS store, which answers an anonymous request but not necessarily one
+          # carrying this repository's installation token -- and checkout leaves
+          # that token in `http.https://github.com/.extraheader`, which git-lfs
+          # would then send.
+          persist-credentials: false
+
+      # The container runs as root but the runner-mounted workspace is owned by
+      # a different uid, so git refuses to touch it ("dubious ownership").
+      - name: Mark workspace as safe for git
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Install linux packages
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: apt-get update && apt-get install -y libclang-dev git-lfs
+
+      - name: Install Git LFS
+        run: git lfs install --local
+
+      - name: Pull CI mainnet batches
+        run: ./scripts/fetch_lfs_batches.sh "$CI_BATCHES"
+
+      # The guest dist is not committed; consume the reproducible build produced
+      # by `guest-build`. dist_dir() resolves to guest/dist/app, so drop
+      # the artifact there.
+      - name: Download guest dist
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: guest-dist
+          path: eravm-airbender-verifier/guest/dist/app
+
+      - name: Run host execution for CI batches
+        run: |
+          cargo run --release -p eravm-prover-host --locked -- \
+            run \
+            --batches-dir "$BATCHES_DIR" \
+            --batch-files "$CI_BATCHES"
+
+      # The guest's heap is larger than isize::MAX, which talc cannot take as one
+      # heap: its gap arithmetic (`ptr::add`) is then undefined behaviour, and
+      # airbender-rt's allocator splits the arena to avoid it. A guest built with
+      # core's UB precondition checks panics on its first allocation if that
+      # regresses, so run a CI batch on one (separate dist; the proved guest is
+      # untouched).
+      - name: Build the UB-checks guest
+        working-directory: eravm-airbender-verifier/guest
+        run: |
+          cargo airbender build --dist ../target/guest-ub-checks \
+            -- --config "$(realpath ../scripts/guest_ub_checks.toml)"
+
+      - name: Run a CI batch on the UB-checks guest
+        run: |
+          ERAVM_PROVER_HOST_GUEST_DIR="$PWD/target/guest-ub-checks/app" \
+          cargo run --release -p eravm-prover-host --locked -- \
+            run \
+            --batches-dir "$BATCHES_DIR" \
+            --batch-files 84730.bin.gz
+
+      # Functional check of the streaming Merkle-proof path on a synthetic
+      # 140k-unique-read batch (900065), run on the real compiled guest through
+      # the transpiler (CPU only -- no GPU). The eager expansion it replaced needs
+      # ~1.15 GiB, which the 4022 MiB guest heap holds, so a regression to it
+      # does not fail here. Fetched separately from the mainnet CI_BATCHES since
+      # it is synthetic, not a mainnet batch.
+      - name: Pull read-heavy regression batch
+        run: ./scripts/fetch_lfs_batches.sh 900065.bin.gz
+
+      - name: Run guest-OOM regression (read-heavy batch)
+        run: |
+          cargo test --release -p eravm-prover-host --locked \
+            --test integration_test -- \
+            --ignored --nocapture host_runs_read_heavy_batch_without_guest_oom
+
+      - name: Run guest with read proofs
+        run: |
+          cargo test --release -p eravm-prover-host --locked \
+            --test integration_test -- \
+            --ignored --nocapture host_runs_batch_with_read_proofs
+
+  # Cheap precondition for the expensive proving guard: only run
+  # `build-prover-host` / `host-integration-run` when the diff
+  # can change the guest binary or either verification key. Most pull requests
+  # touch none of these, so they skip the CUDA build + GPU proving rather than
+  # burning runners.
+  vk-filter:
+    name: filter VK-relevant changes
+    runs-on: ubuntu-latest
+    # `dorny/paths-filter` reads the changed-file list for a `pull_request` event
+    # from the PR Files API rather than from a local diff, so it needs more than
+    # the `contents: read` this workflow grants at the top. Without it the action
+    # fails with "Resource not accessible by integration", which takes the two
+    # gated jobs below down with it.
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      # Inputs that can change the guest binary or either VK (and thus the
+      # proving pipeline): the guest sources, the workspace crates the guest
+      # links, the dependency pins, the toolchain, and the host CLI that derives
+      # the VKs -- plus, unlike upstream, the workspaces the verifier now depends
+      # on by path. A `protocol/` or `vm2/` change compiles straight into the
+      # guest and a `zkos-wrapper/` change into the SNARK VK the host derives, so
+      # either moves the keys just as a change here would, as does `crypto/` or
+      # `crypto-gpu/`, which `zkos-wrapper` reaches by path.
+      vk: ${{ steps.filter.outputs.vk }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: filter
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        with:
+          filters: |
+            vk:
+              - 'eravm-airbender-verifier/**'
+              - 'protocol/**'
+              - 'vm2/**'
+              - 'zkos-wrapper/**'
+              - 'crypto/**'
+              - 'crypto-gpu/**'
+              - 'rust-toolchain'
+              - '.github/workflows/ci-verifier.yaml'
+              - '.github/workflows/ci.yaml'
+
+  # Build the host CLI with `--features gpu_snark` (plus era-bellman-cuda) on a
+  # high-performance runner inside the cargo-airbender CUDA image. This is the
+  # ONLY place where `gpu-prover` (and transitively `era_cudart_sys`, the
+  # `bellman-cuda`-using crates) compile -- the GPU runner that runs
+  # `host-integration-run` has the driver but no toolkit, so cargo there
+  # would either fail or hang. Gated on `vk` changes so most pull requests skip
+  # the CUDA build.
+  #
+  # The guest is built separately (`guest-build`);
+  # `host-integration-run` downloads these artifacts plus the guest dist
+  # and runs them on the GPU runner.
+  build-prover-host:
+    name: build the prover host (CUDA)
+    needs: vk-filter
+    if: needs.vk-filter.outputs.vk == 'true'
+    runs-on: matterlabs-ci-runner-high-performance
+    timeout-minutes: 90
+    # Prebuilt cargo-airbender CUDA image -- ships nightly Rust + clang + cmake +
+    # the CUDA 12.9 devel toolchain, so no per-step installs.
+    container:
+      image: ghcr.io/matter-labs/cargo-airbender-cuda:v0.3.0
+    env:
+      # The runtime runner is an RTX 6000 Ada (sm_89). Match the GPU runner.
+      CUDA_ARCH: "89"
+      CUDAARCHS: "89"
+    defaults:
+      run:
+        working-directory: eravm-airbender-verifier
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # sccache (RUSTC_WRAPPER) wired to matterlabs's GCS bucket.
+
+      - name: Setup runner
+        uses: matter-labs/zksync-os-server/.github/actions/runner-setup@24d38529dbeb2f0bdd016005b1e5e0bc491b692f
+
+      - name: Install extra apt packages
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: apt-get update && apt-get install -y libclang-dev
+
+      - name: Inspect toolchain
+        run: |
+          nvcc --version
+          cmake --version
+          rustc --version
+
+      # Build era-bellman-cuda -- `zksync-crypto-gpu`'s `gpu-ffi` build script
+      # reads `BELLMAN_CUDA_DIR` from the env. Without it, linking gpu-prover
+      # fails or stalls. Cloned at the repository root, outside the workspace.
+      - name: Build era-bellman-cuda
+        working-directory: ${{ github.workspace }}
+        run: |
+          git clone --depth=1 https://github.com/matter-labs/era-bellman-cuda.git
+          cmake -B era-bellman-cuda/build -S era-bellman-cuda -DCMAKE_BUILD_TYPE=Release
+          cmake --build era-bellman-cuda/build -j"$(nproc)"
+          echo "BELLMAN_CUDA_DIR=$(pwd)/era-bellman-cuda" >> "${GITHUB_ENV}"
+
+      # Build the host CLI so `host-integration-run` can derive the VKs
+      # (`gen-vks`) and download the trusted setup on the GPU runner.
+      - name: Build eravm-prover-host (gpu_snark)
+        env:
+          RUST_BACKTRACE: 1
+          # The `runner-setup` sccache cannot load its GCS credentials.
+          RUSTC_WRAPPER: ""
+        run: |
+          cargo build --release -p eravm-prover-host --locked --features gpu_snark
+          ls -lh target/release/eravm-prover-host
+
+      # Compile (don't run) the host integration test so
+      # `host-integration-run` can execute it on the GPU runner, which
+      # has no CUDA toolkit to build it. cargo emits JSON metadata pointing at
+      # the hash-suffixed test executable.
+      - name: Build host integration test binary
+        env:
+          RUST_BACKTRACE: 1
+          # The `runner-setup` sccache cannot load its GCS credentials.
+          RUSTC_WRAPPER: ""
+        run: |
+          cargo test --release --locked --features gpu_snark \
+            --package eravm-prover-host --test integration_test \
+            --no-run --message-format=json > test-build.json
+          test_bin=$(jq -r 'select(.executable != null and (.target.name == "integration_test")) | .executable' test-build.json | tail -n1)
+          if [ -z "$test_bin" ]; then
+            echo "Failed to locate integration_test binary in cargo metadata" >&2
+            exit 1
+          fi
+          echo "Test binary: $test_bin"
+          mkdir -p test-stage
+          cp -v "$test_bin" test-stage/integration_test
+
+      # Stage runtime CUDA libraries `host-integration-run` needs on the
+      # GPU runner:
+      #   - bellman-cuda's own outputs (it isn't in any system path)
+      #   - libcudart from the container's CUDA toolkit (the GPU runner has the
+      #     driver -- `libcuda.so` -- but no toolkit, so `libcudart.so.13` is
+      #     missing without us shipping it)
+      - name: Stage runtime CUDA libraries
+        run: |
+          mkdir -p bellman-cuda-stage
+          find "$BELLMAN_CUDA_DIR/build" -type f \( -name '*.so*' -o -name '*.a' \) -exec cp -v {} bellman-cuda-stage/ \;
+          cp -v /usr/local/cuda/lib64/libcudart.so* bellman-cuda-stage/
+          ls -lh bellman-cuda-stage/
+
+      - name: Upload prover-host binary
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f3 # v6.0.0
+        with:
+          name: eravm-prover-host-bin
+          path: eravm-airbender-verifier/target/release/eravm-prover-host
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload host integration test binary
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f3 # v6.0.0
+        with:
+          name: eravm-prover-host-integration-test
+          path: eravm-airbender-verifier/test-stage/integration_test
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload bellman-cuda libraries
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f3 # v6.0.0
+        with:
+          name: bellman-cuda
+          path: eravm-airbender-verifier/bellman-cuda-stage
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats || true
+
+  # Derive the VKs on the GPU runner from the freshly-built guest (never a
+  # committed copy -- there isn't one) and run the host integration test, which
+  # drives the FRI->SNARK proving pipeline in-process against those VKs. Because
+  # the VKs are generated from this pull request's guest, the proof is always
+  # verified against the binary the pull request would actually ship. No cargo
+  # here -- only the prebuilt host + test binaries from
+  # `build-prover-host`, the staged CUDA runtime libs, the guest dist
+  # from `guest-build`, and the LFS batch. Gated on the same `vk` filter.
+  host-integration-run:
+    name: prove a batch end to end (GPU)
+    needs: [build-prover-host, guest-build, vk-filter]
+    # `build-prover-host` shares the `vk` filter, so it runs whenever
+    # this job does. `guest-build` is unconditional; require its success
+    # since we prove against the guest it produced. `!cancelled()` lets this
+    # evaluate normally.
+    if: >-
+      !cancelled() &&
+      needs.vk-filter.outputs.vk == 'true' &&
+      needs.build-prover-host.result == 'success' &&
+      needs.guest-build.result == 'success'
+    # RTX 6000 Ada (48GB VRAM) -- required for the airbender prover. The default
+    # `matterlabs-ci-gpu-runner` (L4, 22GB) OOMs during proving.
+    runs-on: matterlabs-ci-hetzner-rtx6000-gpu
+    # gen-vks (VK derivation) + the full FRI->SNARK proving test run back to back
+    # here; allow more headroom than proving alone needed.
+    timeout-minutes: 120
+    # eravm-prover-host and the test binary link era-bellman-cuda and
+    # libcudart.so.13 via `--features gpu_snark`, so every step that runs them
+    # needs the staged CUDA libs on the loader path.
+    env:
+      LD_LIBRARY_PATH: ${{ github.workspace }}/stage/cuda-libs
+    defaults:
+      run:
+        working-directory: eravm-airbender-verifier
+    steps:
+      # Need the repository for scripts/fetch_lfs_batches.sh and the testdata path.
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # The batch corpus is fetched from the *upstream* repository's public
+          # LFS store, which answers an anonymous request but not necessarily one
+          # carrying this repository's installation token -- and checkout leaves
+          # that token in `http.https://github.com/.extraheader`, which git-lfs
+          # would then send. Nothing here needs credentials afterwards: the git
+          # dependencies cargo fetches are all public.
+          persist-credentials: false
+
+      - name: Install git-lfs
+        shell: 'bash -ex {0}'
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          if command -v sudo >/dev/null 2>&1; then SUDO=sudo; fi
+          ${SUDO} apt-get update
+          ${SUDO} apt-get install -y git-lfs
+
+      - name: Pull batch 84730
+        run: |
+          git lfs install --local
+          ./scripts/fetch_lfs_batches.sh 84730.bin.gz
+
+      - name: Download prover-host binary
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: eravm-prover-host-bin
+          path: stage/bin
+
+      - name: Download host integration test binary
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: eravm-prover-host-integration-test
+          path: stage/test
+
+      - name: Download bellman-cuda libraries
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: bellman-cuda
+          path: stage/cuda-libs
+
+      - name: Download guest dist
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: guest-dist
+          path: eravm-airbender-verifier/guest/dist/app
+
+      - name: Make binaries executable
+        working-directory: ${{ github.workspace }}
+        run: |
+          chmod +x stage/bin/eravm-prover-host stage/test/integration_test
+          ls -lh stage/bin stage/test stage/cuda-libs eravm-airbender-verifier/guest/dist/app
+
+      - name: Download SNARK trusted setup
+        working-directory: ${{ github.workspace }}
+        run: |
+          mkdir -p stage/setup
+          ./stage/bin/eravm-prover-host download-trusted-setup \
+              --output stage/setup/setup.key
+
+      - name: Generate VKs from the built guest
+        working-directory: ${{ github.workspace }}
+        env:
+          # Derive VKs from the verifier-guest-build output (the FRI VK embeds
+          # sha256(app.bin)); the baked-in CARGO_MANIFEST_DIR points elsewhere.
+          ERAVM_PROVER_HOST_GUEST_DIR: ${{ github.workspace }}/eravm-airbender-verifier/guest/dist/app
+          RUST_BACKTRACE: 1
+          RUST_MIN_STACK: "134217728"
+        run: |
+          # SNARK wrapper recursion needs an unbounded stack -- see the workspace README.
+          ulimit -s unlimited
+          mkdir -p vks
+          ./stage/bin/eravm-prover-host gen-vks \
+              --output-dir vks \
+              --trusted-setup stage/setup/setup.key
+          ls -lh vks
+
+      - name: Run host integration test (FRI then SNARK)
+        working-directory: ${{ github.workspace }}
+        env:
+          # The test binary's baked-in CARGO_MANIFEST_DIR points at the build
+          # runner, so steer it at this runner's guest dist / generated VKs /
+          # corpus.
+          IT_GUEST_DIST_DIR: ${{ github.workspace }}/eravm-airbender-verifier/guest/dist/app
+          IT_BATCHES_DIR: ${{ github.workspace }}/eravm-airbender-verifier/testdata/era_mainnet_batches/binary
+          IT_FRI_VK: ${{ github.workspace }}/vks/fri_vk.bin
+          IT_SNARK_VK: ${{ github.workspace }}/vks/snark_vk.json
+          IT_BATCH_FILE: 84730.bin.gz
+          RUST_BACKTRACE: 1
+          # SNARK wrapping needs far more than the 2 MB default thread stack.
+          RUST_MIN_STACK: "134217728"
+        run: |
+          # SNARK wrapper recursion needs a large stack -- see the workspace README.
+          ulimit -s unlimited
+          ./stage/test/integration_test --ignored --nocapture host_proves_fri_then_snark

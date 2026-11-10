@@ -1,0 +1,157 @@
+name: "CI - vm2"
+
+# The `vm2/` half of the Rust CI, called from `ci.yaml` when the path filter says
+# a diff can reach this workspace. No `on: pull_request` here -- the caller owns
+# the trigger, the concurrency group and the mandatory status check.
+#
+# None of the `protocol/` jobs touch these crates: they run cargo in `protocol/`,
+# which neither builds vm2's members nor formats them. What follows is the
+# vendored port of what matter-labs/vm2 ran on its own PRs, rebased onto this
+# repo's toolchain.
+#
+# The caller filters this on `vm2/` *plus* `protocol/` plus `crypto/`, never
+# `vm2/` alone: vm2 depends on `protocol/crates/zk_evm`,
+# `protocol/crates/zk_evm_abstractions` and `protocol/crates/zkevm_opcode_defs`
+# by path, and those on `crypto/`, so a change to either can break vm2 -- which
+# is exactly the breakage vendoring exists to catch.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: build, lint and test
+    runs-on: matterlabs-ci-runner-large
+    defaults:
+      run:
+        working-directory: vm2
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      # No `toolchain` input on purpose: rustup walks up from the working
+      # directory, so the root `rust-toolchain` governs `vm2/` too. Upstream
+      # pinned the nightly a second time, in its own `rust-toolchain.toml` and a
+      # CI env var; both are gone so the two cannot drift apart.
+      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
+        with:
+          # Not `-D warnings`: the deny lives on the clippy invocations below,
+          # so a warning in a *dependency* (`protocol/crates/zk_evm` has one)
+          # does not fail this job.
+          rustflags: ""
+          components: rustfmt, clippy, rust-src
+          cache-workspaces: vm2
+
+      - name: Build
+        run: |
+          # AFL fuzzing requires a separate command (see the `vm2-fuzz` job)
+          cargo build --workspace --all-targets --exclude zksync_vm2_afl_fuzz
+
+      # Two runs are needed. One for normal VM, another for the mocked version
+      - name: Run clippy
+        run: |
+          # Check the main library with non-test features (needs to be tested in isolation since the fuzzing crate enables test features)
+          cargo clippy -p zksync_vm2 --all-targets -- -D warnings
+          # The benches in `vm2` don't compile with fuzzing enabled
+          cargo clippy --workspace --all-features --lib --bins --tests -- -D warnings
+
+      # vm2 formats with nightly-only rustfmt options, so it needs its own
+      # invocation: the `formatting` job below runs in `protocol/` and does not
+      # reach vm2's members.
+      - name: Check formatting
+        run: |
+          cargo fmt --check -- --config imports_granularity=Crate --config group_imports=StdExternalCrate
+
+      - name: Run tests
+        # Debug build, proptest's default case count: keeps debug assertions and
+        # overflow checks on every test. The legacy precompile proptests get their
+        # 10000-case run separately below.
+        run: |
+          cargo test -p zksync_vm2_interface -p zksync_vm2 --all-targets
+
+      - name: Run legacy precompile proptests at CI depth
+        # Upstream vm2 ran the whole suite at PROPTEST_CASES=10000. Only the four
+        # legacy precompile proptests notice: each case builds a fresh heap and
+        # writes at a random offset up to 2 GB, so the time is the vm2 heap code
+        # itself, not the k256 / p256 math -- ~10 min unoptimized, and optimizing
+        # dependencies alone changed nothing. In release the same four tests run
+        # ~7.5x faster, so that depth is kept here at a fraction of the cost.
+        run: |
+          PROPTEST_CASES=10000 \
+          cargo test --release -p zksync_vm2 --lib precompiles::legacy::tests
+
+      - name: Run doc tests
+        run: cargo test --workspace --doc
+
+      # Upstream built these in a `document` job that pushed to `gh-pages`. The
+      # deploy is dropped but the build is kept: it is
+      # what enforces the `missing_docs` warning and the intra-doc links.
+      - name: Build docs
+        run: |
+          cargo rustdoc -p zksync_vm2_interface -- -Z unstable-options --enable-index-page
+          cargo rustdoc -p zksync_vm2 -- -Z unstable-options --enable-index-page
+
+  # Its own job so that an AFL toolchain or session failure cannot mask the
+  # results of clippy, fmt, tests and doc tests.
+  fuzz:
+    name: fuzz
+    runs-on: matterlabs-ci-runner-large
+    defaults:
+      run:
+        working-directory: vm2
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
+        with:
+          # `cargo afl build` hardcodes `-C target-cpu=native`. Cargo fingerprints the
+          # literal flag, not the CPU it resolved to, so rust-cache can restore artifacts
+          # onto a runner with a different ISA, where they die with SIGILL. cargo-afl
+          # appends user RUSTFLAGS after its own and the last `-C target-cpu` wins, so
+          # this pins codegen to a baseline every x64 runner supports.
+          rustflags: "-C target-cpu=x86-64-v3"
+          components: rust-src
+          cache-workspaces: vm2
+          # Never share a cache between the plain and the AFL-instrumented builds.
+          cache-key: afl
+
+      - name: Install cargo-afl
+        # Exact version, matching the `afl` pin in vm2/Cargo.lock.
+        run: cargo install cargo-afl --version=0.15.24 --locked --force
+
+      - name: Check cargo-afl matches the afl pin in Cargo.lock
+        # A cargo-afl binary driving a different afl crate version makes every exec
+        # abort at run time with no build error, so catch the drift here instead.
+        run: |
+          INSTALLED=$(cargo afl --version | awk '{print $2}')
+          PINNED=$(grep -A1 '^name = "afl"$' Cargo.lock | grep '^version' | cut -d'"' -f2)
+          echo "cargo-afl: $INSTALLED, afl in Cargo.lock: $PINNED"
+          test "$INSTALLED" = "$PINNED"
+
+      - name: Build fuzzer
+        run: cargo afl build -p zksync_vm2_afl_fuzz --release
+
+      - name: Run fuzzer for a bit
+        id: run_fuzzer
+        # An abort (the session itself failed, no crash found) is reported by the
+        # next step, so its diagnostics are never swallowed.
+        continue-on-error: true
+        run: |
+          # `cargo afl build` above already built this bin; don't compile the
+          # dependency tree again in the debug profile just to print one number.
+          MIN_LEN=$(./target/release/check_input_size)
+          # Fail loudly if this is not a number instead of feeding garbage to -g.
+          test "$MIN_LEN" -gt 0
+          AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 \
+          cargo afl fuzz -i tests/afl-fuzz/in -o tests/afl-fuzz/out -V 60 -g "$MIN_LEN" target/release/zksync_vm2_afl_fuzz
+
+      - name: Fail if the fuzzer found a crash or aborted
+        run: |
+          if [ -n "$(ls tests/afl-fuzz/out/default/crashes 2>/dev/null)" ]; then
+            cd tests/afl-fuzz/ && sh show_crash.sh;
+            exit 1
+          fi
+          if [ "${{ steps.run_fuzzer.outcome }}" = "failure" ]; then
+            echo "::error::fuzzer step failed without producing a crash - session/toolchain failure, not a VM finding; see the step log"
+            exit 1
+          fi

@@ -1,0 +1,2 @@
+fixture,family,vector,input_param,bits,count,addr,tx,l1_batch,gas_used,ok
+900380,ecpairing_maxcall,ecpair_900,pairs_in_one_call=900,900,1,0x0000000000000000000000000000000000000008,0xd4ce4d89b35bc244ae9e5b6bd77bcdb577c35370cc33042e5ebc9f64a16f90e3,1314,73136754,ok

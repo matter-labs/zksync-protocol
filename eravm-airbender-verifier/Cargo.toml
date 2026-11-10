@@ -1,0 +1,187 @@
+[workspace]
+# A self-contained workspace with its own version line and lockfile.
+#
+# `circuit_sequencer_api` and `zk_evm` (from `../protocol/`), `zksync_vm2` (from
+# `../vm2/`) and `zkos-wrapper` below are path dependencies, so the guest is built
+# against the working tree rather than the last published tag. `../crypto/` and
+# `../crypto-gpu/` are reached only through `zkos-wrapper`.
+#
+# `guest/rust-toolchain.toml` pins the toolchain for the guest binary, a release
+# artifact reproducible only for a fixed one; it names the repository nightly,
+# which is also what `cargo-airbender` builds guests with. Everything else takes
+# the repository-root `rust-toolchain`, `.cargo/config.toml` and `deny.toml`.
+members = [
+  "crates/basic_types",
+  "crates/cli_utils",
+  "crates/constants",
+  "crates/contracts",
+  "crates/crypto_primitives",
+  "crates/merkle_tree",
+  "crates/mini_merkle_tree",
+  "crates/multivm",
+  "crates/vm_compare",
+  "crates/airbender_verifier",
+  "crates/cycle_estimator",
+  "crates/cycle_tracer",
+  "crates/cycle_model",
+  "crates/types",
+  "crates/vm_interface",
+  "host",
+  "guest",
+]
+default-members = [
+  "crates/basic_types",
+  "crates/cli_utils",
+  "crates/constants",
+  "crates/contracts",
+  "crates/crypto_primitives",
+  "crates/merkle_tree",
+  "crates/mini_merkle_tree",
+  "crates/multivm",
+  "crates/vm_compare",
+  "crates/airbender_verifier",
+  "crates/cycle_estimator",
+  "crates/cycle_tracer",
+  "crates/cycle_model",
+  "crates/types",
+  "crates/vm_interface",
+]
+resolver = "2"
+
+[workspace.package]
+version = "31.5.0" # x-release-please-version
+edition = "2021"
+authors = ["The Matter Labs Team <hello@matterlabs.dev>"]
+homepage = "https://zksync.io/"
+repository = "https://github.com/matter-labs/eravm-airbender-verifier"
+license = "MIT OR Apache-2.0"
+keywords = ["blockchain", "zksync"]
+categories = ["cryptography"]
+
+[workspace.dependencies]
+# External dependencies
+anyhow = "1"
+assert_matches = "1.5"
+async-trait = "0.1"
+bincode = { version = "2", features = ["serde"] }
+blake2 = "0.10"
+chrono = { version = "0.4", default-features = false }
+clap = "4.2.2"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+const-decoder = "0.4.0"
+criterion = "0.4.0"
+ethabi = { version = "18.0.0", default-features = false, features = ["std", "rlp", "serde"] }
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+hex = "0.4"
+insta = "1.29.0"
+itertools = "0.13.0"
+leb128 = "0.2.5"
+num_enum = "0.7.2"
+once_cell = "1"
+pretty_assertions = "1"
+rand = "0.8"
+rayon = "1.3.1"
+rlp = "0.5"
+secp256k1 = { version = "0.27.0", features = ["recovery", "global-context"] }
+serde = "1"
+serde_json = "1"
+serde_with = "1"
+sha2 = "0.10.8"
+strum = "0.26"
+tempfile = "3.0.2"
+test-casing = "0.1.2"
+thiserror = "2.0.12"
+thread_local = "1.1"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# Cryptographic curve arithmetic (already transitive deps via airbender-crypto)
+ark-ff = { version = "0.5", default-features = false }
+ark-bls12-381 = { version = "0.5", default-features = false, features = ["scalar_field"] }
+
+# Protocol and VM dependencies
+#
+# This airbender-platform revision takes its airbender crates from zksync-airbender
+# by `rev = "0decdcdb"`, matching `cli_lib` below and `../zkos-wrapper/`. It is
+# built for nightly-2026-08-09, so this workspace shares the repository-root
+# `rust-toolchain` and keeps no pin of its own.
+#
+# All three specs have to stay identical, and this is the workspace that proves it:
+# cargo keys a git source by URL *and* ref, `../zkos-wrapper/` is a *path*
+# dependency here, so a ref it names and this one does not lands in this graph as a
+# second copy of all 44 airbender crates rather than staying out of it. The two
+# copies then meet in `host/src/snark.rs`, where `RawFriProof`
+# (`airbender_host::raw::UnrolledProgramProof`) is handed to
+# `SnarkWrapper::prove_risc_wrapper`, and that call stops typechecking -- E0308,
+# "expected `UnrolledProgramProof`, found a different `UnrolledProgramProof`".
+# Nothing here can paper over it: cargo refuses to patch a source with itself.
+# Move all three together.
+airbender = { package = "airbender-sdk", git = "https://github.com/matter-labs/airbender-platform", rev = "b6ce3dd1252bfbda8e42b77fdd868e81c54b7bdc" }
+airbender-codec = { git = "https://github.com/matter-labs/airbender-platform", rev = "b6ce3dd1252bfbda8e42b77fdd868e81c54b7bdc" }
+# `default-features = false` drops airbender-host's default `gpu-prover` (the
+# CUDA `gpu_prover` crate). Consumers re-enable it through their own `gpu_fri`
+# feature; a `--no-default-features` build stays CUDA-free. Must live on the
+# workspace dep — a member's `default-features = false` is otherwise ignored.
+airbender-host = { git = "https://github.com/matter-labs/airbender-platform", rev = "b6ce3dd1252bfbda8e42b77fdd868e81c54b7bdc", default-features = false }
+airbender-crypto = { git = "https://github.com/matter-labs/airbender-platform", rev = "b6ce3dd1252bfbda8e42b77fdd868e81c54b7bdc" }
+# zksync-airbender's CLI crate, for `CarriedChainCombiner::advance_carried_chain`
+# only. Same git source and rev as the airbender crates `airbender-platform` above
+# and `../zkos-wrapper/` pull, so there is one `execution_utils` in this
+# workspace's graph. Goes when the combiner is reachable through `airbender-host`.
+cli_lib = { package = "cli", git = "https://github.com/matter-labs/zksync-airbender", rev = "0decdcdb", default-features = false }
+# Vendored into this repository, so these resolve through `../protocol/crates/`
+# rather than a git tag: a protocol change and the verifier change it forces land
+# in one commit, and CI builds the guest against the working tree.
+#
+# No `version` is given on purpose, exactly as the git dependencies before them
+# carried none: these crates are not published from this repository, and a bare
+# path keeps the two version lines independent -- the verifier stays on 31.x
+# while the protocol crates move with the 0.153.x release train.
+circuit_sequencer_api = { path = "../protocol/crates/circuit_sequencer_api" }
+zk_evm_1_5_2 = { package = "zk_evm", path = "../protocol/crates/zk_evm" }
+# A path dependency on the vendored workspace, now that both it and
+# `airbender` above take their airbender crates from the same rev.
+#
+# `security_100` is spelled out with `default-features = false` rather than left
+# to the wrapper's default: airbender-host's `SecurityLevel` defaults to
+# `Bits100`, which produces two unified proofs, and the wrapper must expect the
+# same number.
+zkos-wrapper = { path = "../zkos-wrapper/wrapper", default-features = false, features = ["security_100"] }
+# `airbender-precompile-delegations` routes precompile crypto through
+# airbender-crypto: on the riscv32 guest it uses Airbender delegation circuits
+# (via CSR calls) instead of executing the crypto as plain RISC-V code; on the
+# host it uses the same airbender-crypto implementation in software, so native
+# and in-guest execution stay in agreement.
+#
+# A path dependency on `../vm2/` for the reason above; the feature is unchanged.
+zksync_vm2 = { path = "../vm2/crates/vm2", features = ["airbender-precompile-delegations"] }
+
+# Local dependencies in this workspace
+zksync_basic_types = { path = "crates/basic_types" }
+zksync_cli_utils = { path = "crates/cli_utils" }
+zksync_contracts = { path = "crates/contracts" }
+zksync_crypto_primitives = { path = "crates/crypto_primitives" }
+zksync_merkle_tree = { path = "crates/merkle_tree", default-features = false }
+zksync_mini_merkle_tree = { path = "crates/mini_merkle_tree" }
+zksync_multivm = { path = "crates/multivm" }
+zksync_system_constants = { path = "crates/constants" }
+zksync_airbender_verifier = { path = "crates/airbender_verifier" }
+zksync-era-airbender-cycles-estimator = { path = "crates/cycle_estimator" }
+zksync-era-airbender-cycles-tracer = { path = "crates/cycle_tracer" }
+zksync_cycle_model = { path = "crates/cycle_model" }
+zksync_types = { path = "crates/types" }
+zksync_vm_compare = { path = "crates/vm_compare" }
+zksync_vm_interface = { path = "crates/vm_interface" }
+
+# This is required to avoid having to specify `RUST_MIN_STACK` for compilation.
+# The reason why this is needed is because these packages are highly optimized, but the optimizations
+# make debug information generation more heavy and cause the default stack size to overflow.
+# This issue is expected to be resolved later.
+[profile.dev.package.keccak_special5]
+debug = 0
+[profile.dev.package.setups]
+debug = 0
+[profile.release.package.keccak_special5]
+debug = 0
+[profile.release.package.setups]
+debug = 0

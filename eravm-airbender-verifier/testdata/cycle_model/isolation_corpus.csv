@@ -1,0 +1,78 @@
+fixture,family,tier,intended_axis,axis_count,ergs_used,n_txs,real_l1_batch,bytes,status
+900101,add,t1,arith_cheap_op,613131,3781165,1,1099,245161,ok
+900102,add,t2,arith_cheap_op,2437131,14724448,1,1100,244742,ok
+900103,add,t3,arith_cheap_op,9505131,57132448,1,1101,244768,ok
+900104,add,ctrl,arith_cheap_op,5134,132478,1,1102,244678,DEAD: single chained add is an affine induction variable; optimizer closed-formed it (132k ergs for 500k iterations)
+900105,sub,t1,arith_cheap_op,613128,3780430,1,1103,244549,ok
+900106,sub,t2,arith_cheap_op,2437128,14724430,1,1104,244798,ok
+900107,sub,t3,arith_cheap_op,9505128,57132430,1,1105,244378,ok
+900108,sub,ctrl,arith_cheap_op,5128,132436,1,1106,244752,DEAD: same as 900104 (chained sub is also affine)
+900109,mul,t1,arith_mul_op,512032,3780460,1,1107,244824,ok
+900110,mul,t2,arith_mul_op,2048032,14724460,1,1108,244550,ok
+900111,twrite,t1,transient_storage_write,46400,3757484,1,1109,243229,ok
+900112,twrite,t2,transient_storage_write,185600,14631767,1,1110,244171,ok
+900113,twrite,t3,transient_storage_write,736000,57631767,1,1111,246662,ok
+900114,twrite,ctrl,transient_storage_write,46000,4501659,1,1112,242888,ok
+900115,tread,t1,transient_storage_read,70400,3730985,1,1113,243520,ok
+900116,tread,t2,transient_storage_read,283200,14610385,1,1114,244773,ok
+900117,tread,t3,transient_storage_read,1120000,57391785,1,1115,246401,ok
+900118,tread,ctrl,transient_storage_read,70000,4891683,1,1116,243703,ok
+900119,context,t1,average_op,289005,3623812,1,1117,243004,ok
+900120,context,t2,average_op,1201005,14681812,1,1118,243536,ok
+900121,context,t3,average_op,4721005,57361812,1,1119,242807,ok
+900122,context,ctrl,average_op,296005,8686812,1,1120,242863,ok
+900123,farcall,t1,far_call,11260,3741203,1,1121,243168,ok
+900124,farcall,t2,far_call,44860,14568483,1,1122,243528,ok
+900125,farcall,t3,far_call,176060,56847683,1,1123,244586,ok
+900126,farcall,ctrl,far_call,11060,4047683,1,1124,242916,ok
+900127,nearcall,t1,near_call_count,49042,3673297,1,1125,242539,ok
+900128,nearcall,t2,near_call_count,195292,14297797,1,1126,243421,ok
+900129,nearcall,t3,near_call_count,780292,56795810,1,1127,243056,ok
+900130,nearcall,ctrl,near_call_count,24292,2363797,1,1128,242851,ok
+900131,evt,t1,event,8810,3777190,1,1129,243206,ok
+900132,evt,ctrl,event,183122,76384317,3,1130,248155,"MISLABELLED as ctrl: batch also absorbed the evt t2+t3 sends whose receipts were too large to fetch, so it is a 3-tx, 183k-event volume point (still single-axis). There is NO clean evt U=1 control."
+900133,umaread,t1,uma_read,176473,3673671,1,1131,243162,ok
+900134,umaread,t2,uma_read,704473,14299671,1,1132,242727,ok
+900135,umaread,t3,uma_read,2848473,57447671,1,1133,243022,ok
+900136,umaread,ctrl,uma_read,178473,6717659,1,1134,242907,ok
+900137,umawrite,t1,uma_write,69400,3713889,1,1135,242964,ok
+900138,umawrite,t2,uma_write,277400,14555889,1,1136,242591,ok
+900139,umawrite,t3,uma_write,1104600,57673702,1,1137,243111,ok
+900140,umawrite,ctrl,uma_write,69600,38008107,1,1138,242183,ok
+900141,bitwise,t1,arith_cheap_op,599126,3696418,1,1139,244482,ok
+900142,bitwise,t2,arith_cheap_op,2417126,14604022,1,1140,244176,ok
+900143,bitwise,t3,arith_cheap_op,9545126,57371945,1,1141,243990,ok
+900144,evt,t2b,event,35210,14713390,1,1142,243510,"replicate of 900145 (evt/t2) - usable, not a distinct tier"
+900145,evt,t2,event,35210,14713313,1,1143,243378,ok
+900146,evt,t3,event,139210,57795313,1,1144,243930,ok
+900147,mul,t3,arith_mul_op,8000032,57132460,1,1145,244596,ok
+900148,mul,ctrl,arith_mul_op,500032,12132478,1,1146,244364,ok
+900149,bitwise,ctrl,arith_cheap_op,2125131,12852052,1,1147,244682,ok
+900150,shift,t1,arith_shift_op,192454,3804418,1,1148,244008,ok
+900151,shift,t2,arith_shift_op,752454,14513945,1,1149,244147,ok
+900152,shift,t3,arith_shift_op,3008454,57659945,1,1150,244054,ok
+900153,shift,ctrl,arith_shift_op,188454,6900052,1,1151,244734,ok
+900154,shift_m,t1,arith_shift_op,272454,3702205,1,1152,243804,ok
+900155,shift_m,t2,arith_shift_op,1104454,14621975,1,1153,243745,ok
+900156,shift_m,t3,arith_shift_op,4400454,57881975,1,1154,244566,ok
+900157,shift_m,ctrl,arith_shift_op,275454,6732211,1,1155,244393,ok
+900158,rotate,t1,arith_shift_op,384454,3804142,1,1156,244747,ok
+900159,rotate,t2,arith_shift_op,1504454,14514168,1,1157,244550,ok
+900160,rotate,t3,arith_shift_op,6016454,57660142,1,1158,244431,ok
+900161,rotate,ctrl,arith_shift_op,188454,4644436,1,1159,244117,ok
+900162,div_worst,t1,arith_div_op,35,3671895,1,1160,244397,"DEAD: arith_div_op flat at 35 - 256-bit seed made div(K,v) return 0 on the first op, v collapsed to 0, and the divide-by-zero guard then short-circuits the div forever. Superseded by div_worst2."
+900163,div_worst,t2,arith_div_op,35,14645831,1,1161,243863,"DEAD: arith_div_op flat at 35 - 256-bit seed made div(K,v) return 0 on the first op, v collapsed to 0, and the divide-by-zero guard then short-circuits the div forever. Superseded by div_worst2."
+900164,div_worst,t3,arith_div_op,35,57833831,1,1162,243572,"DEAD: arith_div_op flat at 35 - 256-bit seed made div(K,v) return 0 on the first op, v collapsed to 0, and the divide-by-zero guard then short-circuits the div forever. Superseded by div_worst2."
+900165,div_worst,ctrl,arith_div_op,36,6000484,1,1163,244537,"DEAD: arith_div_op flat at 35 - 256-bit seed made div(K,v) return 0 on the first op, v collapsed to 0, and the divide-by-zero guard then short-circuits the div forever. Superseded by div_worst2."
+900166,div_fast,t1,arith_div_op,256035,1956419,1,1164,244700,ok
+900167,div_fast,t2,arith_div_op,1008035,7314342,1,1165,244052,ok
+900168,div_fast,t3,arith_div_op,4000035,28632342,1,1166,244197,ok
+900169,div_fast,ctrl,arith_div_op,250035,6132035,1,1167,243855,ok
+900170,jump,t1,arith_cheap_op,605131,3732039,1,1168,244606,ok
+900171,jump,t2,arith_cheap_op,2405131,14531975,1,1169,244922,ok
+900172,jump,t3,arith_cheap_op,9605131,57731975,1,1170,244289,ok
+900173,jump,ctrl,arith_cheap_op,1205131,7332052,1,1171,244734,ok
+900174,div_worst2,t1,arith_div_op,160035,3672262,1,1172,244627,ok
+900175,div_worst2,t2,arith_div_op,656035,14645981,1,1173,243789,ok
+900176,div_worst2,t3,arith_div_op,2608035,57833981,1,1174,244593,ok
+900177,div_worst2,ctrl,arith_div_op,163035,6000088,1,1175,243786,ok

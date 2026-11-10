@@ -1,0 +1,20 @@
+[package]
+name = "zksync_cs_derive"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+description = "Derive macro for boojum crate"
+
+[dependencies]
+syn = { version = "1.0", features = ["extra-traits", "printing"]}
+quote = { version = "1.0" }
+proc-macro2 = "1"
+proc-macro-error = "1"
+
+[lib]
+proc-macro = true

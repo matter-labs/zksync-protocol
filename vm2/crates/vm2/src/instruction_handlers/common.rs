@@ -1,0 +1,94 @@
+use zkevm_opcode_defs::VM_MAX_STACK_DEPTH;
+use zksync_vm2_interface::{opcodes, OpcodeType, Tracer};
+
+use super::ret::free_panic;
+use crate::{
+    addressing_modes::Arguments, instruction::ExecutionStatus, tracing::VmAndWorld, VirtualMachine,
+    World,
+};
+
+#[inline(always)]
+pub(crate) fn boilerplate<Opcode: OpcodeType, T: Tracer, W: World<T>>(
+    vm: &mut VirtualMachine<T, W>,
+    world: &mut W,
+    tracer: &mut T,
+    business_logic: impl FnOnce(&mut VirtualMachine<T, W>, &Arguments),
+) -> ExecutionStatus {
+    full_boilerplate::<Opcode, T, W>(vm, world, tracer, |vm, args, _, _| {
+        business_logic(vm, args);
+        ExecutionStatus::Running
+    })
+}
+
+#[inline(always)]
+pub(crate) fn boilerplate_ext<Opcode: OpcodeType, T: Tracer, W: World<T>>(
+    vm: &mut VirtualMachine<T, W>,
+    world: &mut W,
+    tracer: &mut T,
+    business_logic: impl FnOnce(&mut VirtualMachine<T, W>, &Arguments, &mut W, &mut T),
+) -> ExecutionStatus {
+    full_boilerplate::<Opcode, T, W>(vm, world, tracer, |vm, args, world, tracer| {
+        business_logic(vm, args, world, tracer);
+        ExecutionStatus::Running
+    })
+}
+
+#[inline(always)]
+pub(crate) fn full_boilerplate<Opcode: OpcodeType, T: Tracer, W: World<T>>(
+    vm: &mut VirtualMachine<T, W>,
+    world: &mut W,
+    tracer: &mut T,
+    business_logic: impl FnOnce(
+        &mut VirtualMachine<T, W>,
+        &Arguments,
+        &mut W,
+        &mut T,
+    ) -> ExecutionStatus,
+) -> ExecutionStatus {
+    let args = unsafe { &(*vm.state.current_frame.pc).arguments };
+
+    // We are not checking whether the callstack is full here. However,
+    // the callstack depth limit on EraVM is so high that it will not be hit in practice,
+    // so it is fine to not have this check, even though `zk_evm` has it.
+    // Introducing this check would require additional bookkeeping for far/near calls, which
+    // doesn't currently make sense.
+
+    // Make sure that call stack depth is very high, just in case.
+    #[allow(clippy::items_after_statements)] // Invariant for the code below
+    const _: () = assert!(VM_MAX_STACK_DEPTH >= 214_748_444);
+
+    if vm.state.use_gas(args.get_static_gas_cost()).is_err()
+        || !args.mode_requirements().met(
+            vm.state.current_frame.is_kernel,
+            vm.state.current_frame.is_static,
+        )
+    {
+        return free_panic(vm, world, tracer);
+    }
+
+    if args.predicate().satisfied(&vm.state.flags) {
+        // Capture the second-output register before running the instruction: business logic may pop
+        // the current frame (e.g. `ret`/`far_call`) and free the code page `args` points into, so it
+        // must not be dereferenced afterwards. `Register` is a plain index and stays valid.
+        let dst1 = args.dst1_register();
+        vm.state.dst1_was_updated = false;
+
+        tracer.before_instruction::<Opcode, _>(&mut VmAndWorld { vm, world });
+        vm.state.current_frame.pc = unsafe { vm.state.current_frame.pc.add(1) };
+        let result = business_logic(vm, args, world, tracer);
+
+        // Unless the instruction wrote its second output, `zk_evm` leaves `dst1` cleared to zero.
+        // Do the same here, after the primary output so that a `dst0`/`dst1` alias resolves to zero.
+        if !vm.state.dst1_was_updated {
+            dst1.set_zero(&mut vm.state);
+        }
+
+        result.merge_tracer(tracer.after_instruction::<Opcode, _>(&mut VmAndWorld { vm, world }))
+    } else {
+        tracer.before_instruction::<opcodes::Nop, _>(&mut VmAndWorld { vm, world });
+        vm.state.current_frame.pc = unsafe { vm.state.current_frame.pc.add(1) };
+        tracer
+            .after_instruction::<opcodes::Nop, _>(&mut VmAndWorld { vm, world })
+            .into()
+    }
+}

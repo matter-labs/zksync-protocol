@@ -1,0 +1,67 @@
+# The `zksync-crypto-gpu` workspace, vendored.
+#
+# A workspace of its own: the crates here keep their own 0.156.x version line,
+# their own lockfile and a build that needs a CUDA toolkit. Nothing in the repository depends
+# on them; the dependency runs one way only, gpu -> protocol and gpu -> crypto.
+# See the note at the top of `../protocol/Cargo.toml`.
+[workspace]
+members = ["crates/*"]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+authors = ["The Matter Labs Team <hello@matterlabs.dev>"]
+homepage = "https://zksync.io/"
+license = "MIT OR Apache-2.0"
+keywords = ["blockchain", "zksync"]
+categories = ["cryptography"]
+repository = "https://github.com/matter-labs/zksync-protocol"
+# All the packages in the workspace should have the same version
+version = "0.156.7" # x-release-please-version
+
+[workspace.dependencies]
+# Local dependencies
+boojum-cuda = { version = "=0.156.7", path = "crates/boojum-cuda" }
+era_criterion_cuda = { version = "=0.156.7", path = "crates/criterion-cuda" }
+era_cudart = { version = "=0.156.7", path = "crates/cudart" }
+era_cudart_sys = { version = "=0.156.7", path = "crates/cudart-sys" }
+era_cudart_sys_bindings_generator = { version = "=0.156.7", path = "crates/cudart-sys-bindings-generator" }
+fflonk = { version = "=0.156.7", path = "crates/fflonk", package = "fflonk-cuda" }
+gpu-ffi = { version = "=0.156.7", path = "crates/gpu-ffi", package = "zksync-gpu-ffi" }
+gpu-ffi-bindings-generator = { version = "=0.156.7", path = "crates/gpu-ffi", package = "zksync-gpu-ffi-bindings-generator" }
+gpu-prover = { version = "=0.156.7", path = "crates/gpu-prover", package = "zksync-gpu-prover" }
+shivini = { version = "=0.156.7", path = "crates/shivini" }
+wrapper-prover = { version = "=0.156.7", path = "crates/wrapper-prover", package = "zksync-wrapper-prover" }
+
+# Dependencies on two other workspaces in this repository.
+#
+# Vendored alongside this one, so these resolve through the `crypto/` and
+# `protocol/` trees rather than through a git tag. That is the point of keeping
+# the GPU crates here: a protocol or crypto change and the GPU change it forces
+# land in one commit, and CI builds these crates against the working tree instead
+# of the last published tag. It also collapses what used to be the delicate part
+# of this graph -- `boojum` arriving twice, once from crypto's tag and once
+# through `circuit_definitions`, as two incompatible copies of the same types
+# that `shivini` had to bridge. With both sides on a path there is exactly one
+# `boojum` in the graph by construction.
+#
+# No `version` is given on purpose, as in `../vm2/Cargo.toml`: none of these
+# crates are on crates.io (the protocol workspace has a git-only
+# `airbender-crypto` dependency and publishing is disabled), and a bare path
+# dependency keeps the workspaces' version numbers independent -- the GPU crates
+# stay on their own 0.156.x line while the protocol crates move with the 0.153.x
+# release train and crypto with its 0.32.x one.
+
+# `../crypto/`, vendored (was `tag = "v0.32.13"`).
+boojum = { path = "../crypto/crates/boojum" }
+franklin-crypto = { path = "../crypto/crates/franklin-crypto" }
+rescue_poseidon = { path = "../crypto/crates/rescue-poseidon" }
+snark_wrapper = { path = "../crypto/crates/snark-wrapper" }
+fflonk-cpu = { package = "fflonk", path = "../crypto/crates/fflonk" }
+
+# `../protocol/` (was `tag = "v0.153.15"`).
+circuit_definitions = { path = "../protocol/crates/circuit_definitions" }
+zkevm_test_harness = { path = "../protocol/crates/zkevm_test_harness" }
+
+[profile.release]
+debug = "line-tables-only"

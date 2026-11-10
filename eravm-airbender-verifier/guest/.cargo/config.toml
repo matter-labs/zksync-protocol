@@ -1,0 +1,31 @@
+[build]
+target = "riscv32im-risc0-zkvm-elf"
+rustflags = [
+  "-C", "target-feature=+m,-unaligned-scalar-mem,+relax",
+  # Heap arena = 4022 MiB (byte count; --defsym takes no `4022M` suffix), overriding
+  # riscv_common link.x's `PROVIDE(_heap_size = 768M)`. The machine's address space
+  # is 4 GiB (the host's `RamSize::FourGb`); eravm_memory.x = ROM 4 MiB + RAM 4090 MiB,
+  # topping out 2 MiB below 2^32. `.heap` follows .bss 2 MiB-aligned at `_sheap` =
+  # 70 MiB, so 4024 MiB is the hard maximum; 4022 keeps one 2 MiB slot spare (~3.8 MiB
+  # of static growth). Overshooting is a link error, never a silent overrun.
+  #
+  # Baked into app.bin and therefore into both VKs. The `--expect-heap-mib` args in
+  # the two guest-build workflows assert it independently — deliberately not derived
+  # from this file, so a typo here cannot satisfy itself. Changing the arena means
+  # editing all three plus the README, and regenerating both VKs.
+  "-C", "link-arg=--defsym=_heap_size=4217372672",
+  # Our own memory map (see eravm_memory.x and build.rs), not riscv_common's memory.x.
+  "-C", "link-arg=-Teravm_memory.x",
+  "-C", "link-arg=-Tlink.x",
+  "-C", "link-arg=--save-temps",
+  "-C", "force-frame-pointers",
+  "-C", "passes=lower-atomic",
+  "--cfg", "getrandom_backend=\"custom\"",
+]
+
+[env]
+CC = "clang"
+
+[unstable]
+build-std = ["alloc", "core", "panic_abort", "compiler_builtins", "std", "proc_macro"]
+build-std-features = ["compiler-builtins-mem"]

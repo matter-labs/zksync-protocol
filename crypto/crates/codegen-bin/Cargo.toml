@@ -1,0 +1,19 @@
+[package]
+name = "codegen-bin"
+version.workspace = true
+edition = "2018"
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+publish = false
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+zksync_solidity_vk_codegen.workspace = true
+structopt = "0.3"
+dialoguer = "0.8"
+

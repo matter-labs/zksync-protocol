@@ -1,0 +1,198 @@
+name: Test on GPU
+
+# The test half of `crypto-gpu/`'s CI, vendored. A workflow of its own, as upstream had
+# it, because the tests need two runner classes: the release binaries are built
+# in a CUDA container on a big x86 runner, then handed to the GPU runner as an
+# artifact. `ci-success` in `ci.yaml` cannot reach these jobs -- `needs` does not
+# cross workflow boundaries -- so add this workflow to the branch protection
+# rules alongside it if it should block merges.
+on:
+  pull_request:
+    # A top-level `paths:` filter as well as the `changes` job below: these are
+    # the only jobs that occupy the shared GPU runner pool and they are not a
+    # required check, so a diff that cannot reach them is best served by the
+    # workflow not triggering at all, leaving nothing pending. The list mirrors
+    # the edges encoded in `.github/actions/changed-workspaces` -- `protocol/**`
+    # and `crypto/**` are in it because `crypto-gpu/` depends on both by path --
+    # and has to be kept in step with them. What it cannot see is a release-please
+    # version bump, which rewrites the lockfiles under these very paths; that is
+    # what `changes` is for.
+    paths:
+      - "crypto-gpu/**"
+      - "protocol/**"
+      - "crypto/**"
+      - "rust-toolchain"
+      - ".cargo/**"
+      - ".github/workflows/test-gpu.yaml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # The one thing the `paths:` filter above cannot decide, per the note there.
+  changes:
+    name: changed workspaces
+    runs-on: ubuntu-latest
+    outputs:
+      release_pr: ${{ steps.changes.outputs.release_pr }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # Enough to reach the merge commit's first parent.
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: ./.github/actions/changed-workspaces
+        id: changes
+
+  zksync-crypto-gpu-build:
+    needs: changes
+    if: ${{ needs.changes.outputs.release_pr != 'true' }}
+    # `ubuntu-latest` (~14 GB free) runs out of disk building the release test binaries:
+    # rustc fails with "No space left on device" on whichever crate happens to be
+    # compiling, which reads as a random dependency failure. era_cudart (26 transitive
+    # crates) fits; boojum-cuda (178) and shivini (193) do not. Same runner class that
+    # ci.yaml already uses for `cargo build` over the same graph.
+    runs-on: [ ubuntu-24.04-github-hosted-32core ]
+    strategy:
+      matrix:
+        cuda: [ "12.0.0-devel-ubuntu22.04", "12.9.1-devel-ubuntu22.04", "13.0.0-devel-ubuntu24.04" ]
+        # TODO: Building the whole workspace with `--test` currently fails with link-time errors,
+        # presumably due to either `gpu-ffi` or `gpu-prover` crates.
+        # So for now we point at specific packages we want to test.
+        package: [ "era_cudart", "boojum-cuda", "shivini" ]
+    container:
+      image: nvidia/cuda:${{ matrix.cuda }}
+    env:
+      BELLMAN_CUDA_DIR: ${{ github.workspace }}/bellman-cuda
+    steps:
+      # Before the checkout on purpose: the `nvidia/cuda` images ship without git,
+      # and actions/checkout silently falls back to a REST API tarball when it
+      # cannot find one -- which works, but leaves no repository behind.
+      - name: Prepare environment
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt update && apt install -y \
+            pkg-config libclang-dev build-essential lldb lld \
+            clang openssl libssl-dev gcc g++ wget curl jq git
+          echo "/usr/local/nvidia/bin:/usr/local/cuda/bin" >> $GITHUB_PATH
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup rustup
+        run: |
+          wget -q -O - https://sh.rustup.rs | bash -s -- -y
+          echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH}"
+          echo "export PATH=\"$HOME/.cargo/bin:\$PATH\"" >> "${HOME}/.bash_profile"
+
+      - name: Setup CMake
+        run: |
+          curl -LO https://github.com/Kitware/CMake/releases/download/v3.24.3/cmake-3.24.3-linux-x86_64.sh && \
+            chmod +x cmake-3.24.3-linux-x86_64.sh && \
+            ./cmake-3.24.3-linux-x86_64.sh --skip-license --prefix=/usr/local
+
+      - name: Prepare bellman-cuda directory
+        shell: bash
+        # curl rather than gh: https://github.com/cli/cli/issues/2680.
+        run: |
+          release=($(curl --silent https://api.github.com/repos/matter-labs/era-bellman-cuda/releases | jq -r '.[0] | .name, .tarball_url, .assets[0].browser_download_url'))
+          curl --silent -L "${release[1]}" --output bellman-cuda-source.tar.gz
+          curl --silent -L "${release[2]}" --output bellman-cuda.tar.gz
+          mkdir -p bellman-cuda
+          tar xvfz bellman-cuda.tar.gz -C ./bellman-cuda
+          tar xvfz bellman-cuda-source.tar.gz -C ./bellman-cuda --strip-components=1 --wildcards \*/src/
+
+      - name: Check CMake version
+        run: |
+          cmake --version
+
+      - name: Check CUDA version
+        run: |
+          nvcc --version
+
+      # No `rust-toolchain` of its own: rustup walks up from the working
+      # directory, so the root file governs `crypto-gpu/` too. Installing the
+      # same nightly explicitly makes a missing toolchain fail here rather than
+      # inside the build.
+      - name: Setup rust
+        run: |
+          rustup set profile minimal
+          rustup toolchain install nightly-2026-08-09
+          rustup default nightly-2026-08-09
+
+      - name: Build tests and copy binary to a separate dir
+        shell: bash
+        working-directory: crypto-gpu
+        run: |
+          mkdir artifacts
+          # Build once with human-readable diagnostics: the json pass below pipes
+          # into jq, which swallows compiler errors -- a failure there only ever
+          # shows "could not compile X due to 1 previous error". This pass
+          # surfaces the real error; the json one is then a cached no-op that
+          # just re-emits the artifact paths.
+          CUDAARCHS=80 CARGO_TARGET_DIR=./build \
+          cargo +nightly-2026-08-09 test -p ${{ matrix.package }} --no-run --release
+          CUDAARCHS=80 CARGO_TARGET_DIR=./build \
+          cargo +nightly-2026-08-09 test -p ${{ matrix.package }} --no-run --release --message-format=json -q \
+          | jq -r 'select(.executable != null) | .executable' \
+          | while read binary; do
+            cp "$binary" artifacts/${{ matrix.package }}
+          done
+
+      - name: Upload test binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: zksync-crypto-gpu-${{ matrix.cuda }}-${{ matrix.package }}-test-binary
+          path: crypto-gpu/artifacts/${{ matrix.package }}
+          if-no-files-found: error
+
+  zksync-crypto-gpu-test:
+    runs-on: [ matterlabs-ci-gpu-runner ]
+    strategy:
+      matrix:
+        cuda: [ "12.0.0-devel-ubuntu22.04", "12.9.1-devel-ubuntu22.04" ]
+        # TODO: CUDA 13.0.0 is not yet supported by matterlabs-ci-gpu-runner.
+        package: [ "era_cudart", "boojum-cuda", "shivini" ]
+    needs: zksync-crypto-gpu-build
+    env:
+      BELLMAN_CUDA_DIR: ${{ github.workspace }}/bellman-cuda
+    steps:
+      - name: Prepare environment
+        run: |
+          echo "/usr/local/nvidia/bin:/usr/local/cuda/bin" >> $GITHUB_PATH
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Check Nvidia driver version
+        run: |
+          nvidia-smi
+
+      - name: Prepare bellman-cuda directory
+        shell: bash
+        # curl rather than gh: https://github.com/cli/cli/issues/2680.
+        run: |
+          release=($(curl --silent https://api.github.com/repos/matter-labs/era-bellman-cuda/releases | jq -r '.[0] | .name, .tarball_url, .assets[0].browser_download_url'))
+          curl --silent -L "${release[1]}" --output bellman-cuda-source.tar.gz
+          curl --silent -L "${release[2]}" --output bellman-cuda.tar.gz
+          mkdir -p bellman-cuda
+          tar xvfz bellman-cuda.tar.gz -C ./bellman-cuda
+          tar xvfz bellman-cuda-source.tar.gz -C ./bellman-cuda --strip-components=1 --wildcards \*/src/
+
+      - name: Download test binary
+        uses: actions/download-artifact@v4
+        with:
+          name: zksync-crypto-gpu-${{ matrix.cuda }}-${{ matrix.package }}-test-binary
+          path: crypto-gpu/zksync-crypto-gpu-test-binary/
+
+      # From `crypto-gpu`, not the repository root: the shivini tests open their
+      # fixtures at `./crates/shivini/test_data/...`, which is relative to the
+      # root of *this* workspace -- the directory the binary ran from upstream.
+      - name: Run test binary
+        working-directory: crypto-gpu
+        run: |
+          chmod +x zksync-crypto-gpu-test-binary/${{ matrix.package }}
+          zksync-crypto-gpu-test-binary/${{ matrix.package }}

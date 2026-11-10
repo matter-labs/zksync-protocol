@@ -1,0 +1,19 @@
+[package]
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+repository.workspace = true
+version.workspace = true
+name = "era_cudart"
+description = "CUDA bindings for ZKsync"
+
+[dependencies]
+era_cudart_sys.workspace = true
+bitflags = "2.6"
+paste = "1.0"
+
+[dev-dependencies]
+serial_test = "3.1"

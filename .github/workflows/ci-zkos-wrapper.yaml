@@ -1,0 +1,204 @@
+name: "CI - zkos-wrapper"
+
+# The `zkos-wrapper/` half of the Rust CI, called from `ci.yaml` when the path
+# filter says a diff can reach this workspace. No `on: pull_request` here -- the
+# caller owns the trigger, the concurrency group and the mandatory status check.
+#
+# The workspace (see the comment at the top of `protocol/Cargo.toml`) holding
+# the wrapper that turns an Airbender proof into a SNARK.
+# The jobs below are the vendored port of what upstream ran on its own PRs.
+#
+# `boojum` and `shivini` are path dependencies on `../crypto/` and
+# `../crypto-gpu/`, so the caller filters this workflow on those two (and on
+# `protocol/`, upstream of crypto-gpu) as well as on `zkos-wrapper/` itself.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: tests
+    # This job needs a large machine. With a valid proof fixture
+    # all_layers_full_test runs the whole stack for real. Both security modes use
+    # a 2^22 SNARK domain; keep the runner allocation until the full CPU
+    # pipeline has been remeasured. Upstream escalated after the c3d and
+    # highmem-long runners were killed mid-run with no logs -- the pod dying, not
+    # a test failing. The timeout is so a future hang fails visibly instead.
+    #
+    # Every cargo invocation below is `-p zkos-wrapper --release` with the
+    # default features, so the crate compiles once for the whole job. A
+    # different package selection or feature set is a full recompile (~3.5 min);
+    # that is why the security_80 leg lives in its own job.
+    runs-on: [matterlabs-ci-runner-ultra-performance]
+    timeout-minutes: 180
+    defaults:
+      run:
+        working-directory: zkos-wrapper
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      # No `toolchain` input on purpose: rustup walks up from the working
+      # directory, so the repository-root `rust-toolchain` governs `zkos-wrapper/`
+      # too.
+      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
+        with:
+          rustflags: ""
+          cache-workspaces: zkos-wrapper
+
+      - name: Build
+        run: cargo build
+
+      - name: Tests
+        # Runs the whole stack for real: risc_wrapper, then compression, then
+        # snark_wrapper, each deriving its setup and VK before proving. That
+        # makes it a superset of `all_layers_setup_test` at security_100, which
+        # this job therefore no longer runs separately (it used to recompute the
+        # same three setups, ~13 min, right before this step).
+        #
+        # 256 MiB, not 64: at `security_100` `all_layers_full_test` overflows
+        # 64 MiB and aborts.
+        run: RUST_MIN_STACK=268435456 cargo test -p zkos-wrapper --release -- --nocapture all_layers_full_test
+
+      - name: Upload regenerated wrapper VKs
+        # The setups inside the full test rewrite the checked-in VK fixtures,
+        # so the new ones can be taken from here rather than from a local run.
+        # The snark_wrapper VK is derived from Crs::crs_42, a test CRS generated
+        # in-process rather than the real trusted setup, and must NOT be
+        # committed; the risc_wrapper and compression VKs do not depend on the
+        # CRS.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wrapper_vks_security_100
+          path: zkos-wrapper/wrapper/testing_data/*_vk_*
+          if-no-files-found: warn
+
+      - name: check_aux_params tests
+        # The --check-aux-params path, which the full test above does not cover:
+        # the off-circuit validation, the in-circuit constraints and the
+        # recursion-chain fold depth.
+        run: RUST_MIN_STACK=268435456 cargo test -p zkos-wrapper --release -- --nocapture check_aux_params_off_circuit_validation test_verifier_inner_function_check_aux_params from_base_binary_aux_params_fold_depth
+
+      - name: host cache tests
+        # The SnarkWrapper session-cache API: the into_host_cache /
+        # from_host_cache roundtrip must preserve the config (including trusted
+        # VKs) and the already-loaded binary commitment.
+        run: RUST_MIN_STACK=268435456 cargo test -p zkos-wrapper --release -- --nocapture host_cache_roundtrip
+
+  geometry_security_80:
+    name: all-layer setup, security_80 (geometry)
+    # The geometry question: growing the in-circuit airbender verifier inside
+    # risc_wrapper grows the compression circuit above it, and
+    # create_snark_wrapper_setup ends in
+    # finalize_to_size_log_2(L1_VERIFIER_DOMAIN_SIZE_LOG), which panics rather
+    # than growing past the cap. Only the snark_wrapper layer enforces that, so
+    # synthesising risc_wrapper alone would not catch a cascade.
+    #
+    # Both security modes use a 2^22 SNARK domain. security_100 is covered by
+    # `all_layers_full_test` in the `tests` job. This runs separately because
+    # switching to security_80 would force a full recompile mid-job.
+    # Keep the same runner class as `tests` until CPU memory use is remeasured.
+    runs-on: [matterlabs-ci-runner-ultra-performance]
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: zkos-wrapper
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
+        with:
+          rustflags: ""
+          cache-workspaces: zkos-wrapper
+
+      - name: all-layer setup, security_80 (geometry)
+        run: RUST_MIN_STACK=268435456 cargo test -p zkos-wrapper --release --no-default-features --features security_80 -- --nocapture all_layers_setup_test
+
+      - name: Upload regenerated wrapper VKs
+        # Same caveat as in `tests`: the snark_wrapper VK comes from the test
+        # CRS and must NOT be committed.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wrapper_vks_security_80
+          path: zkos-wrapper/wrapper/testing_data/*_vk_*
+          if-no-files-found: warn
+
+  gpu_check:
+    name: gpu_check
+    runs-on: [matterlabs-ci-runner-c3d]
+    defaults:
+      run:
+        working-directory: zkos-wrapper
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
+        with:
+          rustflags: ""
+          cache-workspaces: zkos-wrapper
+
+      - name: Check gpu feature
+        # `gpu` is not a default feature, so the other jobs never compile the GPU
+        # backend (`wrapper/src/gpu`, `wrapper/src/wrapper/gpu.rs`). The runners
+        # have no CUDA toolkit; ZKSYNC_USE_CUDA_STUBS makes the zksync-crypto-gpu
+        # build scripts emit stubs instead, which is enough to type-check it.
+        run: ZKSYNC_USE_CUDA_STUBS=true cargo check --features gpu --all-targets
+
+  mersenne_tests:
+    name: mersenne_tests
+    runs-on: [matterlabs-ci-runner-c3d]
+    defaults:
+      run:
+        working-directory: zkos-wrapper
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
+        with:
+          rustflags: ""
+          cache-workspaces: zkos-wrapper
+
+      - name: Tests
+        run: cargo test -p circuit_mersenne_field --release -- --nocapture --test-threads=1
+
+  wrapper_generated:
+    name: wrapper_generated
+    runs-on: [matterlabs-ci-runner-c3d]
+    defaults:
+      run:
+        working-directory: zkos-wrapper
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
+        with:
+          rustflags: ""
+          # `wrapper_generator` pipes the code it generates through a `rustfmt`
+          # child process, so the component has to be installed.
+          components: rustfmt
+          cache-workspaces: zkos-wrapper
+
+      - name: Regenerate wrapper
+        run: cargo run --bin wrapper_generator --release
+
+      - name: Check if anything has changed
+        # Scoped to this workspace: the generator only writes under
+        # `wrapper/src/inner_verifiers/`.
+        run: |
+          MODIFIED_FILES=$(git status --porcelain -- .)
+          if [ -n "$MODIFIED_FILES" ]; then
+            echo "The following files were modified - did you run wrapper_generator? "
+            echo "$MODIFIED_FILES"
+            exit 1
+          else
+            echo "No files were modified."
+          fi

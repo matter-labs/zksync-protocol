@@ -1,0 +1,53 @@
+[package]
+name = "zksync_cycle_model"
+description = "Airbender cycle-cost calibration harness"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[features]
+# Calibration flavour — REQUIRED to drive a `cycle-markers` guest over the
+# older-minor corpus: `load_batch` then keeps each batch's own protocol version
+# (instead of gating on and stripping it — the production input types have no
+# version field), the host→guest channel carries the `system_env.version` the
+# calibration guest expects, and native feature extraction (`vm_compare`)
+# replays under the batch's own semantics. Without it, batches labelled with an
+# older minor are refused at load, and a `cycle-markers` guest would fail to
+# decode the channel. Build host and guest with MATCHING flavours.
+cycle-markers = [
+    "zksync_cli_utils/cycle-markers",
+    "zksync_airbender_verifier/cycle-markers",
+    "zksync_vm_compare/cycle-markers",
+]
+
+# Offline calibration: measures real batches (fast VM + guest) and fits the cost
+# table. The feature schema, cost model, and estimator live in the lean
+# `zksync-era-airbender-cycles-estimator` crate; the passive vm2 tracer lives in
+# `zksync-era-airbender-cycles-tracer` (both of which the sequencer path depends
+# on). This crate builds the dataset on top and pulls the heavy proving/VM stack
+# they do not.
+[dependencies]
+zksync-era-airbender-cycles-estimator.workspace = true
+zksync-era-airbender-cycles-tracer.workspace = true
+serde = { workspace = true, features = ["derive"] }
+sha2.workspace = true
+serde_json.workspace = true
+zksync_airbender_verifier.workspace = true
+zksync_vm_compare.workspace = true
+zksync_cli_utils.workspace = true
+zksync_types.workspace = true
+airbender-host.workspace = true
+anyhow.workspace = true
+clap = { workspace = true, features = ["derive"] }
+rayon.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[[bin]]
+name = "cycle_bench"
+path = "src/bin/cycle_bench.rs"

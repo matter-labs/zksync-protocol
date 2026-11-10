@@ -1,0 +1,9 @@
+fixture,family,tier,intended_axis,input_param,unit_count,n_txs,l1_batch,gas_used,pubdata,ok
+900364,storage_read_raw,raw_cold_8k,storage_read,raw_cold_distinct_slots=8000,8000,1,1297,16384538,254,ok
+900365,storage_read_raw,raw_cold_18k,storage_read,raw_cold_distinct_slots=18000,18000,1,1298,36704538,254,ok
+900366,storage_read_raw,raw_cold_28k,storage_read,raw_cold_distinct_slots=28000,28000,1,1299,57024532,254,ok
+900367,storage_read_raw_warm,raw_warm_60k,storage_read,raw_warm_same_slot=60000,60000,1,1300,4210514,254,ok
+900368,storage_read_raw_warm,raw_warm_200k,storage_read,raw_warm_same_slot=200000,200000,1,1301,13730514,254,ok
+900369,storage_write_raw,raw_w_500,storage_write,raw_distinct_slots=500,500,1,1302,3127303,18754,ok
+900370,storage_write_raw,raw_w_2000,storage_write,raw_distinct_slots=2000,2000,1,1303,12140197,74254,ok
+900371,storage_write_raw,raw_w_4000,storage_write,raw_distinct_slots=4000,4000,1,1304,24157403,148254,ok

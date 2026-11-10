@@ -1,0 +1,8 @@
+[profile.default]
+slow-timeout = { period = "60s", terminate-after = 10, grace-period = "0s" } # At most 10 minutes per test
+
+# The macOS runner is slow enough that `boojum`'s `test_fq12_basic_arithmetic`
+# hits the cap intermittently (160s to over 600s across runs). Linux keeps 10.
+[[profile.default.overrides]]
+platform = 'cfg(target_os = "macos")'
+slow-timeout = { period = "60s", terminate-after = 30, grace-period = "0s" }

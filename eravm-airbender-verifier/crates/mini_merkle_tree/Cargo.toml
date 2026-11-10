@@ -1,0 +1,25 @@
+[package]
+name = "zksync_mini_merkle_tree"
+description = "ZKsync implementation of small Merkle trees"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+zksync_crypto_primitives.workspace = true
+zksync_basic_types.workspace = true
+
+once_cell.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "tree"
+harness = false
+path = "benches/tree.rs"

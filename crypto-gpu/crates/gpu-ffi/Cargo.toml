@@ -1,0 +1,27 @@
+[package]
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+repository.workspace = true
+version.workspace = true
+name = "zksync-gpu-ffi"
+description = "ZKsync GPU FFI"
+
+[dependencies]
+era_cudart_sys.workspace = true
+futures = "0.3.8"
+futures-locks = "0.7"
+derivative = "2.2"
+num_cpus = "1"
+crossbeam = "0.8"
+
+[build-dependencies]
+era_cudart_sys.workspace = true
+cmake = "0.1"
+
+[lib]
+doctest = false
+

@@ -1,0 +1,17 @@
+fixture,family,tier,intended_axis,input_param,unit_count,n_txs,l1_batch,gas_used,pubdata,ok
+900390,div_lead1_2limb,n300000,arith_div_op,shape=lead1_2limb_n=300000,300000,1,1344,16334690,294,ok
+900391,div_lead1_2limb,n700000,arith_div_op,shape=lead1_2limb_n=700000,700000,1,1345,37934684,294,ok
+900392,div_lead1_2limb,n1300000,arith_div_op,shape=lead1_2limb_n=1300000,1300000,1,1346,70334690,294,ok
+900393,div_lead3_2limb,n300000,arith_div_op,shape=lead3_2limb_n=300000,300000,1,1347,16334690,294,ok
+900394,div_lead3_2limb,n700000,arith_div_op,shape=lead3_2limb_n=700000,700000,1,1348,37934690,294,ok
+900395,div_lead3_2limb,n1300000,arith_div_op,shape=lead3_2limb_n=1300000,1300000,1,1349,70334690,294,ok
+900396,div_lead1_3limb,n300000,arith_div_op,shape=lead1_3limb_n=300000,300000,1,1350,16334582,286,ok
+900397,div_lead1_3limb,n700000,arith_div_op,shape=lead1_3limb_n=700000,700000,1,1351,37934463,286,ok
+900398,div_lead1_3limb,n1300000,arith_div_op,shape=lead1_3limb_n=1300000,1300000,1,1352,70334582,286,ok
+900399,div_lead1_4limb,n300000,arith_div_op,shape=lead1_4limb_n=300000,300000,1,1353,16334485,278,ok
+900400,div_lead1_4limb,n700000,arith_div_op,shape=lead1_4limb_n=700000,700000,1,1354,37934479,278,ok
+900401,div_lead1_4limb,n1300000,arith_div_op,shape=lead1_4limb_n=1300000,1300000,1,1355,70334479,278,ok
+900402,div_small_1limb,n300000,arith_div_op,shape=small_1limb_n=300000,300000,1,1356,16334479,278,ok
+900403,div_small_1limb,n700000,arith_div_op,shape=small_1limb_n=700000,700000,1,1357,37934754,299,ok
+900404,div_small_1limb,n1300000,arith_div_op,shape=small_1limb_n=1300000,1300000,1,1358,70334434,274,ok
+900405,div_ctrl,n0,arith_div_op,shape=none_n=0,0,1,1359,134264,262,ok

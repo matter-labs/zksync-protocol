@@ -1,0 +1,145 @@
+# Does the committed cost table still describe the CURRENT guest?
+#
+# `model_regression` cannot answer that -- frozen table vs frozen fixture, so the
+# two age together. Before the 2026-08-19 reweight the table over-predicted the
+# delegation guest 2.05x with that test green throughout. This job re-measures
+# with the guest built from THIS commit, so it separates "the model changed" from
+# "the thing being modelled changed".
+#
+# Nightly + manual, never per-PR: it builds the marker guest and runs real batches
+# through the transpiler.
+#
+# Thresholds are SIGNED by design. The table is deliberately +9.7%..+20.5% over
+# its own corpus (OPCODE_FLOORS), so a symmetric bound is useless -- tight enough
+# to catch a real under-prediction fails the correct table, loose enough to pass
+# it cannot see a 15% under-prediction. MAX_UNDER_PCT is the safety gate,
+# MAX_OVER_PCT the staleness gate (the 2.05x event was +105%).
+#
+# Vendored from matter-labs/eravm-airbender-verifier and rebased onto this
+# layout. Two differences from the workflow upstream runs:
+#
+#  1. Every cargo/script step runs in `eravm-airbender-verifier/`, which is its
+#     own cargo workspace.
+#  2. The cargo-airbender image is pinned to the same v0.3.0 that
+#     `ci-verifier.yaml` uses, NOT upstream's older v0.2.3. The pin matters here
+#     rather than being cosmetic: the guest must be built by the toolchain that
+#     matches the host simulator measuring it, so the measuring job and the
+#     building job have to agree.
+name: cycle-model-drift
+
+on:
+  schedule:
+    # 03:20 UTC daily -- off-peak, and after the nightly image builds.
+    - cron: '20 3 * * *'
+  workflow_dispatch:
+    inputs:
+      batches:
+        description: 'Comma-separated batch fixtures to re-measure'
+        required: false
+        default: '84730.bin.gz,84731.bin.gz,84732.bin.gz,900065.bin.gz'
+      max_under_pct:
+        description: 'Fail when any batch is UNDER-predicted by more than this (unsafe)'
+        required: false
+        default: '5'
+      max_over_pct:
+        description: 'Fail when any batch is OVER-predicted by more than this (stale)'
+        required: false
+        default: '25'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cycle-model-drift-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # These four are the ONLY tracked fixtures that decode against the current wire
+  # format. The 506xxx/513xxx corpus the table was fit on is in the pre-#76 layout
+  # and needs an out-of-tree transcoder, so pointing this job at it produces a
+  # decode error, not a drift signal. They are also Version31 -- the version
+  # production runs -- while the fit corpus is Version29, so this is out-of-sample
+  # by construction. Widen it to the corpus once transcoding is in-tree.
+  DRIFT_BATCHES: ${{ github.event.inputs.batches || '84730.bin.gz,84731.bin.gz,84732.bin.gz,900065.bin.gz' }}
+  # Measured on these four with the committed table: -2.56% (84730/1/2) and
+  # +2.61% (900065). MAX_UNDER_PCT=5 leaves ~2.4pp of headroom over the observed
+  # worst under; MAX_OVER_PCT=25 clears the corpus-wide +20.45% while staying far
+  # below the +105% staleness signature.
+  MAX_UNDER_PCT: ${{ github.event.inputs.max_under_pct || '5' }}
+  MAX_OVER_PCT: ${{ github.event.inputs.max_over_pct || '25' }}
+
+jobs:
+  drift:
+    name: cost-table drift vs current guest
+    runs-on: matterlabs-ci-runner-high-performance
+    timeout-minutes: 120
+    # Same pinned cargo-airbender image the guest-build job in ci-verifier.yaml
+    # uses: the guest must be built by the toolchain that matches the host
+    # simulator measuring it.
+    container:
+      image: ghcr.io/matter-labs/cargo-airbender:v0.3.0
+    env:
+      ZKSYNC_USE_CUDA_STUBS: true
+    defaults:
+      run:
+        working-directory: eravm-airbender-verifier
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # The batch corpus is fetched from the *upstream* repository's public
+          # LFS store, which answers an anonymous request but not necessarily one
+          # carrying this repository's installation token -- and checkout leaves
+          # that token in `http.https://github.com/.extraheader`, which git-lfs
+          # would then send.
+          persist-credentials: false
+
+      # The container runs as root but the runner-mounted workspace is owned by a
+      # different uid, so git refuses to touch it ("dubious ownership").
+      - name: Mark workspace as safe for git
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Install linux packages
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: apt-get update && apt-get install -y libclang-dev git-lfs python3 python3-pip
+
+      - name: Install Git LFS
+        run: git lfs install --local
+
+      - name: Pull drift batches
+        run: ./scripts/fetch_lfs_batches.sh "$DRIFT_BATCHES"
+
+      # Calibration builds need the phase markers (and the relaxed protocol-version
+      # pin that lets the corpus batches decode). This guest is a measurement tool
+      # and must never be proved with.
+      - name: Build marker-instrumented guest
+        run: cargo airbender build --project guest -- --features cycle-markers
+
+      # MUST match the guest's flavour above: `cycle-markers` changes the
+      # host↔guest wire, so a production-flavour bench cannot encode an input
+      # this guest can decode.
+      - name: Measure batches with the current guest
+        run: |
+          cargo run --release -p zksync_cycle_model --locked --features cycle-markers --bin cycle_bench -- \
+            --batch-files "$DRIFT_BATCHES" \
+            --app-bin-dir guest/dist/app \
+            --jobs 4 --out artifacts/drift
+          cat artifacts/drift/provenance.json
+
+      - name: Compare the shipped table against fresh truth
+        run: |
+          python3 -m pip install --quiet -r scripts/cycle_model/requirements.txt
+          python3 scripts/cycle_model/check_drift.py \
+            --cost-table crates/cycle_estimator/model/cost_table.json \
+            --dataset artifacts/drift/dataset.json \
+            --max-under-pct "$MAX_UNDER_PCT" \
+            --max-over-pct "$MAX_OVER_PCT"
+
+      - name: Upload measurements
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f3 # v6.0.0
+        with:
+          name: cycle-model-drift-dataset
+          path: eravm-airbender-verifier/artifacts/drift
+          if-no-files-found: warn
+          retention-days: 14

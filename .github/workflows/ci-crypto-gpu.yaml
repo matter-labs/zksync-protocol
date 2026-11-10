@@ -1,0 +1,112 @@
+name: "CI - crypto-gpu"
+
+# The `crypto-gpu/` half of the Rust CI, called from `ci.yaml` when the path
+# filter says a diff can reach this workspace. No `on: pull_request` here -- the
+# caller owns the trigger, the concurrency group and the mandatory status check.
+#
+# Nothing in the repository depends on `crypto-gpu/`, and none of the other jobs
+# compile it -- they could not: building it needs a CUDA toolkit and a
+# bellman-cuda checkout, hence the `nvidia/cuda` container below. It is the
+# vendored port of what upstream ran on its own PRs.
+#
+# The caller filters this on `crypto-gpu/` *plus* `protocol/` plus `crypto/`: it
+# depends on `protocol/crates/circuit_definitions`,
+# `protocol/crates/zkevm_test_harness` and five of the `crypto/crates/*` by path.
+#
+# Only `cargo build`, as upstream: the test binaries need a GPU to run, so they
+# are built and executed by `test-gpu.yaml` on the GPU runners.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build (CUDA ${{ matrix.cuda }})
+    runs-on: [ubuntu-24.04-github-hosted-32core]
+    strategy:
+      fail-fast: false
+      matrix:
+        cuda: ["12.0.0-devel-ubuntu22.04", "12.9.1-devel-ubuntu22.04", "13.0.0-devel-ubuntu24.04"]
+    container:
+      image: nvidia/cuda:${{ matrix.cuda }}
+    env:
+      BELLMAN_CUDA_DIR: ${{ github.workspace }}/bellman-cuda
+      CUDAARCHS: 89
+    steps:
+      # Before the checkout on purpose: the `nvidia/cuda` images ship without
+      # git, and actions/checkout silently falls back to a REST API tarball when
+      # it cannot find one -- which works, but leaves no repository behind.
+      - name: Prepare environment
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt update && apt install -y \
+            pkg-config libclang-dev build-essential lldb lld \
+            clang openssl libssl-dev gcc g++ wget curl jq git
+          echo "/usr/local/nvidia/bin:/usr/local/cuda/bin" >> $GITHUB_PATH
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Setup rustup
+        run: |
+          wget -q -O - https://sh.rustup.rs | bash -s -- -y
+          echo "${HOME}/.cargo/bin" >> "${GITHUB_PATH}"
+          echo "export PATH=\"$HOME/.cargo/bin:\$PATH\"" >> "${HOME}/.bash_profile"
+
+      - name: Setup CMake
+        run: |
+          curl -LO https://github.com/Kitware/CMake/releases/download/v3.24.3/cmake-3.24.3-linux-x86_64.sh && \
+            chmod +x cmake-3.24.3-linux-x86_64.sh && \
+            ./cmake-3.24.3-linux-x86_64.sh --skip-license --prefix=/usr/local
+
+      - name: Check CMake and CUDA versions
+        run: |
+          cmake --version
+          nvcc --version
+
+      # No `rust-toolchain` of its own any more: rustup walks up from the working
+      # directory, so the root file governs `crypto-gpu/` too. Installing the
+      # same nightly explicitly makes a missing toolchain fail here rather than
+      # inside the build.
+      - name: Setup rust
+        run: |
+          rustup set profile minimal
+          rustup toolchain install nightly-2026-08-09
+          rustup default nightly-2026-08-09
+
+      - name: Prepare bellman-cuda directory
+        shell: bash
+        # Curl ugliness is required because gh can't work with authentication: https://github.com/cli/cli/issues/2680.
+        run: |
+          release=($(curl --silent https://api.github.com/repos/matter-labs/era-bellman-cuda/releases | jq -r '.[0] | .name, .tarball_url, .assets[0].browser_download_url'))
+          curl --silent -L "${release[1]}" --output bellman-cuda-source.tar.gz
+          curl --silent -L "${release[2]}" --output bellman-cuda.tar.gz
+          mkdir -p bellman-cuda
+          tar xvfz bellman-cuda.tar.gz -C ./bellman-cuda
+          tar xvfz bellman-cuda-source.tar.gz -C ./bellman-cuda --strip-components=1 --wildcards \*/src/
+
+      - name: Build
+        working-directory: crypto-gpu
+        run: cargo build --verbose
+
+  # Still needs its own `cargo fmt`, as upstream: the `formatting` job below runs
+  # in `protocol/` and does not reach these members. No CUDA container -- rustfmt
+  # only reads the manifests and the sources.
+  formatting:
+    name: cargo fmt
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: crypto-gpu
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
+        with:
+          rustflags: ""
+          components: rustfmt
+          cache-workspaces: crypto-gpu
+      - name: Rustfmt Check
+        run: cargo fmt --all --check

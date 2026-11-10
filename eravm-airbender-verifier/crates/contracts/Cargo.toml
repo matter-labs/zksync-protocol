@@ -1,0 +1,20 @@
+[package]
+name = "zksync_contracts"
+description = "Definitions of main ZKsync smart contracts"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+zksync_basic_types.workspace = true
+
+serde.workspace = true
+
+[dev-dependencies]
+bincode.workspace = true
+serde_json.workspace = true

@@ -1,12 +1,64 @@
 {
-  "bootstrap-sha": "4bb5cca0b113f06185201d10db31a73f0f56ea1e",
-  "include-component-in-tag": false,
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "last-release-sha": "698c5a98dde73edfe75930c001d2ce02fdd6d4fb",
+  "release-type": "simple",
   "bump-minor-pre-major": true,
   "bump-patch-for-minor-pre-major": true,
-  "release-type": "simple",
+  "separate-pull-requests": true,
   "packages": {
-    ".": {
+    "protocol": {
       "component": "zksync-protocol",
+      "include-component-in-tag": false,
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "Cargo.toml"
+        }
+      ]
+    },
+    "crypto": {
+      "component": "crypto",
+      "include-component-in-tag": true,
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "Cargo.toml"
+        }
+      ]
+    },
+    "crypto-gpu": {
+      "component": "crypto-gpu",
+      "include-component-in-tag": true,
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "Cargo.toml"
+        }
+      ]
+    },
+    "vm2": {
+      "component": "vm2",
+      "include-component-in-tag": true,
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "Cargo.toml"
+        }
+      ]
+    },
+    "eravm-airbender-verifier": {
+      "component": "eravm-airbender-verifier",
+      "include-component-in-tag": true,
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "Cargo.toml"
+        }
+      ]
+    },
+    "zkos-wrapper": {
+      "component": "zkos-wrapper",
+      "include-component-in-tag": true,
       "extra-files": [
         {
           "type": "generic",

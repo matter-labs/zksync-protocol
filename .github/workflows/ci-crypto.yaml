@@ -1,0 +1,86 @@
+name: "CI - crypto"
+
+# The `crypto/` half of the Rust CI, called from `ci.yaml` when the path filter
+# says a diff can reach this workspace. No `on: pull_request` here -- the caller
+# owns the trigger, the concurrency group and the mandatory status check.
+#
+# Unlike `vm2/`, the `protocol/` jobs do compile these crates -- the protocol
+# crates depend on five of them by path. What they never do is run their checks:
+# `cargo nextest run` in `protocol/` does not reach the crypto test suites and
+# `cargo fmt --all` does not see its members. What follows is the vendored port
+# of what upstream ran on its own PRs.
+#
+# This is the only workspace the caller gates on its own directory alone, which
+# the dependency direction makes safe: nothing under `crypto/` refers to any
+# other workspace.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # As upstream: the crypto crates carry hand-written arithmetic with
+        # architecture-specific paths, so they are tested on both x86_64 and
+        # Apple Silicon. Of the macOS runners only `macos-15-xlarge` is arm64.
+        os: [ubuntu-24.04-github-hosted-16core, macos-15-xlarge]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: crypto
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # No `toolchain` input on purpose: rustup walks up from the working
+      # directory, so the root `rust-toolchain` governs `crypto/` too. Upstream
+      # pinned the same nightly a second time in its own `rust-toolchain`; that
+      # copy is gone so the two cannot drift apart.
+      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
+        with:
+          # Upstream removed the action's default `-D warnings` and runs the
+          # tests under `-Awarnings`; kept, so this job fails on broken code
+          # rather than on a lint.
+          rustflags: ""
+          components: rustfmt, clippy
+          cache-workspaces: crypto
+
+      # `crypto/` formats at 200 columns (`crypto/rustfmt.toml`), so it needs its
+      # own invocation: the `formatting` job below runs in `protocol/`.
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Install nextest
+        # 0.9.108 as above, not the 0.9.109 upstream pinned -- one nextest
+        # version for the whole repository.
+        run: cargo install cargo-nextest@0.9.108 --locked
+
+      # `--jobs=3` because these tests are memory-hungry, not because they are
+      # slow. `crypto/.config/nextest.toml` caps a single test at 10 minutes.
+      - name: Run tests
+        run: RUSTFLAGS="-Awarnings" cargo nextest run --no-fail-fast --jobs=3 --release
+
+  # `zksync_bellman` *MUST* build on stable: parts of the consumer codebase are
+  # only ever compiled by a stable compiler. Upstream ran this as its own
+  # `build_stable.yml`; here it is a job like any other, so the mandatory status
+  # check below covers it.
+  build-stable:
+    name: build bellman on stable
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: crypto
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
+        with:
+          toolchain: stable
+          rustflags: ""
+          cache-workspaces: crypto
+      - name: Build
+        run: cargo build -p zksync_bellman

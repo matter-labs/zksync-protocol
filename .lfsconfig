@@ -1,0 +1,37 @@
+# Git LFS is used by exactly one thing in this repository: the Era mainnet batch
+# corpus under `eravm-airbender-verifier/testdata/era_mainnet_batches/binary/`,
+# vendored from matter-labs/eravm-airbender-verifier together with the rest of
+# that workspace.
+#
+# The ~1.8 GB of objects vendored with the original 138-batch corpus live in the
+# *upstream* repository's LFS store and stay there: the pointer files name
+# objects by OID, the LFS batch API is OID-addressed, and the upstream repository
+# is public, so a fetch needs no credentials and no copy of those objects here.
+#
+# That arrangement is grandfathered, NOT the rule for new fixtures. GitHub
+# rejects a push whose pointers name objects its own store does not hold
+# ("GH008: Your push referenced at least N unknown Git LFS objects"), so the
+# corpus cannot be *extended* pointer-only however the first 138 arrived. The 197
+# calibration fixtures added with the cycle estimator (900101-900405, ~116 MB) are
+# therefore stored here, and any batch added from now on must be too: fetch the
+# object from upstream first, so `git lfs push` has something to upload.
+#
+# Nothing downstream needs to know which half a batch is in. `fetch_lfs_batches.sh`
+# reads from the upstream remote only -- it has no fallback to this store -- and
+# upstream holds every batch in both halves, so every fetch resolves there. The
+# copies kept here exist to satisfy the push check above, not to serve reads.
+#
+# What is deliberately *not* here is an `lfs.url` pointing at that store. Every
+# git-lfs version resolves the endpoint of a named *remote* the same way, but they
+# disagree about a literal `lfs.url`: 3.0.x (what `apt install git-lfs` gives on
+# the CI runners) uses it verbatim and posts to a dumb-http path GitHub answers
+# with 403, while 3.7.x rewrites it. So the upstream store is named by a remote
+# instead, which `eravm-airbender-verifier/scripts/fetch_lfs_batches.sh` adds on
+# first use -- that script, not a bare `git lfs pull`, is how you fetch batches.
+#
+# Only the top-level `.lfsconfig` is read, which is why this lives here rather
+# than next to the workspace it serves.
+[lfs]
+	# Keep a clone lightweight: the batches stay pointer files until something
+	# asks for them by name.
+	fetchexclude = eravm-airbender-verifier/testdata/era_mainnet_batches/binary/**

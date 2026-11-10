@@ -1,0 +1,55 @@
+[package]
+name = "eravm-prover-host"
+version = "31.5.0"
+edition = "2021"
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+airbender-host = { workspace = true }
+anyhow.workspace = true
+cli_lib = { workspace = true }
+bincode.workspace = true
+clap = { workspace = true, features = ["derive", "env"] }
+hex.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+zksync_cli_utils.workspace = true
+zksync_crypto_primitives.workspace = true
+zksync_multivm.workspace = true
+zksync_airbender_verifier.workspace = true
+zksync_types.workspace = true
+zkos-wrapper = { workspace = true }
+
+[dev-dependencies]
+# The host-based integration test (`tests/integration_test.rs`) drives the
+# proving pipeline in-process — loading batches, encoding the guest input, and
+# round-tripping the SNARK proof — so it links these directly. (Integration
+# tests don't inherit the library's non-dev dependencies.)
+airbender-host = { workspace = true }
+serde_json.workspace = true
+zksync_airbender_verifier.workspace = true
+zksync_cli_utils.workspace = true
+
+[features]
+# `gpu_fri` (default) links Airbender's CUDA `gpu_prover` so the host can run
+# the FRI prover on a GPU. Disable it (`--no-default-features`) to build a
+# CUDA-free binary that can only verify FRI proofs and wrap them into SNARKs
+# on CPU.
+default = ["gpu_fri"]
+gpu_fri = ["airbender-host/gpu-prover", "cli_lib/gpu"]
+# airbender uses GPU by default, but for SNARK wrapper you need to have bellman-cuda
+# installed, so by default we use CPU.
+gpu_snark = ["zkos-wrapper/gpu"]
+# Adds `run --legacy-unproven-gaps`, for fixtures without read proofs. The
+# verifier feature implies `cycle-markers`, so the whole binary is the
+# calibration flavour and cannot drive the production guest. `cli_utils` needs
+# the flag itself: the verifier only forwards it to its dev-dependency.
+legacy-unproven-gaps = [
+    "zksync_airbender_verifier/legacy-unproven-gaps",
+    "zksync_cli_utils/cycle-markers",
+]

@@ -1,0 +1,17 @@
+[package]
+edition.workspace = true
+authors.workspace = true
+homepage.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
+repository.workspace = true
+version.workspace = true
+name = "era_cudart_sys"
+description = "Raw CUDA bindings for ZKsync"
+
+[dependencies]
+regex-lite = "0.1"
+
+[build-dependencies]
+regex-lite = "0.1"
